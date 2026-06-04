@@ -1,0 +1,18 @@
+{
+  "name": "chat-aggregator-hub",
+  "version": "1.0.0",
+  "description": "Aggregator hub: fans in Twitch + Kick + X chat and pushes one unified WebSocket stream to browsers.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,187 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { SourceKey } from "../components/logos";
+
+export type MessageFragment =
+  | { type: "text"; text: string }
+  | { type: "emote"; name: string; url: string };
+
+export interface ChatMessage {
+  id: string;
+  source: SourceKey;
+  username: string;
+  text: string;
+  timestamp: number;
+  color: string;
+  userColor?: string | null;
+  fragments?: MessageFragment[] | null;
+}
+
+export interface SourceStatus {
+  connected: boolean;
+  channel: string;
+}
+
+export interface Channels {
+  twitch: string;
+  kick: string;
+  xQuery: string;
+}
+
+const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080";
+const MAX_BUFFER = 500;
+
+type UseHubArgs = {
+  // If set, the hub is told to follow these channels on every (re)connect.
+  // Used by the overlay so the link is self-contained.
+  pushChannels?: Channels | null;
+};
+
+export function useHub({ pushChannels = null }: UseHubArgs = {}) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [statuses, setStatuses] = useState<Record<SourceKey, SourceStatus>>({
+    twitch: { connected: false, channel: "" },
+    kick: { connected: false, channel: "" },
+    x: { connected: false, channel: "" },
+  });
+  const [hubConnected, setHubConnected] = useState(false);
+  const [xEnabled, setXEnabled] = useState(true);
+  const [serverChannels, setServerChannels] = useState<Channels | null>(null);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const delayRef = useRef(1000);
+  const pushRef = useRef<Channels | null>(pushChannels);
+  pushRef.current = pushChannels;
+
+  const sendChannels = useCallback((channels: Channels) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        type: "config",
+        twitchChannel: channels.twitch.trim(),
+        kickChannel: channels.kick.trim(),
+        xQuery: channels.xQuery.trim(),
+      })
+    );
+  }, []);
+
+  const connect = useCallback(() => {
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(HUB_URL);
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setHubConnected(true);
+      delayRef.current = 1000;
+      // Self-contained overlay: tell the hub which channels to follow.
+      const push = pushRef.current;
+      if (push && (push.twitch || push.kick || push.xQuery)) {
+        sendChannels(push);
+      }
+    };
+
+    ws.onmessage = (event) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (msg.type === "message") {
+        setMessages((prev) => {
+          const next = [
+            ...prev,
+            {
+              id: `${msg.source}-${msg.timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+              source: msg.source as SourceKey,
+              username: msg.username,
+              text: msg.text,
+              timestamp: msg.timestamp,
+              color: msg.color,
+              userColor: msg.userColor ?? null,
+              fragments: msg.fragments ?? null,
+            },
+          ];
+          return next.length > MAX_BUFFER ? next.slice(next.length - MAX_BUFFER) : next;
+        });
+      } else if (msg.type === "status") {
+        setStatuses((prev) => ({
+          ...prev,
+          [msg.source as SourceKey]: {
+            connected: msg.connected,
+            channel: msg.channel ?? prev[msg.source as SourceKey]?.channel ?? "",
+          },
+        }));
+      } else if (msg.type === "config") {
+        if (typeof msg.xEnabled === "boolean") setXEnabled(msg.xEnabled);
+        if (msg.config) {
+          setServerChannels({
+            twitch: msg.config.twitchChannel ?? "",
+            kick: msg.config.kickChannel ?? "",
+            xQuery: msg.config.xQuery ?? "",
+          });
+        }
+      }
+    };
+
+    const onDrop = () => {
+      setHubConnected(false);
+      setStatuses((prev) => ({
+        twitch: { ...prev.twitch, connected: false },
+        kick: { ...prev.kick, connected: false },
+        x: { ...prev.x, connected: false },
+      }));
+      scheduleReconnect();
+    };
+
+    ws.onclose = onDrop;
+    ws.onerror = () => ws.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sendChannels]);
+
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectRef.current) clearTimeout(reconnectRef.current);
+    reconnectRef.current = setTimeout(() => connect(), delayRef.current);
+    delayRef.current = Math.min(delayRef.current * 2, 15000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connect]);
+
+  useEffect(() => {
+    connect();
+    return () => {
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      wsRef.current?.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const applyChannels = useCallback(
+    (channels: Channels) => {
+      sendChannels(channels);
+      setMessages([]);
+    },
+    [sendChannels]
+  );
+
+  const clearMessages = useCallback(() => setMessages([]), []);
+
+  return {
+    messages,
+    statuses,
+    hubConnected,
+    xEnabled,
+    serverChannels,
+    applyChannels,
+    clearMessages,
+    hubUrl: HUB_URL,
+  };
+}

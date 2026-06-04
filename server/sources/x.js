@@ -1,0 +1,222 @@
+import { EventEmitter } from "node:events";
+import { unifiedMessage } from "./constants.js";
+
+const RULES_URL = "https://api.x.com/2/tweets/search/stream/rules";
+const STREAM_URL = "https://api.x.com/2/tweets/search/stream";
+
+// X (Twitter) real-time source via the Filtered Stream endpoint. We push a
+// single rule built from the configured query/handle, then hold a persistent
+// HTTP connection that delivers matching posts in near real-time (~6-7s),
+// instead of polling recent-search on an interval. Requires a pay-per-use (or
+// higher) bearer token; pay-per-use allows one stream connection.
+export class XSource extends EventEmitter {
+  constructor(query, { bearerToken } = {}) {
+    super();
+    this.query = String(query || "").trim();
+    this.bearerToken = bearerToken;
+    this.connected = false;
+    this.stopped = false;
+    this.controller = null;
+    this.reconnectDelay = 1000;
+    this.reconnectTimer = null;
+    this.keepAliveTimer = null;
+  }
+
+  start() {
+    this.stopped = false;
+    if (!this.bearerToken) {
+      this.emit("error", new Error("X_BEARER_TOKEN not set — X source disabled."));
+      this.setConnected(false);
+      return;
+    }
+    if (!this.query) {
+      this.setConnected(false);
+      return;
+    }
+    this.connect();
+  }
+
+  stop() {
+    this.stopped = true;
+    this.clearTimers();
+    this.abortStream();
+    this.setConnected(false);
+  }
+
+  setConnected(value) {
+    if (this.connected === value) return;
+    this.connected = value;
+    this.emit("status", { source: "x", connected: value, channel: this.query });
+  }
+
+  clearTimers() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.keepAliveTimer) clearTimeout(this.keepAliveTimer);
+    this.reconnectTimer = null;
+    this.keepAliveTimer = null;
+  }
+
+  abortStream() {
+    if (this.controller) {
+      try {
+        this.controller.abort();
+      } catch {}
+      this.controller = null;
+    }
+  }
+
+  async connect() {
+    if (this.stopped) return;
+    try {
+      await this.syncRules();
+    } catch (err) {
+      this.setConnected(false);
+      this.emit("error", err);
+      this.scheduleReconnect();
+      return;
+    }
+    this.openStream();
+  }
+
+  // Replace whatever rules exist with one rule derived from the query. The
+  // stream is shared per project, so we always reset to exactly our rule.
+  async syncRules() {
+    const headers = {
+      Authorization: `Bearer ${this.bearerToken}`,
+      "Content-Type": "application/json",
+    };
+
+    const listRes = await fetch(RULES_URL, { headers });
+    if (!listRes.ok) throw new Error(`X rules list failed (${listRes.status})`);
+    const current = await listRes.json();
+    const ids = (current?.data ?? []).map((r) => r.id);
+    if (ids.length) {
+      const delRes = await fetch(RULES_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ delete: { ids } }),
+      });
+      if (!delRes.ok) throw new Error(`X rules delete failed (${delRes.status})`);
+    }
+
+    const value = buildRule(this.query);
+    const addRes = await fetch(RULES_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ add: [{ value, tag: "marketbubble" }] }),
+    });
+    if (!addRes.ok) {
+      const body = await addRes.text().catch(() => "");
+      throw new Error(`X rules add failed (${addRes.status}) ${body}`.trim());
+    }
+  }
+
+  async openStream() {
+    const params = new URLSearchParams({
+      "tweet.fields": "created_at,author_id",
+      expansions: "author_id",
+      "user.fields": "username",
+    });
+
+    this.controller = new AbortController();
+    let res;
+    try {
+      res = await fetch(`${STREAM_URL}?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${this.bearerToken}` },
+        signal: this.controller.signal,
+      });
+    } catch (err) {
+      if (!this.stopped) {
+        this.setConnected(false);
+        this.emit("error", err);
+        this.scheduleReconnect();
+      }
+      return;
+    }
+
+    if (res.status === 429) {
+      // Pay-per-use allows one connection; a stale connection takes time to
+      // release server-side, so wait well past that before retrying.
+      this.setConnected(false);
+      this.emit("error", new Error("X stream at connection limit (429); backing off."));
+      this.scheduleReconnect(30000);
+      return;
+    }
+    if (!res.ok || !res.body) {
+      this.setConnected(false);
+      this.emit("error", new Error(`X stream error ${res.status}`));
+      this.scheduleReconnect();
+      return;
+    }
+
+    this.setConnected(true);
+    this.reconnectDelay = 1000;
+    this.armKeepAlive();
+
+    // Newline-delimited JSON. Blank keep-alive lines arrive every ~20s; if the
+    // stream goes silent past that, armKeepAlive aborts and we reconnect.
+    try {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (!this.stopped) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        this.armKeepAlive();
+        buffer += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (line) this.handleLine(line);
+        }
+      }
+    } catch (err) {
+      if (!this.stopped) this.emit("error", err);
+    }
+
+    this.clearTimers();
+    this.setConnected(false);
+    this.scheduleReconnect();
+  }
+
+  handleLine(line) {
+    let frame;
+    try {
+      frame = JSON.parse(line);
+    } catch {
+      return;
+    }
+    const tweet = frame?.data;
+    if (!tweet?.text) return;
+    const users = new Map(
+      (frame?.includes?.users ?? []).map((u) => [u.id, u.username])
+    );
+    const username = users.get(tweet.author_id) ?? "unknown";
+    const ts = tweet.created_at ? Date.parse(tweet.created_at) : Date.now();
+    this.emit("message", unifiedMessage("x", username, tweet.text, ts));
+  }
+
+  armKeepAlive() {
+    if (this.keepAliveTimer) clearTimeout(this.keepAliveTimer);
+    // The stream emits a keep-alive every 20s; treat 25s of silence as dead.
+    this.keepAliveTimer = setTimeout(() => this.abortStream(), 25000);
+  }
+
+  scheduleReconnect(floor = 0) {
+    if (this.stopped) return;
+    this.clearTimers();
+    const delay = Math.max(this.reconnectDelay, floor);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+    this.reconnectDelay = Math.min(delay * 2, 60000);
+  }
+}
+
+// A bare "@handle" (or "handle") becomes the account's own posts plus mentions,
+// so it behaves like following a channel. Anything containing operators or
+// spaces is passed through verbatim as a stream rule.
+function buildRule(query) {
+  const handle = query.match(/^@?(\w{1,15})$/);
+  if (handle) return `from:${handle[1]} OR @${handle[1]}`;
+  return query;
+}
