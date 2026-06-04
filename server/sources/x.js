@@ -3,6 +3,7 @@ import { unifiedMessage } from "./constants.js";
 
 const RULES_URL = "https://api.x.com/2/tweets/search/stream/rules";
 const STREAM_URL = "https://api.x.com/2/tweets/search/stream";
+const RECENT_URL = "https://api.x.com/2/tweets/search/recent";
 
 // X (Twitter) real-time source via the Filtered Stream endpoint. We push a
 // single rule built from the configured query/handle, then hold a persistent
@@ -20,6 +21,10 @@ export class XSource extends EventEmitter {
     this.reconnectDelay = 1000;
     this.reconnectTimer = null;
     this.keepAliveTimer = null;
+    // Backfill the recent posts once per query so the feed isn't empty on
+    // connect; `seen` dedupes a post that also arrives live on the stream.
+    this.backfilled = false;
+    this.seen = new Set();
   }
 
   start() {
@@ -75,7 +80,42 @@ export class XSource extends EventEmitter {
       this.scheduleReconnect();
       return;
     }
+
+    // One-time backfill so X shows something immediately (the stream itself
+    // only delivers posts published after we connect). Skipped on reconnects.
+    if (!this.backfilled) {
+      this.backfilled = true;
+      await this.backfill().catch(() => {});
+      if (this.stopped) return;
+    }
+
     this.openStream();
+  }
+
+  async backfill() {
+    const params = new URLSearchParams({
+      query: buildRule(this.query),
+      max_results: "10",
+      "tweet.fields": "created_at,author_id",
+      expansions: "author_id",
+      "user.fields": "username",
+    });
+    const res = await fetch(`${RECENT_URL}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${this.bearerToken}` },
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const users = new Map(
+      (json?.includes?.users ?? []).map((u) => [u.id, u.username])
+    );
+    // Recent search returns newest-first; emit oldest-first so it reads naturally.
+    for (const tweet of [...(json?.data ?? [])].reverse()) {
+      if (!tweet?.text || this.seen.has(tweet.id)) continue;
+      this.seen.add(tweet.id);
+      const username = users.get(tweet.author_id) ?? "unknown";
+      const ts = tweet.created_at ? Date.parse(tweet.created_at) : Date.now();
+      this.emit("message", unifiedMessage("x", username, tweet.text, ts));
+    }
   }
 
   // Replace whatever rules exist with one rule derived from the query. The
@@ -188,7 +228,11 @@ export class XSource extends EventEmitter {
       return;
     }
     const tweet = frame?.data;
-    if (!tweet?.text) return;
+    if (!tweet?.text || this.seen.has(tweet.id)) return;
+    if (tweet.id) {
+      this.seen.add(tweet.id);
+      if (this.seen.size > 200) this.seen = new Set([...this.seen].slice(-100));
+    }
     const users = new Map(
       (frame?.includes?.users ?? []).map((u) => [u.id, u.username])
     );

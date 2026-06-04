@@ -32,6 +32,9 @@ export class TwitchSource extends EventEmitter {
     if (this.ws) {
       try {
         this.ws.removeAllListeners();
+        // Closing a still-CONNECTING socket emits an async 'error' event; a
+        // no-op handler keeps that from crashing the process.
+        this.ws.on("error", () => {});
         this.ws.close();
       } catch {}
       this.ws = null;
