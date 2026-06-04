@@ -69,6 +69,18 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
   }, []);
 
   const connect = useCallback(() => {
+    // Tear down any existing socket first so we never run two in parallel —
+    // React strict-mode double-mount and reconnect races would otherwise leave
+    // multiple live sockets, each delivering every message (duplicate chats).
+    const existing = wsRef.current;
+    if (existing) {
+      existing.onopen = existing.onmessage = existing.onclose = existing.onerror = null;
+      try {
+        existing.close();
+      } catch {}
+      wsRef.current = null;
+    }
+
     let ws: WebSocket;
     try {
       ws = new WebSocket(HUB_URL);
@@ -159,7 +171,15 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
     connect();
     return () => {
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      if (ws) {
+        // Detach handlers (esp. onclose) so teardown doesn't trigger a reconnect.
+        ws.onopen = ws.onmessage = ws.onclose = ws.onerror = null;
+        try {
+          ws.close();
+        } catch {}
+        wsRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

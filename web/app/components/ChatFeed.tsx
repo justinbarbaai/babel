@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { ChatMessage } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
+import { FONT_STACKS } from "../lib/overlay";
 import {
   SourceLogo,
   SOURCE_LABELS,
@@ -54,6 +55,7 @@ export function ChatFeed({
       data-bg={options.bg}
       data-size={options.size}
       data-shadow={options.shadow ? "1" : "0"}
+      style={{ fontFamily: FONT_STACKS[options.font] }}
     >
       <div className="cf-feed" ref={feedRef} onScroll={onScroll}>
         {shown.length === 0 && placeholder ? (

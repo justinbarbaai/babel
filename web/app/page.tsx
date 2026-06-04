@@ -6,12 +6,14 @@ import { useHub } from "./lib/useHub";
 import {
   DEFAULT_OPTIONS,
   buildQuery,
+  FONT_OPTIONS,
   type OverlayOptions,
   type BadgeStyle,
   type BgStyle,
   type FontSize,
   type NameColor,
   type AccountColor,
+  type FontChoice,
 } from "./lib/overlay";
 import {
   SourceLogo,
@@ -38,6 +40,7 @@ export default function ControlPanel() {
     max: DEFAULT_OPTIONS.max,
     nameColor: DEFAULT_OPTIONS.nameColor,
     accountColor: DEFAULT_OPTIONS.accountColor,
+    font: DEFAULT_OPTIONS.font,
   });
 
   const [copied, setCopied] = useState<string | null>(null);
@@ -134,6 +137,28 @@ export default function ControlPanel() {
           </div>
 
           <h2 className="card-title mt">Overlay style</h2>
+
+          <div className="selectfield">
+            <span className="segmented-label">Chat font</span>
+            <div className="select-wrap">
+              <select
+                className="select"
+                value={look.font}
+                onChange={(e) =>
+                  setLook((l) => ({ ...l, font: e.target.value as FontChoice }))
+                }
+              >
+                {FONT_OPTIONS.map(([val, text]) => (
+                  <option key={val} value={val}>
+                    {text}
+                  </option>
+                ))}
+              </select>
+              <span className="select-caret" aria-hidden>
+                ▾
+              </span>
+            </div>
+          </div>
 
           <Segmented<BadgeStyle>
             label="Badge"
@@ -299,10 +324,21 @@ function Segmented<T extends string>({
   onChange: (v: T) => void;
   options: [T, string][];
 }) {
+  const activeIndex = Math.max(
+    0,
+    options.findIndex(([val]) => val === value)
+  );
   return (
     <div className="segmented">
       <span className="segmented-label">{label}</span>
-      <div className="segmented-track">
+      <div
+        className="segmented-track"
+        style={{ ["--seg-count" as any]: options.length }}
+      >
+        <span
+          className="seg-thumb"
+          style={{ transform: `translateX(calc(${activeIndex} * 100%))` }}
+        />
         {options.map(([val, text]) => (
           <button
             key={val}
