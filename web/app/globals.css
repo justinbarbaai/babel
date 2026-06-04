@@ -138,6 +138,7 @@ code {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  align-items: start;
 }
 @media (max-width: 860px) {
   .grid {
@@ -301,8 +302,8 @@ code {
   gap: 8px;
 }
 .preview-stage {
-  flex: 1;
-  min-height: 420px;
+  height: 600px;
+  max-height: 74vh;
   border-radius: 12px;
   border: 1px solid var(--border);
   overflow: hidden;
