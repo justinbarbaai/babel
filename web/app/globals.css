@@ -927,6 +927,10 @@ code {
   inset: 0;
   background: transparent;
 }
+/* the OBS overlay must be fully transparent — kill the themed blob layer */
+body.overlay-bare::before {
+  display: none !important;
+}
 
 /* ============================ Reader window ============================ */
 

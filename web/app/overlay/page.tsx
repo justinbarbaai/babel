@@ -16,14 +16,18 @@ export default function OverlayPage() {
   }, []);
 
   // Make the page transparent so OBS/Streamlabs composites it over the scene.
+  // `overlay-bare` also hides the themed background-blob layer (body::before),
+  // which would otherwise show as a glassy colored box over the scene.
   useEffect(() => {
     const prevHtml = document.documentElement.style.background;
     const prevBody = document.body.style.background;
     document.documentElement.style.background = "transparent";
     document.body.style.background = "transparent";
+    document.body.classList.add("overlay-bare");
     return () => {
       document.documentElement.style.background = prevHtml;
       document.body.style.background = prevBody;
+      document.body.classList.remove("overlay-bare");
     };
   }, []);
 
