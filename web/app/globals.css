@@ -706,9 +706,12 @@ code {
   backdrop-filter: blur(6px);
   border: 1px solid var(--row-border);
 }
+/* boxes: a light frosted glass — gentle blur + faint frosting, not too heavy */
 .cf-root[data-bg="box"] .cf-row {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(16, 20, 28, 0.3);
+  backdrop-filter: blur(4px) saturate(120%);
+  -webkit-backdrop-filter: blur(4px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 .cf-root[data-bg="none"] .cf-row {
   background: transparent;
