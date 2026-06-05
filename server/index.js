@@ -152,6 +152,11 @@ wss.on("connection", (ws) => {
       if (typeof msg.kickChannel === "string")
         config.kickChannel = msg.kickChannel.trim();
       if (typeof msg.xQuery === "string") config.xQuery = msg.xQuery.trim();
+      // Bring-your-own X token: a user can supply their own bearer token from
+      // the control panel to enable X with their own credentials/cost. Kept
+      // server-side only (never echoed back or put in the overlay link).
+      if (typeof msg.xToken === "string" && msg.xToken.trim())
+        xOpts.bearerToken = msg.xToken.trim();
       console.log("Reconfiguring sources:", config);
       startSources();
       broadcast({ type: "config", config, colors: SOURCE_COLORS, xEnabled: Boolean(xOpts.bearerToken) });

@@ -30,6 +30,7 @@ export default function ControlPanel() {
   const [twitch, setTwitch] = useState("");
   const [kick, setKick] = useState("");
   const [xQuery, setXQuery] = useState("");
+  const [xToken, setXToken] = useState("");
   const [seeded, setSeeded] = useState(false);
 
   const [look, setLook] = useState<Omit<OverlayOptions, "twitch" | "kick" | "xQuery">>({
@@ -72,7 +73,7 @@ export default function ControlPanel() {
     [origin, options]
   );
 
-  const apply = () => applyChannels({ twitch, kick, xQuery });
+  const apply = () => applyChannels({ twitch, kick, xQuery }, xToken);
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") apply();
@@ -129,7 +130,19 @@ export default function ControlPanel() {
               onChange={setXQuery}
               onKeyDown={onKey}
               placeholder="e.g. @MarketBubble"
-              hint={xEnabled ? undefined : "Add X_BEARER_TOKEN on the server to enable"}
+            />
+            <Field
+              label="X bearer token (your own — enables X)"
+              value={xToken}
+              onChange={setXToken}
+              onKeyDown={onKey}
+              type="password"
+              placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
+              hint={
+                xEnabled
+                  ? "X is connected. Token stays on the server, never in the overlay link."
+                  : "Paste your own X bearer token to turn on X (kept server-side, not in the link)."
+              }
             />
             <button className="btn btn-gold" onClick={apply}>
               Apply channels
@@ -291,6 +304,7 @@ function Field({
   onKeyDown,
   placeholder,
   hint,
+  type = "text",
 }: {
   label: string;
   value: string;
@@ -298,15 +312,19 @@ function Field({
   onKeyDown?: (e: React.KeyboardEvent) => void;
   placeholder?: string;
   hint?: string;
+  type?: string;
 }) {
   return (
     <div className="field">
       <label>{label}</label>
       <input
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
+        autoComplete={type === "password" ? "off" : undefined}
+        spellCheck={false}
       />
       {hint && <span className="field-hint">{hint}</span>}
     </div>

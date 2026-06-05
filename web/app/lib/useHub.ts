@@ -55,7 +55,7 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
   const pushRef = useRef<Channels | null>(pushChannels);
   pushRef.current = pushChannels;
 
-  const sendChannels = useCallback((channels: Channels) => {
+  const sendChannels = useCallback((channels: Channels, xToken?: string) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== ws.OPEN) return;
     ws.send(
@@ -64,6 +64,8 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
         twitchChannel: channels.twitch.trim(),
         kickChannel: channels.kick.trim(),
         xQuery: channels.xQuery.trim(),
+        // Only sent from the control panel (never the overlay link).
+        ...(xToken && xToken.trim() ? { xToken: xToken.trim() } : {}),
       })
     );
   }, []);
@@ -185,8 +187,8 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
   }, []);
 
   const applyChannels = useCallback(
-    (channels: Channels) => {
-      sendChannels(channels);
+    (channels: Channels, xToken?: string) => {
+      sendChannels(channels, xToken);
       setMessages([]);
     },
     [sendChannels]
