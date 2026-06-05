@@ -706,10 +706,10 @@ code {
   backdrop-filter: blur(6px);
   border: 1px solid var(--row-border);
 }
-/* boxes without the glass blur — a see-through dark backing + border */
+/* boxes: a clean outline only — fully see-through, no tint or blur */
 .cf-root[data-bg="box"] .cf-row {
-  background: rgba(10, 11, 15, 0.42);
-  border: 1px solid var(--row-border);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 .cf-root[data-bg="none"] .cf-row {
   background: transparent;
