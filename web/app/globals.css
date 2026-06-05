@@ -701,14 +701,20 @@ code {
 }
 
 /* row background variants */
-/* glass: heavy Apple-style frosted material — strong blur + vibrancy + rim */
+/* glass: Apple "liquid glass" — light frosting, heavy blur, bright rounded rim */
 .cf-root[data-bg="glass"] .cf-row {
-  background: rgba(30, 34, 44, 0.42);
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.06)
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 10px 28px -12px rgba(0, 0, 0, 0.45);
 }
 /* boxes: a light frosted glass — gentle blur + faint frosting, not too heavy */
 .cf-root[data-bg="box"] .cf-row {
