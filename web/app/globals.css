@@ -700,21 +700,7 @@ code {
   }
 }
 
-/* row background variants */
-.cf-root[data-bg="glass"] .cf-row {
-  background: rgba(10, 11, 15, 0.55);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--row-border);
-}
-/* boxes: a clean outline only — fully see-through, no tint or blur */
-.cf-root[data-bg="box"] .cf-row {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-}
-.cf-root[data-bg="none"] .cf-row {
-  background: transparent;
-  border: 1px solid transparent;
-}
+/* chat rows are always fully transparent — no box, tint, or blur, ever */
 
 /* text shadow for legibility over gameplay */
 .cf-root[data-shadow="1"] .cf-user,
