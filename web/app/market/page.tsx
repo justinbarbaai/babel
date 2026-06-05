@@ -1,23 +1,30 @@
 "use client";
 
-import { SiteNav, SiteFooter } from "../components/SiteShell";
-import { Ticker } from "../components/Ticker";
+import { TermShell } from "../components/TermShell";
+import { FearGreed } from "../components/FearGreed";
+import { PolymarketBoard } from "../components/PolymarketBoard";
 
 export default function MarketPage() {
   return (
-    <div className="mb-site">
-      <SiteNav />
-      <Ticker />
-      <main className="mb-main">
-        <section className="mb-section-head">
-          <h1 className="mb-page-title">Market</h1>
-          <p className="mb-page-sub">Polymarket odds &amp; the crypto fear / greed index</p>
-        </section>
-        <div className="mb-placeholder">
-          <p>Live prediction markets land here next.</p>
+    <TermShell>
+      <section className="mb-section-head">
+        <h1 className="mb-page-title">Market</h1>
+        <p className="mb-page-sub">Polymarket odds &amp; the crypto fear / greed index</p>
+      </section>
+
+      <div className="mkt-top">
+        <FearGreed />
+        <div className="mkt-top-note">
+          <h2 className="mkt-note-title">Read the room.</h2>
+          <p>
+            The index distills volatility, momentum, volume and social signal into a single
+            0–100 score — <b>extreme fear</b> on the left, <b>extreme greed</b> on the right.
+            Below, the markets where real money is actually pricing what happens next.
+          </p>
         </div>
-      </main>
-      <SiteFooter />
-    </div>
+      </div>
+
+      <PolymarketBoard />
+    </TermShell>
   );
 }

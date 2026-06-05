@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatFeed } from "../components/ChatFeed";
 import { StyleControls } from "../components/StyleControls";
+import { MBMark, MBWordmark } from "../components/brand";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { useHub } from "../lib/useHub";
 import {
   parseOptions,
@@ -114,6 +116,15 @@ export default function ReaderPage() {
 
   return (
     <div className="reader-page">
+      <header className="reader-top">
+        <div className="reader-brand">
+          <MBMark size={20} />
+          <MBWordmark className="reader-brand-word" />
+          <span className="reader-brand-tag">Reader</span>
+        </div>
+        <ThemeToggle className="term-icon" />
+      </header>
+
       <div className="reader-tabs">
         {tabs.map((t) => (
           <span
