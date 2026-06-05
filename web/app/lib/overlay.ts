@@ -3,7 +3,7 @@
 // source is fully self-contained.
 
 export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot";
-export type BgStyle = "glass" | "solid" | "none";
+export type BgStyle = "glass" | "box" | "none";
 export type FontSize = "sm" | "md" | "lg";
 export type NameColor = "chatter" | "platform" | "white";
 export type AccountColor = "platform" | "white";
@@ -49,25 +49,32 @@ export interface OverlayOptions {
   accountColor: AccountColor;
   // Chat-overlay font.
   font: FontChoice;
-  // Channels this overlay should make the hub follow.
-  twitch: string;
-  kick: string;
+  // Channels this overlay should make the hub follow (Twitch/Kick can be many).
+  twitch: string[];
+  kick: string[];
   xQuery: string;
 }
 
 export const DEFAULT_OPTIONS: OverlayOptions = {
   badge: "full",
-  bg: "glass",
+  bg: "box",
   shadow: true,
   size: "md",
   max: 40,
   nameColor: "chatter",
   accountColor: "white",
   font: "montserrat",
-  twitch: "",
-  kick: "",
+  twitch: [],
+  kick: [],
   xQuery: "",
 };
+
+function splitList(value: string | null): string[] {
+  return (value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 function pick<T extends string>(value: string | null, allowed: T[], fallback: T): T {
   return value && (allowed as string[]).includes(value) ? (value as T) : fallback;
@@ -76,7 +83,7 @@ function pick<T extends string>(value: string | null, allowed: T[], fallback: T)
 export function parseOptions(params: URLSearchParams): OverlayOptions {
   return {
     badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot"], DEFAULT_OPTIONS.badge),
-    bg: pick(params.get("bg"), ["glass", "solid", "none"], DEFAULT_OPTIONS.bg),
+    bg: pick(params.get("bg"), ["glass", "box", "none"], DEFAULT_OPTIONS.bg),
     shadow: params.get("shadow") !== "0",
     size: pick(params.get("size"), ["sm", "md", "lg"], DEFAULT_OPTIONS.size),
     max: clampInt(params.get("max"), DEFAULT_OPTIONS.max, 5, 200),
@@ -87,8 +94,8 @@ export function parseOptions(params: URLSearchParams): OverlayOptions {
       ["inter", "montserrat", "poppins", "oswald", "anton", "impact", "futura"],
       DEFAULT_OPTIONS.font
     ),
-    twitch: (params.get("twitch") || "").trim(),
-    kick: (params.get("kick") || "").trim(),
+    twitch: splitList(params.get("twitch")),
+    kick: splitList(params.get("kick")),
     xQuery: (params.get("xq") || "").trim(),
   };
 }
@@ -103,8 +110,8 @@ export function buildQuery(o: OverlayOptions): string {
   p.set("nc", o.nameColor);
   p.set("ac", o.accountColor);
   p.set("fn", o.font);
-  if (o.twitch) p.set("twitch", o.twitch);
-  if (o.kick) p.set("kick", o.kick);
+  if (o.twitch.length) p.set("twitch", o.twitch.join(","));
+  if (o.kick.length) p.set("kick", o.kick.join(","));
   if (o.xQuery) p.set("xq", o.xQuery);
   return p.toString();
 }

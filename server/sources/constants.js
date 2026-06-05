@@ -7,7 +7,7 @@ export const SOURCE_COLORS = {
 
 // Normalize any source's raw payload into the single unified shape that
 // every browser client consumes.
-export function unifiedMessage(source, username, text, timestamp, fragments, userColor) {
+export function unifiedMessage(source, username, text, timestamp, fragments, userColor, channel) {
   return {
     type: "message",
     source,
@@ -18,6 +18,8 @@ export function unifiedMessage(source, username, text, timestamp, fragments, use
     color: SOURCE_COLORS[source],
     // The chatter's own name color from the source platform, when known.
     userColor: userColor || null,
+    // Which channel/query this message came from (for multi-channel feeds).
+    channel: channel || null,
     // Ordered text/emote pieces for inline rendering; null = render plain text.
     fragments: fragments ?? null,
   };

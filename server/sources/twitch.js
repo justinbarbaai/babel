@@ -112,7 +112,8 @@ export class TwitchSource extends EventEmitter {
             parsed.text,
             Date.now(),
             fragments,
-            parsed.tags["color"] || null
+            parsed.tags["color"] || null,
+            this.channel
           )
         );
       }

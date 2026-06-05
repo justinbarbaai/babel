@@ -40,8 +40,8 @@ const fontVars = [inter, montserrat, poppins, oswald, anton]
   .join(" ");
 
 export const metadata: Metadata = {
-  title: "Market Bubble — Unified Live Chat",
-  description: "Twitch + X + Kick in one real-time overlay for your stream.",
+  title: "Babel — Unified Live Chat",
+  description: "Twitch + Kick + X in one real-time feed for your stream.",
 };
 
 export default function RootLayout({

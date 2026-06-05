@@ -200,7 +200,7 @@ export class KickSource extends EventEmitter {
         const ts = payload?.created_at ? Date.parse(payload.created_at) : Date.now();
         const fragments = kickFragments(text, this.emoteMap);
         const userColor = payload?.sender?.identity?.color || null;
-        this.emit("message", unifiedMessage("kick", username, text, ts, fragments, userColor));
+        this.emit("message", unifiedMessage("kick", username, text, ts, fragments, userColor, this.slug));
         return;
       }
       default:

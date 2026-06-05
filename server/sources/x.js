@@ -114,7 +114,7 @@ export class XSource extends EventEmitter {
       this.seen.add(tweet.id);
       const username = users.get(tweet.author_id) ?? "unknown";
       const ts = tweet.created_at ? Date.parse(tweet.created_at) : Date.now();
-      this.emit("message", unifiedMessage("x", username, tweet.text, ts));
+      this.emit("message", unifiedMessage("x", username, tweet.text, ts, undefined, undefined, this.query));
     }
   }
 

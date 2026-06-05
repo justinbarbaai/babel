@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChatFeed } from "./components/ChatFeed";
+import { ChannelList } from "./components/ChannelList";
 import { useHub } from "./lib/useHub";
 import {
   DEFAULT_OPTIONS,
@@ -24,11 +25,11 @@ import {
 const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
 
 export default function ControlPanel() {
-  const { messages, statuses, xEnabled, serverChannels, applyChannels, hubUrl } =
+  const { messages, statuses, hubConnected, xEnabled, serverChannels, applyChannels, hubUrl } =
     useHub();
 
-  const [twitch, setTwitch] = useState("");
-  const [kick, setKick] = useState("");
+  const [twitch, setTwitch] = useState<string[]>([]);
+  const [kick, setKick] = useState<string[]>([]);
   const [xQuery, setXQuery] = useState("");
   const [xToken, setXToken] = useState("");
   const [seeded, setSeeded] = useState(false);
@@ -63,9 +64,18 @@ export default function ControlPanel() {
     }
   }, [serverChannels, seeded]);
 
+  const cleanTwitch = useMemo(
+    () => twitch.map((s) => s.trim()).filter(Boolean),
+    [twitch]
+  );
+  const cleanKick = useMemo(
+    () => kick.map((s) => s.trim()).filter(Boolean),
+    [kick]
+  );
+
   const options: OverlayOptions = useMemo(
-    () => ({ ...look, twitch, kick, xQuery }),
-    [look, twitch, kick, xQuery]
+    () => ({ ...look, twitch: cleanTwitch, kick: cleanKick, xQuery }),
+    [look, cleanTwitch, cleanKick, xQuery]
   );
 
   const overlayUrl = useMemo(
@@ -73,7 +83,16 @@ export default function ControlPanel() {
     [origin, options]
   );
 
-  const apply = () => applyChannels({ twitch, kick, xQuery }, xToken);
+  const readerUrl = useMemo(
+    () => `${origin}/reader?${buildQuery(options)}`,
+    [origin, options]
+  );
+
+  const openReader = () =>
+    window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
+
+  const apply = () =>
+    applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery }, xToken);
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") apply();
@@ -96,6 +115,14 @@ export default function ControlPanel() {
 
   return (
     <div className="panel">
+      <header className="topbar">
+        <div className="wordmark">babel</div>
+        <div className="livestat">
+          <span className={`dot ${hubConnected ? "on" : "off"}`} />
+          <span>{hubConnected ? "live" : "offline"}</span>
+        </div>
+      </header>
+
       <div className="statusrow">
         {SOURCES.map((src) => {
           const disabled = src === "x" && !xEnabled;
@@ -122,14 +149,14 @@ export default function ControlPanel() {
         <section className="card">
           <h2 className="card-title">Channels</h2>
           <div className="fields">
-            <Field label="Twitch channel" value={twitch} onChange={setTwitch} onKeyDown={onKey} placeholder="e.g. ansem" />
-            <Field label="Kick channel" value={kick} onChange={setKick} onKeyDown={onKey} placeholder="e.g. xqc" />
+            <ChannelList label="Twitch channels" values={twitch} onChange={setTwitch} onKeyDown={onKey} placeholder="e.g. FaZeBanks" />
+            <ChannelList label="Kick channels" values={kick} onChange={setKick} onKeyDown={onKey} placeholder="e.g. ansem" />
             <Field
               label="X search query"
               value={xQuery}
               onChange={setXQuery}
               onKeyDown={onKey}
-              placeholder="e.g. @MarketBubble"
+              placeholder="e.g. @handle or keyword"
             />
             <Field
               label="X bearer token (your own — enables X)"
@@ -212,8 +239,8 @@ export default function ControlPanel() {
             value={look.bg}
             onChange={(bg) => setLook((l) => ({ ...l, bg }))}
             options={[
+              ["box", "Boxes"],
               ["glass", "Glass"],
-              ["solid", "Solid"],
               ["none", "None"],
             ]}
           />
@@ -243,7 +270,12 @@ export default function ControlPanel() {
         <section className="card preview-card">
           <div className="preview-head">
             <h2 className="card-title">Live preview</h2>
-            <span className="muted small">{messages.length} msgs · this is exactly the overlay</span>
+            <div className="preview-head-right">
+              <span className="muted small">{messages.length} msgs</span>
+              <button className="btn btn-pop" onClick={openReader} suppressHydrationWarning>
+                Pop out reader ↗
+              </button>
+            </div>
           </div>
           <div className={`preview-stage bg-${look.bg}`}>
             <ChatFeed

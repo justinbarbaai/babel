@@ -4,17 +4,7 @@ import { useEffect, useRef } from "react";
 import type { ChatMessage } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 import { FONT_STACKS } from "../lib/overlay";
-import {
-  SourceLogo,
-  SOURCE_LABELS,
-  type SourceKey,
-} from "./logos";
-
-function channelFor(source: SourceKey, options: OverlayOptions): string {
-  if (source === "twitch") return options.twitch;
-  if (source === "kick") return options.kick;
-  return options.xQuery;
-}
+import { SourceLogo, SOURCE_LABELS } from "./logos";
 
 function nameColorFor(m: ChatMessage, mode: OverlayOptions["nameColor"]): string {
   if (mode === "white") return "#ffffff";
@@ -66,7 +56,7 @@ export function ChatFeed({
               key={m.id}
               m={m}
               badge={options.badge}
-              channel={channelFor(m.source, options)}
+              channel={m.channel || SOURCE_LABELS[m.source]}
               nameColor={nameColorFor(m, options.nameColor)}
               accountColor={options.accountColor}
             />

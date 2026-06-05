@@ -29,7 +29,8 @@ export default function OverlayPage() {
 
   const pushChannels = useMemo(() => {
     if (!options) return null;
-    if (!options.twitch && !options.kick && !options.xQuery) return null;
+    if (!options.twitch.length && !options.kick.length && !options.xQuery)
+      return null;
     return { twitch: options.twitch, kick: options.kick, xQuery: options.xQuery };
   }, [options]);
 

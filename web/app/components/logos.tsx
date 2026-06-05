@@ -70,6 +70,24 @@ export function SourceLogo({
   return <XLogo size={size} style={style} />;
 }
 
+// Babel mark — stacked layers (a tower of voices unified into one).
+export function BabelMark({ size = 22, style }: LogoProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      style={style}
+      aria-hidden="true"
+    >
+      <rect x="4" y="4" width="16" height="3.6" rx="1.8" />
+      <rect x="6.5" y="10.2" width="11" height="3.6" rx="1.8" opacity="0.8" />
+      <rect x="9" y="16.4" width="6" height="3.6" rx="1.8" opacity="0.6" />
+    </svg>
+  );
+}
+
 // Market Bubble wordmark mark — the angular bracket under the name from the brand.
 export function MarketBubbleMark({ size = 18, style }: LogoProps) {
   return (

@@ -15,6 +15,7 @@ export interface ChatMessage {
   timestamp: number;
   color: string;
   userColor?: string | null;
+  channel?: string | null;
   fragments?: MessageFragment[] | null;
 }
 
@@ -24,8 +25,8 @@ export interface SourceStatus {
 }
 
 export interface Channels {
-  twitch: string;
-  kick: string;
+  twitch: string[];
+  kick: string[];
   xQuery: string;
 }
 
@@ -36,9 +37,13 @@ type UseHubArgs = {
   // If set, the hub is told to follow these channels on every (re)connect.
   // Used by the overlay so the link is self-contained.
   pushChannels?: Channels | null;
+  // Private subscription: this connection gets its own dedicated sources and
+  // does NOT receive the shared/global feed. Used by the pop-out reader so it
+  // can watch a separate set of channels from the overlay.
+  privateScope?: boolean;
 };
 
-export function useHub({ pushChannels = null }: UseHubArgs = {}) {
+export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [statuses, setStatuses] = useState<Record<SourceKey, SourceStatus>>({
     twitch: { connected: false, channel: "" },
@@ -61,14 +66,15 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
     ws.send(
       JSON.stringify({
         type: "config",
-        twitchChannel: channels.twitch.trim(),
-        kickChannel: channels.kick.trim(),
+        ...(privateScope ? { scope: "private" } : {}),
+        twitchChannels: channels.twitch,
+        kickChannels: channels.kick,
         xQuery: channels.xQuery.trim(),
         // Only sent from the control panel (never the overlay link).
         ...(xToken && xToken.trim() ? { xToken: xToken.trim() } : {}),
       })
     );
-  }, []);
+  }, [privateScope]);
 
   const connect = useCallback(() => {
     // Tear down any existing socket first so we never run two in parallel —
@@ -97,7 +103,7 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
       delayRef.current = 1000;
       // Self-contained overlay: tell the hub which channels to follow.
       const push = pushRef.current;
-      if (push && (push.twitch || push.kick || push.xQuery)) {
+      if (push && (push.twitch.length || push.kick.length || push.xQuery)) {
         sendChannels(push);
       }
     };
@@ -122,6 +128,7 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
               timestamp: msg.timestamp,
               color: msg.color,
               userColor: msg.userColor ?? null,
+              channel: msg.channel ?? null,
               fragments: msg.fragments ?? null,
             },
           ];
@@ -139,8 +146,8 @@ export function useHub({ pushChannels = null }: UseHubArgs = {}) {
         if (typeof msg.xEnabled === "boolean") setXEnabled(msg.xEnabled);
         if (msg.config) {
           setServerChannels({
-            twitch: msg.config.twitchChannel ?? "",
-            kick: msg.config.kickChannel ?? "",
+            twitch: msg.config.twitchChannels ?? [],
+            kick: msg.config.kickChannels ?? [],
             xQuery: msg.config.xQuery ?? "",
           });
         }
