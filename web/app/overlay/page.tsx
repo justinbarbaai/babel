@@ -34,13 +34,20 @@ export default function OverlayPage() {
     return { twitch: options.twitch, kick: options.kick, xQuery: options.xQuery };
   }, [options]);
 
-  const { messages } = useHub({ pushChannels });
+  const { messages, liveStyle } = useHub({ pushChannels });
 
-  if (!options) return null;
+  // Live style from the control panel overrides the link's style, so the
+  // overlay updates in OBS without re-copying the link. Channels stay from URL.
+  const effectiveOptions = useMemo(
+    () => (options ? { ...options, ...(liveStyle ?? {}) } : null),
+    [options, liveStyle]
+  );
+
+  if (!effectiveOptions) return null;
 
   return (
     <div className="overlay-page">
-      <ChatFeed messages={messages} options={options} />
+      <ChatFeed messages={messages} options={effectiveOptions} />
     </div>
   );
 }

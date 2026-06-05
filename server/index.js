@@ -36,6 +36,11 @@ const xOpts = {
 // Shared emote resolver (7TV + BTTV + FFZ) — caches global + per-channel sets.
 const emotes = new EmoteResolver();
 
+// Latest overlay style pushed from the control panel. Remembered so overlays
+// (e.g. an OBS browser source) reflect live style changes without re-copying
+// the link, and so a freshly-connected overlay gets the current look.
+let currentStyle = null;
+
 // ---- Browser clients ----
 const clients = new Set();
 
@@ -197,6 +202,9 @@ function sendConfig(ws) {
       })
     );
   }
+  if (currentStyle) {
+    ws.send(JSON.stringify({ type: "style", style: currentStyle }));
+  }
 }
 
 // ---- HTTP + WebSocket server ----
@@ -221,6 +229,13 @@ wss.on("connection", (ws) => {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
+      return;
+    }
+    if (msg.type === "style" && msg.style && typeof msg.style === "object") {
+      // Live overlay style from the control panel — remember it and relay to
+      // overlays so they update without re-copying the link.
+      currentStyle = msg.style;
+      broadcast({ type: "style", style: currentStyle });
       return;
     }
     if (msg.type === "config") {

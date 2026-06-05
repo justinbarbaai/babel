@@ -57,7 +57,7 @@ export interface OverlayOptions {
 
 export const DEFAULT_OPTIONS: OverlayOptions = {
   badge: "full",
-  bg: "box",
+  bg: "none",
   shadow: true,
   size: "md",
   max: 40,

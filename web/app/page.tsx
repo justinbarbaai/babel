@@ -25,7 +25,7 @@ import {
 const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
 
 export default function ControlPanel() {
-  const { messages, statuses, hubConnected, xEnabled, serverChannels, applyChannels, hubUrl } =
+  const { messages, statuses, hubConnected, xEnabled, serverChannels, pushStyle, applyChannels, hubUrl } =
     useHub();
 
   const [twitch, setTwitch] = useState<string[]>([]);
@@ -63,6 +63,12 @@ export default function ControlPanel() {
       setSeeded(true);
     }
   }, [serverChannels, seeded]);
+
+  // Push the live style to the hub so an overlay already running in OBS updates
+  // instantly when you change settings — no need to re-copy the link.
+  useEffect(() => {
+    if (hubConnected) pushStyle(look);
+  }, [look, hubConnected, pushStyle]);
 
   const cleanTwitch = useMemo(
     () => twitch.map((s) => s.trim()).filter(Boolean),

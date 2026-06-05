@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SourceKey } from "../components/logos";
+import type { OverlayOptions } from "./overlay";
+
+export type LiveStyle = Partial<OverlayOptions>;
 
 export type MessageFragment =
   | { type: "text"; text: string }
@@ -53,6 +56,7 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
   const [hubConnected, setHubConnected] = useState(false);
   const [xEnabled, setXEnabled] = useState(true);
   const [serverChannels, setServerChannels] = useState<Channels | null>(null);
+  const [liveStyle, setLiveStyle] = useState<LiveStyle | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,6 +155,8 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
             xQuery: msg.config.xQuery ?? "",
           });
         }
+      } else if (msg.type === "style") {
+        if (msg.style && typeof msg.style === "object") setLiveStyle(msg.style);
       }
     };
 
@@ -203,12 +209,22 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
 
   const clearMessages = useCallback(() => setMessages([]), []);
 
+  // Push the current overlay style to the hub so live overlays update without
+  // re-copying their link.
+  const pushStyle = useCallback((style: LiveStyle) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    ws.send(JSON.stringify({ type: "style", style }));
+  }, []);
+
   return {
     messages,
     statuses,
     hubConnected,
     xEnabled,
     serverChannels,
+    liveStyle,
+    pushStyle,
     applyChannels,
     clearMessages,
     hubUrl: HUB_URL,
