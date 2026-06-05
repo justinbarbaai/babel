@@ -10,16 +10,33 @@ export type MessageFragment =
   | { type: "text"; text: string }
   | { type: "emote"; name: string; url: string };
 
+export interface ChatBadge {
+  type: string;
+  title: string;
+  img: string | null;
+}
+
+export interface Profile {
+  source: string;
+  login: string;
+  displayName: string;
+  avatar: string | null;
+  createdAt: string | null;
+  description: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   source: SourceKey;
   username: string;
+  userId?: string | null;
   text: string;
   timestamp: number;
   color: string;
   userColor?: string | null;
   channel?: string | null;
   fragments?: MessageFragment[] | null;
+  badges?: ChatBadge[] | null;
 }
 
 export interface SourceStatus {
@@ -31,6 +48,43 @@ export interface Channels {
   twitch: string[];
   kick: string[];
   xQuery: string;
+  // X handle whose native Live broadcast we read viewer/view counts for.
+  // Optional: only the control panel sets it, so overlay/reader pushes don't
+  // clobber the server's configured handle.
+  xLiveHandle?: string;
+}
+
+export interface ChannelViewers {
+  source: SourceKey;
+  channel: string;
+  live: boolean;
+  viewers: number;
+}
+
+export interface XViews {
+  enabled: boolean;
+  views: number;
+  posts: number;
+  updatedAt: number;
+}
+
+export interface XLive {
+  handle: string;
+  live: boolean;
+  viewers: number;
+  views: number;
+  broadcastId?: string | null;
+  title?: string | null;
+  updatedAt: number;
+}
+
+export interface ViewerSnapshot {
+  channels: ChannelViewers[];
+  totals: { twitch: number; kick: number; total: number };
+  twitchEnabled: boolean;
+  x?: XViews | null;
+  xLive?: XLive | null;
+  updatedAt: number;
 }
 
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080";
@@ -48,6 +102,8 @@ type UseHubArgs = {
 
 export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Cumulative count for this session (the buffer is capped; this isn't).
+  const [totalMessages, setTotalMessages] = useState(0);
   const [statuses, setStatuses] = useState<Record<SourceKey, SourceStatus>>({
     twitch: { connected: false, channel: "" },
     kick: { connected: false, channel: "" },
@@ -55,8 +111,16 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
   });
   const [hubConnected, setHubConnected] = useState(false);
   const [xEnabled, setXEnabled] = useState(true);
+  const [kickEnabled, setKickEnabled] = useState(false);
+  const [kickConnected, setKickConnected] = useState(false);
+  const [modResult, setModResult] = useState<{ ok: boolean; error: string | null; action?: string; ts: number } | null>(null);
+  const [sendResult, setSendResult] = useState<{ ok: boolean; error: string | null; ts: number } | null>(null);
   const [serverChannels, setServerChannels] = useState<Channels | null>(null);
   const [liveStyle, setLiveStyle] = useState<LiveStyle | null>(null);
+  const [siteLook, setSiteLook] = useState<LiveStyle | null>(null);
+  const [viewers, setViewers] = useState<ViewerSnapshot | null>(null);
+  const [profiles, setProfiles] = useState<Record<string, Profile | null>>({});
+  const requestedProfiles = useRef<Set<string>>(new Set());
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,6 +138,9 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
         twitchChannels: channels.twitch,
         kickChannels: channels.kick,
         xQuery: channels.xQuery.trim(),
+        ...(channels.xLiveHandle !== undefined
+          ? { xLiveHandle: channels.xLiveHandle.trim().replace(/^@/, "") }
+          : {}),
         // Only sent from the control panel (never the overlay link).
         ...(xToken && xToken.trim() ? { xToken: xToken.trim() } : {}),
       })
@@ -121,6 +188,7 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
       }
 
       if (msg.type === "message") {
+        setTotalMessages((n) => n + 1);
         setMessages((prev) => {
           const next = [
             ...prev,
@@ -128,12 +196,14 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
               id: `${msg.source}-${msg.timestamp}-${Math.random().toString(36).slice(2, 8)}`,
               source: msg.source as SourceKey,
               username: msg.username,
+              userId: msg.userId ?? null,
               text: msg.text,
               timestamp: msg.timestamp,
               color: msg.color,
               userColor: msg.userColor ?? null,
               channel: msg.channel ?? null,
               fragments: msg.fragments ?? null,
+              badges: msg.badges ?? null,
             },
           ];
           return next.length > MAX_BUFFER ? next.slice(next.length - MAX_BUFFER) : next;
@@ -148,15 +218,29 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
         }));
       } else if (msg.type === "config") {
         if (typeof msg.xEnabled === "boolean") setXEnabled(msg.xEnabled);
+        if (typeof msg.kickEnabled === "boolean") setKickEnabled(msg.kickEnabled);
+        if (typeof msg.kickConnected === "boolean") setKickConnected(msg.kickConnected);
         if (msg.config) {
           setServerChannels({
             twitch: msg.config.twitchChannels ?? [],
             kick: msg.config.kickChannels ?? [],
             xQuery: msg.config.xQuery ?? "",
+            xLiveHandle: msg.config.xLiveHandle ?? "",
           });
         }
       } else if (msg.type === "style") {
         if (msg.style && typeof msg.style === "object") setLiveStyle(msg.style);
+      } else if (msg.type === "siteLook") {
+        if (msg.look && typeof msg.look === "object") setSiteLook(msg.look);
+      } else if (msg.type === "viewers") {
+        if (msg.viewers && typeof msg.viewers === "object") setViewers(msg.viewers);
+      } else if (msg.type === "profile") {
+        const key = `${msg.source}:${String(msg.name).toLowerCase()}`;
+        setProfiles((prev) => ({ ...prev, [key]: msg.data ?? null }));
+      } else if (msg.type === "modResult") {
+        setModResult({ ok: !!msg.ok, error: msg.error ?? null, action: msg.action, ts: Date.now() });
+      } else if (msg.type === "sendResult") {
+        setSendResult({ ok: !!msg.ok, error: msg.error ?? null, ts: Date.now() });
       }
     };
 
@@ -209,6 +293,41 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
 
   const clearMessages = useCallback(() => setMessages([]), []);
 
+  // Lazily ask the hub for a chatter's profile (for the hover card). Each
+  // name is requested at most once per session.
+  const requestProfile = useCallback((source: string, name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    const key = `${source}:${clean.toLowerCase()}`;
+    if (requestedProfiles.current.has(key)) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    requestedProfiles.current.add(key);
+    ws.send(JSON.stringify({ type: "profile", source, name: clean }));
+  }, []);
+
+  // Kick timeout/ban via the hub (uses the connected Kick account's token).
+  const moderateKick = useCallback(
+    (slug: string, action: "timeout" | "ban", targetUserId: string, duration?: number) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== ws.OPEN) return;
+      ws.send(JSON.stringify({ type: "kickModerate", slug, action, targetUserId, duration }));
+    },
+    []
+  );
+
+  const sendKick = useCallback((slug: string, content: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    ws.send(JSON.stringify({ type: "kickSend", slug, content }));
+  }, []);
+
+  const disconnectKickAccount = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    ws.send(JSON.stringify({ type: "kickDisconnect" }));
+  }, []);
+
   // Push the current overlay style to the hub so live overlays update without
   // re-copying their link.
   const pushStyle = useCallback((style: LiveStyle) => {
@@ -217,16 +336,37 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
     ws.send(JSON.stringify({ type: "style", style }));
   }, []);
 
+  // Admin: set the public room chat appearance for everyone.
+  const pushSiteLook = useCallback((look: LiveStyle) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== ws.OPEN) return;
+    ws.send(JSON.stringify({ type: "siteLook", look }));
+  }, []);
+
   return {
     messages,
+    totalMessages,
     statuses,
     hubConnected,
     xEnabled,
     serverChannels,
     liveStyle,
+    siteLook,
+    pushSiteLook,
+    viewers,
+    profiles,
+    requestProfile,
+    kickEnabled,
+    kickConnected,
+    modResult,
+    sendResult,
+    moderateKick,
+    sendKick,
+    disconnectKickAccount,
     pushStyle,
     applyChannels,
     clearMessages,
     hubUrl: HUB_URL,
+    hubHttpUrl: HUB_URL.replace(/^ws/, "http"),
   };
 }

@@ -8,9 +8,11 @@
 
 const LS_CLIENT_ID = "mb_twitch_client_id";
 const LS_AUTH = "mb_twitch_auth";
-const SCOPES = "chat:read chat:edit";
+// chat:* lets us send; moderator:manage:banned_users lets a logged-in mod time
+// out / ban chatters in channels they moderate.
+const SCOPES = "chat:read chat:edit moderator:manage:banned_users";
 
-export type TwitchAuth = { token: string; login: string };
+export type TwitchAuth = { token: string; login: string; userId: string };
 
 export function getClientId(): string {
   if (typeof window === "undefined") return "";
@@ -39,10 +41,10 @@ export function clearAuth() {
   localStorage.removeItem(LS_AUTH);
 }
 
-export function startLogin() {
+export function startLogin(redirectPath = "/reader") {
   const clientId = getClientId();
   if (!clientId) return;
-  const redirect = `${window.location.origin}/reader`;
+  const redirect = `${window.location.origin}${redirectPath}`;
   const url =
     `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirect)}` +
@@ -65,7 +67,7 @@ export async function handleRedirect(): Promise<TwitchAuth | null> {
     });
     if (!res.ok) return null;
     const j = await res.json();
-    const auth: TwitchAuth = { token, login: j.login };
+    const auth: TwitchAuth = { token, login: j.login, userId: j.user_id };
     localStorage.setItem(LS_AUTH, JSON.stringify(auth));
     return auth;
   } catch {

@@ -200,7 +200,12 @@ export class KickSource extends EventEmitter {
         const ts = payload?.created_at ? Date.parse(payload.created_at) : Date.now();
         const fragments = kickFragments(text, this.emoteMap);
         const userColor = payload?.sender?.identity?.color || null;
-        this.emit("message", unifiedMessage("kick", username, text, ts, fragments, userColor, this.slug));
+        const badges = parseKickBadges(payload?.sender?.identity?.badges);
+        const senderId = payload?.sender?.id ?? null;
+        this.emit(
+          "message",
+          unifiedMessage("kick", username, text, ts, fragments, userColor, this.slug, badges, senderId)
+        );
         return;
       }
       default:
@@ -214,4 +219,31 @@ export class KickSource extends EventEmitter {
     this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
   }
+}
+
+// Kick `identity.badges` (array of {type,...}) → normalized role list.
+const KICK_BADGE_MAP = {
+  broadcaster: "broadcaster",
+  moderator: "mod",
+  vip: "vip",
+  subscriber: "sub",
+  og: "og",
+  founder: "founder",
+  staff: "staff",
+  verified: "verified",
+  sub_gifter: "gifter",
+};
+function parseKickBadges(arr) {
+  if (!Array.isArray(arr)) return null;
+  const out = [];
+  for (const b of arr) {
+    const type = KICK_BADGE_MAP[b?.type];
+    if (!type) continue;
+    // Subscriber badges carry a months count; surface it in the title.
+    const title =
+      b?.text ||
+      (type === "sub" && b?.count ? `Subscriber (${b.count}mo)` : type.toUpperCase());
+    out.push({ type, title, img: b?.image?.src || b?.image || null });
+  }
+  return out.length ? out : null;
 }

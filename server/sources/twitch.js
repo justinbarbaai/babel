@@ -9,10 +9,11 @@ const TWITCH_IRC_WS = "wss://irc-ws.chat.twitch.tv:443";
 // We connect as an anonymous `justinfanNNNN` user (no auth, no cost) and parse
 // PRIVMSG lines into the unified format. Emits "message" and "status" events.
 export class TwitchSource extends EventEmitter {
-  constructor(channel, { emotes } = {}) {
+  constructor(channel, { emotes, badges } = {}) {
     super();
     this.channel = sanitizeChannel(channel);
     this.emotes = emotes || null;
+    this.badges = badges || null;
     this.emoteMap = new Map(); // 3rd-party name -> url, filled async once room-id is known
     this.roomId = null;
     this.ws = null;
@@ -102,18 +103,22 @@ export class TwitchSource extends EventEmitter {
         if (roomId && roomId !== this.roomId) {
           this.roomId = roomId;
           this.loadEmotes(roomId);
+          this.badges?.ensure(roomId);
         }
         const fragments = twitchFragments(parsed.text, parsed.tags["emotes"], this.emoteMap);
+        const display = (parsed.tags["display-name"] || "").trim() || parsed.username;
         this.emit(
           "message",
           unifiedMessage(
             "twitch",
-            parsed.username,
+            display,
             parsed.text,
             Date.now(),
             fragments,
             parsed.tags["color"] || null,
-            this.channel
+            this.channel,
+            buildTwitchBadges(parsed.tags["badges"], this.roomId, this.badges),
+            parsed.tags["user-id"] || null
           )
         );
       }
@@ -140,6 +145,43 @@ export class TwitchSource extends EventEmitter {
 
 function sanitizeChannel(channel) {
   return String(channel || "").trim().toLowerCase().replace(/^#/, "");
+}
+
+// IRCv3 `badges` tag → normalized role list, e.g. "moderator/1,subscriber/12"
+// → ["mod","sub"]. Only roles we render are kept; order is preserved.
+const TWITCH_BADGE_MAP = {
+  broadcaster: "broadcaster",
+  moderator: "mod",
+  vip: "vip",
+  subscriber: "sub",
+  founder: "founder",
+  staff: "staff",
+  admin: "staff",
+  global_mod: "mod",
+  partner: "verified",
+  artist: "artist",
+};
+function titleCase(s) {
+  return String(s).replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Build badge objects {type,title,img} from the IRC `badges` tag. `type` is our
+// normalized role (for chip fallback/styling); `img` is the real Twitch badge
+// image when the resolver has the set loaded, else null (client renders a chip).
+function buildTwitchBadges(raw, roomId, resolver) {
+  if (!raw) return null;
+  const out = [];
+  for (const part of String(raw).split(",")) {
+    const [setId, version] = part.split("/");
+    if (!setId) continue;
+    const hit = resolver ? resolver.lookup(roomId, setId, version) : null;
+    out.push({
+      type: TWITCH_BADGE_MAP[setId] || setId,
+      title: hit?.title || titleCase(setId),
+      img: hit?.img || null,
+    });
+  }
+  return out.length ? out : null;
 }
 
 // Minimal IRC line parser. Handles optional IRCv3 tags, the prefix, command,

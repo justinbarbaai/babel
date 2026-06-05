@@ -5,6 +5,8 @@ import {
   Poppins,
   Oswald,
   Anton,
+  Playfair_Display,
+  IBM_Plex_Mono,
 } from "next/font/google";
 import "./globals.css";
 
@@ -34,15 +36,34 @@ const anton = Anton({
   display: "swap",
   variable: "--font-anton",
 });
+// Editorial display serif for the Market Bubble brand.
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-playfair",
+});
+// Terminal/grotesk numeric voice for the live data UI.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
-const fontVars = [inter, montserrat, poppins, oswald, anton]
+const fontVars = [inter, montserrat, poppins, oswald, anton, playfair, plexMono]
   .map((f) => f.variable)
   .join(" ");
 
 export const metadata: Metadata = {
-  title: "Babel — Unified Live Chat",
-  description: "Twitch + Kick + X in one real-time feed for your stream.",
+  title: "Market Bubble — Make Money. Command Attention. Leverage AI.",
+  description:
+    "Market Bubble — live Thursdays 1PM PST. Watch Banks & Ansem, one unified chat across Twitch, Kick & X, live markets, and news.",
 };
+
+// Set the saved theme before paint so there's no light/dark flash on load.
+const themeScript = `(function(){try{var t=localStorage.getItem('mb-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
 export default function RootLayout({
   children,
@@ -50,8 +71,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={fontVars}>
-      <body>{children}</body>
+    <html lang="en" className={fontVars} data-theme="dark">
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {children}
+      </body>
     </html>
   );
 }

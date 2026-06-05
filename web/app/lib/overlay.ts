@@ -2,7 +2,7 @@
 // Everything here is encoded into the /overlay?... link so an OBS browser
 // source is fully self-contained.
 
-export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot";
+export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot" | "none";
 export type BgStyle = "glass" | "box" | "none";
 export type FontSize = "sm" | "md" | "lg";
 export type NameColor = "chatter" | "platform" | "white";
@@ -49,11 +49,17 @@ export interface OverlayOptions {
   accountColor: AccountColor;
   // Chat-overlay font.
   font: FontChoice;
+  // Show a HH:MM timestamp before each message (like Twitch).
+  timestamps: boolean;
   // Channels this overlay should make the hub follow (Twitch/Kick can be many).
   twitch: string[];
   kick: string[];
   xQuery: string;
 }
+
+// Just the visual style of a chat feed — no channels. Shared by the overlay
+// studio and the watch dashboard's settings drawer.
+export type LookOptions = Omit<OverlayOptions, "twitch" | "kick" | "xQuery">;
 
 export const DEFAULT_OPTIONS: OverlayOptions = {
   badge: "full",
@@ -64,10 +70,63 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
   nameColor: "chatter",
   accountColor: "white",
   font: "montserrat",
+  timestamps: false,
   twitch: [],
   kick: [],
   xQuery: "",
 };
+
+// The watch dashboard's chat defaults to a denser, boxed look (channel badges,
+// platform-colored account names) suited to a read-along feed rather than an
+// over-gameplay overlay.
+export const WATCH_DEFAULT_LOOK: LookOptions = {
+  badge: "channel",
+  bg: "box",
+  shadow: false,
+  size: "md",
+  max: 80,
+  nameColor: "chatter",
+  accountColor: "platform",
+  font: DEFAULT_OPTIONS.font,
+  timestamps: false,
+};
+
+// Strip channels off a full OverlayOptions to get just the visual look.
+export function pickLook(o: OverlayOptions): LookOptions {
+  const { twitch, kick, xQuery, ...look } = o;
+  return look;
+}
+
+// Default look for the public Market Bubble room chat. The admin (Studio) can
+// override this and broadcast it to every visitor via the hub.
+export const SITE_DEFAULT_LOOK: LookOptions = {
+  badge: "channel",
+  bg: "none",
+  shadow: false,
+  size: "md",
+  max: 120,
+  nameColor: "chatter",
+  accountColor: "platform",
+  font: "montserrat",
+  timestamps: true,
+};
+
+// Persisted look helpers — each surface (overlay studio, watch drawer) keeps its
+// own look under a distinct key so they can be styled independently.
+export function loadLook(key: string, fallback: LookOptions): LookOptions {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw) return { ...fallback, ...JSON.parse(raw) };
+  } catch {}
+  return fallback;
+}
+
+export function saveLook(key: string, look: LookOptions): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(look));
+  } catch {}
+}
 
 function splitList(value: string | null): string[] {
   return (value || "")
@@ -82,7 +141,7 @@ function pick<T extends string>(value: string | null, allowed: T[], fallback: T)
 
 export function parseOptions(params: URLSearchParams): OverlayOptions {
   return {
-    badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot"], DEFAULT_OPTIONS.badge),
+    badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot", "none"], DEFAULT_OPTIONS.badge),
     bg: pick(params.get("bg"), ["glass", "box", "none"], DEFAULT_OPTIONS.bg),
     shadow: params.get("shadow") !== "0",
     size: pick(params.get("size"), ["sm", "md", "lg"], DEFAULT_OPTIONS.size),
@@ -94,6 +153,7 @@ export function parseOptions(params: URLSearchParams): OverlayOptions {
       ["inter", "montserrat", "poppins", "oswald", "anton", "impact", "futura"],
       DEFAULT_OPTIONS.font
     ),
+    timestamps: params.get("ts") === "1",
     twitch: splitList(params.get("twitch")),
     kick: splitList(params.get("kick")),
     xQuery: (params.get("xq") || "").trim(),
@@ -110,6 +170,7 @@ export function buildQuery(o: OverlayOptions): string {
   p.set("nc", o.nameColor);
   p.set("ac", o.accountColor);
   p.set("fn", o.font);
+  if (o.timestamps) p.set("ts", "1");
   if (o.twitch.length) p.set("twitch", o.twitch.join(","));
   if (o.kick.length) p.set("kick", o.kick.join(","));
   if (o.xQuery) p.set("xq", o.xQuery);

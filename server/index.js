@@ -6,6 +6,18 @@ import { KickSource } from "./sources/kick.js";
 import { XSource } from "./sources/x.js";
 import { SOURCE_COLORS } from "./sources/constants.js";
 import { EmoteResolver } from "./sources/emoteResolver.js";
+import { TwitchBadgeResolver } from "./sources/twitchBadges.js";
+import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.js";
+import { fetchProfile } from "./sources/profiles.js";
+import {
+  kickConfigured,
+  kickConnected,
+  disconnectKick,
+  buildKickLoginUrl,
+  handleKickCallback,
+  kickBan,
+  kickSend,
+} from "./sources/kickAuth.js";
 
 const PORT = Number(process.env.PORT) || 8080;
 
@@ -22,6 +34,8 @@ const config = {
   twitchChannels: splitChannels(process.env.TWITCH_CHANNEL),
   kickChannels: splitChannels(process.env.KICK_CHANNEL),
   xQuery: process.env.X_QUERY || "",
+  // Handle whose native X "Live" broadcast we count concurrent viewers for.
+  xLiveHandle: process.env.X_LIVE_HANDLE || "",
 };
 
 const kickOpts = {
@@ -32,14 +46,92 @@ const kickOpts = {
 const xOpts = {
   bearerToken: process.env.X_BEARER_TOKEN || "",
 };
+// Twitch Helix app credentials (optional) — enable live viewer counts. Kick
+// counts work without any credentials.
+const twitchCreds = {
+  clientId: process.env.TWITCH_CLIENT_ID || "",
+  clientSecret: process.env.TWITCH_CLIENT_SECRET || "",
+};
+// Kick OAuth app (optional) — enables connecting a Kick account to send chat and
+// moderate (timeout/ban). Reading Kick chat needs none of this.
+const kickCreds = {
+  clientId: process.env.KICK_CLIENT_ID || "",
+  clientSecret: process.env.KICK_CLIENT_SECRET || "",
+};
+const KICK_REDIRECT_URI =
+  process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/kick/callback`;
+const WEB_ORIGIN = process.env.WEB_ORIGIN || "http://localhost:3000";
 
 // Shared emote resolver (7TV + BTTV + FFZ) — caches global + per-channel sets.
 const emotes = new EmoteResolver();
+
+// Shared Twitch badge resolver — turns the IRC badges tag into real badge art.
+const twitchBadges = new TwitchBadgeResolver(twitchCreds);
 
 // Latest overlay style pushed from the control panel. Remembered so overlays
 // (e.g. an OBS browser source) reflect live style changes without re-copying
 // the link, and so a freshly-connected overlay gets the current look.
 let currentStyle = null;
+// Admin-set chat appearance for the public room (separate from the overlay
+// style). Broadcast to every visitor; remembered for new connections.
+let siteLook = null;
+
+// Latest combined viewer-count snapshot, refreshed on an interval and sent to
+// each newly-connected client so the dashboard shows a number immediately.
+let lastViewers = null;
+let lastXViews = null;
+let lastXLive = null;
+let viewersTimer = null;
+let viewersTick = 0;
+const VIEWERS_INTERVAL = 20000;
+// X views uses a paid recent-search endpoint, so refresh it far less often than
+// the free Twitch/Kick counts — every 6th tick (~2 min).
+const X_VIEWS_EVERY = 6;
+
+async function pollViewers() {
+  // X views (paid) only every Nth tick, or once at startup if not yet fetched.
+  if (xOpts.bearerToken && config.xQuery && (viewersTick % X_VIEWS_EVERY === 0 || lastXViews === null)) {
+    try {
+      lastXViews = await fetchXViews(config.xQuery, xOpts.bearerToken);
+    } catch (err) {
+      console.warn("[xviews]", err.message);
+    }
+  }
+  viewersTick++;
+
+  // X live concurrent viewers (free guest-auth path) — poll every tick.
+  if (config.xLiveHandle) {
+    try {
+      lastXLive = await fetchXLive(config.xLiveHandle);
+    } catch (err) {
+      console.warn("[xlive]", err.message);
+    }
+  } else {
+    lastXLive = null;
+  }
+
+  try {
+    const snap = await fetchViewerSnapshot(config, twitchCreds);
+    snap.x = lastXViews;
+    snap.xLive = lastXLive;
+    // X live viewers are genuine concurrent viewers, so fold them into the
+    // combined total alongside Twitch/Kick.
+    if (lastXLive?.live) snap.totals.total += lastXLive.viewers;
+    lastViewers = snap;
+    broadcast({ type: "viewers", viewers: lastViewers });
+  } catch (err) {
+    console.warn("[viewers]", err.message);
+  }
+}
+
+function startViewersPolling() {
+  if (viewersTimer) clearInterval(viewersTimer);
+  viewersTick = 0;
+  lastXViews = null;
+  lastXLive = null;
+  pollViewers();
+  viewersTimer = setInterval(pollViewers, VIEWERS_INTERVAL);
+}
 
 // ---- Browser clients ----
 const clients = new Set();
@@ -91,7 +183,7 @@ function startSources() {
   stopSources();
 
   sources.twitch = config.twitchChannels.map((ch) => {
-    const s = new TwitchSource(ch, { emotes });
+    const s = new TwitchSource(ch, { emotes, badges: twitchBadges });
     wireSource(s, "twitch");
     return s;
   });
@@ -111,6 +203,8 @@ function startSources() {
     status[platform] = platformStatus(platform);
   }
   broadcastStatusSnapshot();
+  // Channels may have changed — refresh viewer counts right away.
+  startViewersPolling();
 }
 
 function stopSources() {
@@ -166,7 +260,7 @@ function setupPrivate(ws, twitchChannels, kickChannels) {
       return s;
     });
   ws._sources = [
-    ...build("twitch", twitchChannels, (ch) => new TwitchSource(ch, { emotes })),
+    ...build("twitch", twitchChannels, (ch) => new TwitchSource(ch, { emotes, badges: twitchBadges })),
     ...build("kick", kickChannels, (ch) => new KickSource(ch, { ...kickOpts, emotes })),
   ];
   for (const s of ws._sources) s.start();
@@ -183,15 +277,20 @@ function broadcastStatusSnapshot() {
   }
 }
 
+function configPayload() {
+  return {
+    type: "config",
+    config,
+    colors: SOURCE_COLORS,
+    xEnabled: Boolean(xOpts.bearerToken),
+    // Whether a Kick OAuth app is configured, and whether an account is linked.
+    kickEnabled: kickConfigured(kickCreds),
+    kickConnected: kickConnected(),
+  };
+}
+
 function sendConfig(ws) {
-  ws.send(
-    JSON.stringify({
-      type: "config",
-      config,
-      colors: SOURCE_COLORS,
-      xEnabled: Boolean(xOpts.bearerToken),
-    })
-  );
+  ws.send(JSON.stringify(configPayload()));
   for (const source of ["twitch", "kick", "x"]) {
     ws.send(
       JSON.stringify({
@@ -205,13 +304,50 @@ function sendConfig(ws) {
   if (currentStyle) {
     ws.send(JSON.stringify({ type: "style", style: currentStyle }));
   }
+  if (siteLook) {
+    ws.send(JSON.stringify({ type: "siteLook", look: siteLook }));
+  }
+  if (lastViewers) {
+    ws.send(JSON.stringify({ type: "viewers", viewers: lastViewers }));
+  }
 }
 
 // ---- HTTP + WebSocket server ----
-const server = http.createServer((req, res) => {
-  if (req.url === "/health" || req.url === "/") {
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+
+  // Kick OAuth: start the authorize flow (redirect the browser to Kick).
+  if (url.pathname === "/auth/kick/login") {
+    if (!kickConfigured(kickCreds)) {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Kick OAuth is not configured (set KICK_CLIENT_ID/SECRET).");
+      return;
+    }
+    res.writeHead(302, { Location: buildKickLoginUrl(kickCreds, KICK_REDIRECT_URI) });
+    res.end();
+    return;
+  }
+
+  // Kick OAuth: callback — exchange the code, then bounce back to the web app.
+  if (url.pathname === "/auth/kick/callback") {
+    const code = url.searchParams.get("code");
+    const state = url.searchParams.get("state");
+    try {
+      if (!code || !state) throw new Error("missing code/state");
+      await handleKickCallback(kickCreds, KICK_REDIRECT_URI, code, state);
+      broadcast(configPayload());
+      res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });
+    } catch (err) {
+      console.warn("[kick oauth]", err.message);
+      res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=error` });
+    }
+    res.end();
+    return;
+  }
+
+  if (url.pathname === "/health" || url.pathname === "/") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ ok: true, status }));
+    res.end(JSON.stringify({ ok: true, status, kick: kickConnected() }));
     return;
   }
   res.writeHead(404);
@@ -229,6 +365,66 @@ wss.on("connection", (ws) => {
     try {
       msg = JSON.parse(raw.toString());
     } catch {
+      return;
+    }
+    if (msg.type === "profile" && typeof msg.source === "string" && typeof msg.name === "string") {
+      // Lazy hover-card lookup for a single chatter; reply only to this socket.
+      const name = msg.name.trim();
+      const source = msg.source;
+      if (!name) return;
+      fetchProfile(source, name, twitchCreds)
+        .then((data) => {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify({ type: "profile", source, name, data }));
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+    if (msg.type === "kickModerate" && typeof msg.slug === "string" && msg.targetUserId) {
+      // Timeout/ban a Kick chatter using the connected Kick account's token.
+      const reply = (ok, error) => {
+        if (ws.readyState === ws.OPEN)
+          ws.send(JSON.stringify({ type: "modResult", platform: "kick", action: msg.action, ok, error: error || null }));
+      };
+      if (!kickConnected()) return reply(false, "Connect Kick first.");
+      const slug = String(msg.slug).toLowerCase();
+      const ksrc = sources.kick.find((s) => s.slug === slug);
+      const broadcasterUserId = ksrc?.kickUserId;
+      if (!broadcasterUserId) return reply(false, `#${slug} isn't being aggregated.`);
+      const duration = msg.action === "timeout" ? Number(msg.duration) || 10 : undefined;
+      kickBan(kickCreds, { broadcasterUserId, targetUserId: msg.targetUserId, duration })
+        .then(() => reply(true))
+        .catch((e) => reply(false, e.message));
+      return;
+    }
+    if (msg.type === "kickSend" && typeof msg.slug === "string" && typeof msg.content === "string") {
+      const reply = (ok, error) => {
+        if (ws.readyState === ws.OPEN)
+          ws.send(JSON.stringify({ type: "sendResult", platform: "kick", ok, error: error || null }));
+      };
+      if (!kickConnected()) return reply(false, "Connect Kick first.");
+      const content = msg.content.trim();
+      if (!content) return;
+      const slug = String(msg.slug).toLowerCase();
+      const ksrc = sources.kick.find((s) => s.slug === slug);
+      const broadcasterUserId = ksrc?.kickUserId;
+      if (!broadcasterUserId) return reply(false, `#${slug} isn't being aggregated.`);
+      kickSend(kickCreds, { broadcasterUserId, content })
+        .then(() => reply(true))
+        .catch((e) => reply(false, e.message));
+      return;
+    }
+    if (msg.type === "kickDisconnect") {
+      disconnectKick();
+      broadcast(configPayload());
+      return;
+    }
+    if (msg.type === "siteLook" && msg.look && typeof msg.look === "object") {
+      // Admin-controlled chat appearance for the public room; applies to all
+      // visitors. Remembered so newly-connected clients get the current look.
+      siteLook = msg.look;
+      broadcast({ type: "siteLook", look: siteLook });
       return;
     }
     if (msg.type === "style" && msg.style && typeof msg.style === "object") {
@@ -256,6 +452,8 @@ wss.on("connection", (ws) => {
       if (Array.isArray(msg.kickChannels))
         config.kickChannels = msg.kickChannels.map((c) => String(c).trim()).filter(Boolean);
       if (typeof msg.xQuery === "string") config.xQuery = msg.xQuery.trim();
+      if (typeof msg.xLiveHandle === "string")
+        config.xLiveHandle = msg.xLiveHandle.trim().replace(/^@/, "");
       // Bring-your-own X token: a user can supply their own bearer token from
       // the control panel to enable X with their own credentials/cost. Kept
       // server-side only (never echoed back or put in the overlay link).
@@ -263,7 +461,7 @@ wss.on("connection", (ws) => {
         xOpts.bearerToken = msg.xToken.trim();
       console.log("Reconfiguring sources:", config);
       startSources();
-      broadcast({ type: "config", config, colors: SOURCE_COLORS, xEnabled: Boolean(xOpts.bearerToken) });
+      broadcast(configPayload());
     }
   });
 

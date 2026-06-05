@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatFeed } from "../components/ChatFeed";
+import { StyleControls } from "../components/StyleControls";
 import { useHub } from "../lib/useHub";
-import { parseOptions, type OverlayOptions } from "../lib/overlay";
+import {
+  parseOptions,
+  pickLook,
+  loadLook,
+  saveLook,
+  type LookOptions,
+  type OverlayOptions,
+} from "../lib/overlay";
 import { SourceLogo } from "../components/logos";
 import {
   getAuth,
@@ -25,6 +33,8 @@ type Tab =
 // channel tabs also let you send messages (client-side, your own account).
 export default function ReaderPage() {
   const [options, setOptions] = useState<OverlayOptions | null>(null);
+  const [look, setLook] = useState<LookOptions | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [tabs, setTabs] = useState<Tab[]>([
     { id: "live", type: "global", label: "Live Preview" },
   ]);
@@ -38,11 +48,27 @@ export default function ReaderPage() {
   const senderRef = useRef<TwitchSender | null>(null);
 
   useEffect(() => {
-    setOptions(parseOptions(new URLSearchParams(window.location.search)));
+    const parsed = parseOptions(new URLSearchParams(window.location.search));
+    setOptions(parsed);
+    // Saved reader look wins; otherwise fall back to whatever the link encoded.
+    setLook(loadLook("babel.reader.look", pickLook(parsed)));
     document.title = "Market Bubble — Chat Reader";
     setClientIdState(getClientId());
     handleRedirect().then((a) => setAuth(a || getAuth()));
   }, []);
+
+  useEffect(() => {
+    if (look) saveLook("babel.reader.look", look);
+  }, [look]);
+
+  const patchLook = (p: Partial<LookOptions>) =>
+    setLook((l) => (l ? { ...l, ...p } : l));
+
+  // Channels come from the link; the visual look comes from the (saved) drawer.
+  const renderOptions = useMemo(
+    () => (options && look ? { ...options, ...look } : null),
+    [options, look]
+  );
 
   useEffect(() => {
     if (!auth) return;
@@ -84,7 +110,7 @@ export default function ReaderPage() {
   const send = (channel: string, text: string) =>
     senderRef.current?.send(channel, text);
 
-  if (!options) return null;
+  if (!renderOptions || !look) return null;
 
   return (
     <div className="reader-page">
@@ -163,6 +189,15 @@ export default function ReaderPage() {
             </button>
           )}
         </span>
+
+        <button
+          className={`watch-gear reader-gear ${settingsOpen ? "on" : ""}`}
+          onClick={() => setSettingsOpen((o) => !o)}
+          aria-label="Customize chat"
+          title="Customize chat"
+        >
+          ⚙
+        </button>
       </div>
 
       <div className="reader-body">
@@ -170,13 +205,41 @@ export default function ReaderPage() {
           <ChatTab
             key={t.id}
             tab={t}
-            options={options}
+            options={renderOptions}
             hidden={active !== t.id}
             selfChannel={auth?.login ?? null}
             onSend={send}
           />
         ))}
       </div>
+
+      <div
+        className={`watch-drawer-scrim ${settingsOpen ? "open" : ""}`}
+        onClick={() => setSettingsOpen(false)}
+      />
+      <aside className={`watch-drawer ${settingsOpen ? "open" : ""}`} aria-hidden={!settingsOpen}>
+        <div className="watch-drawer-head">
+          <span className="card-title" style={{ margin: 0 }}>
+            Customize chat
+          </span>
+          <button
+            className="watch-drawer-close"
+            onClick={() => setSettingsOpen(false)}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="watch-drawer-body">
+          <StyleControls value={look} onChange={patchLook} />
+          <button
+            className="btn btn-ghost watch-drawer-reset"
+            onClick={() => setLook(pickLook(options!))}
+          >
+            Reset to link defaults
+          </button>
+        </div>
+      </aside>
     </div>
   );
 }
@@ -201,7 +264,7 @@ function ChatTab({
           pushChannels: { twitch: [tab.channel], kick: [], xQuery: "" },
           privateScope: true,
         };
-  const { messages } = useHub(args);
+  const { messages, profiles, requestProfile } = useHub(args);
   const [draft, setDraft] = useState("");
 
   // Channel tabs send to that channel; the Live Preview sends to your own
@@ -226,6 +289,8 @@ function ChatTab({
         <ChatFeed
           messages={messages}
           options={options}
+          profiles={profiles}
+          onHoverUser={requestProfile}
           placeholder={
             <span>
               {tab.type === "global"

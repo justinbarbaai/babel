@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { ChatMessage } from "../lib/useHub";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ChatMessage, ChatBadge, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 import { FONT_STACKS } from "../lib/overlay";
 import { SourceLogo, SOURCE_LABELS } from "./logos";
@@ -13,31 +13,149 @@ function nameColorFor(m: ChatMessage, mode: OverlayOptions["nameColor"]): string
   return m.userColor || m.color;
 }
 
+// Short labels for role badges that lack a real image (Kick roles, or Twitch
+// badges whose art hasn't loaded yet).
+const BADGE_LABELS: Record<string, string> = {
+  broadcaster: "HOST",
+  mod: "MOD",
+  vip: "VIP",
+  founder: "FND",
+  og: "OG",
+  sub: "SUB",
+  gifter: "GIFT",
+  staff: "STAFF",
+  verified: "✓",
+  artist: "ART",
+};
+
+function fmtTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// Link to the chatter's profile on their platform.
+function profileUrl(source: string, username: string, profile?: Profile | null): string | null {
+  const u = encodeURIComponent((profile?.login || username).replace(/^@/, ""));
+  if (!u) return null;
+  if (source === "twitch") return `https://www.twitch.tv/${u}`;
+  if (source === "kick") return `https://kick.com/${u}`;
+  if (source === "x") return `https://x.com/${u}`;
+  return null;
+}
+
+function Badges({ badges }: { badges?: ChatBadge[] | null }) {
+  if (!badges || !badges.length) return null;
+  return (
+    <>
+      {badges.map((b, i) =>
+        b.img ? (
+          <img key={i} className="cf-badge-img" src={b.img} alt={b.title} title={b.title} loading="lazy" />
+        ) : BADGE_LABELS[b.type] ? (
+          <span key={i} className="cf-rolebadge" data-role={b.type} title={b.title}>
+            {BADGE_LABELS[b.type]}
+          </span>
+        ) : null
+      )}
+    </>
+  );
+}
+
+type SessionStat = { count: number; first: number };
+
+export type Moderation = {
+  canModerate: (m: ChatMessage) => boolean;
+  onTimeout: (m: ChatMessage, minutes: number) => void;
+  onBan: (m: ChatMessage) => void;
+};
+
 export function ChatFeed({
   messages,
   options,
   placeholder,
+  profiles,
+  onHoverUser,
+  moderation,
 }: {
   messages: ChatMessage[];
   options: OverlayOptions;
   placeholder?: React.ReactNode;
+  profiles?: Record<string, Profile | null>;
+  onHoverUser?: (source: string, username: string) => void;
+  moderation?: Moderation;
 }) {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const atBottomRef = useRef(true);
+  // When scrolled up, remember which message is at the top of the viewport and
+  // its visual offset, so we can pin it back after the list trims/appends.
+  const anchorRef = useRef<{ id: string; offset: number } | null>(null);
+  const [paused, setPaused] = useState(false);
+
+  const captureAnchor = () => {
+    const el = feedRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    for (const r of Array.from(el.querySelectorAll<HTMLElement>(".cf-row"))) {
+      const rect = r.getBoundingClientRect();
+      if (rect.bottom > top) {
+        anchorRef.current = { id: r.dataset.mid || "", offset: rect.top - top };
+        return;
+      }
+    }
+  };
 
   const onScroll = () => {
     const el = feedRef.current;
     if (!el) return;
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    atBottomRef.current = atBottom;
+    if (atBottom) anchorRef.current = null;
+    else captureAnchor();
+    setPaused((p) => (p === !atBottom ? p : !atBottom));
   };
 
-  useEffect(() => {
-    if (atBottomRef.current && feedRef.current) {
-      feedRef.current.scrollTop = feedRef.current.scrollHeight;
+  const scrollToBottom = () => {
+    const el = feedRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    atBottomRef.current = true;
+    anchorRef.current = null;
+    setPaused(false);
+  };
+
+  useLayoutEffect(() => {
+    const el = feedRef.current;
+    if (!el) return;
+    if (atBottomRef.current) {
+      // Pinned to the bottom — keep following new messages.
+      el.scrollTop = el.scrollHeight;
+    } else if (anchorRef.current) {
+      // Scrolled up — re-pin the anchored message to its prior offset so trimming
+      // old messages / appending new ones doesn't shift what you're reading.
+      const row = el.querySelector<HTMLElement>(
+        `.cf-row[data-mid="${CSS.escape(anchorRef.current.id)}"]`
+      );
+      if (row) {
+        const cur = row.getBoundingClientRect().top - el.getBoundingClientRect().top;
+        el.scrollTop += cur - anchorRef.current.offset;
+      }
     }
   }, [messages]);
 
-  const shown = messages.slice(-options.max);
+  // Per-chatter session stats (message count + first seen) from the buffer.
+  const stats = useMemo(() => {
+    const m = new Map<string, SessionStat>();
+    for (const msg of messages) {
+      const k = `${msg.source}:${msg.username.toLowerCase()}`;
+      const e = m.get(k);
+      if (e) e.count++;
+      else m.set(k, { count: 1, first: msg.timestamp });
+    }
+    return m;
+  }, [messages]);
+
+  // Normally cap the rendered list to options.max. While the reader is scrolled
+  // up (paused), render the full buffer so the message they're anchored to isn't
+  // trimmed out from under them as new messages arrive.
+  const shown = paused ? messages : messages.slice(-options.max);
 
   return (
     <div
@@ -51,18 +169,31 @@ export function ChatFeed({
         {shown.length === 0 && placeholder ? (
           <div className="cf-empty">{placeholder}</div>
         ) : (
-          shown.map((m) => (
-            <Row
-              key={m.id}
-              m={m}
-              badge={options.badge}
-              channel={m.channel || SOURCE_LABELS[m.source]}
-              nameColor={nameColorFor(m, options.nameColor)}
-              accountColor={options.accountColor}
-            />
-          ))
+          shown.map((m) => {
+            const key = `${m.source}:${m.username.toLowerCase()}`;
+            return (
+              <Row
+                key={m.id}
+                m={m}
+                badge={options.badge}
+                channel={m.channel || SOURCE_LABELS[m.source]}
+                nameColor={nameColorFor(m, options.nameColor)}
+                accountColor={options.accountColor}
+                timestamps={options.timestamps}
+                profile={profiles?.[key]}
+                stat={stats.get(key)}
+                onHoverUser={onHoverUser}
+                moderation={moderation}
+              />
+            );
+          })
         )}
       </div>
+      {paused && (
+        <button className="cf-jump" onClick={scrollToBottom}>
+          ↓ New messages
+        </button>
+      )}
     </div>
   );
 }
@@ -73,16 +204,30 @@ function Row({
   channel,
   nameColor,
   accountColor,
+  timestamps,
+  profile,
+  stat,
+  onHoverUser,
+  moderation,
 }: {
   m: ChatMessage;
   badge: OverlayOptions["badge"];
   channel: string;
   nameColor: string;
   accountColor: OverlayOptions["accountColor"];
+  timestamps: boolean;
+  profile?: Profile | null;
+  stat?: SessionStat;
+  onHoverUser?: (source: string, username: string) => void;
+  moderation?: Moderation;
 }) {
+  const displayName = profile?.displayName || m.username;
+  const since = profile?.createdAt ? new Date(profile.createdAt).getFullYear() : null;
+  const url = profileUrl(m.source, m.username, profile);
+
   return (
-    <div className="cf-row">
-      {badge !== "dot" && badge !== "text" ? (
+    <div className="cf-row" data-mid={m.id}>
+      {badge === "none" ? null : badge !== "dot" && badge !== "text" ? (
         <span
           className="cf-badge"
           data-style={badge}
@@ -114,26 +259,106 @@ function Row({
         <span className="cf-dot" style={{ background: m.color }} />
       )}
 
-      <span className="cf-user" style={{ color: nameColor }}>
-        {m.username}
-      </span>
-      <span className="cf-text">
-        {m.fragments && m.fragments.length
-          ? m.fragments.map((f, i) =>
-              f.type === "emote" ? (
-                <img
-                  key={i}
-                  className="cf-emote"
-                  src={f.url}
-                  alt={f.name}
-                  title={f.name}
-                  loading="lazy"
-                />
+      <span className="cf-body">
+        {timestamps && <span className="cf-time">{fmtTime(m.timestamp)}</span>}
+        <Badges badges={m.badges} />
+        <span
+          className="cf-userwrap"
+          onMouseEnter={() => onHoverUser?.(m.source, m.username)}
+        >
+          <span className="cf-user" style={{ color: nameColor }}>
+            {m.username}
+          </span>
+          <span className="cf-card" data-source={m.source} style={{ ["--src" as any]: m.color }}>
+            <a
+              className="cf-card-head"
+              href={url ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              title={url ? `Open ${displayName} on ${SOURCE_LABELS[m.source]} ↗` : undefined}
+            >
+              {profile?.avatar ? (
+                <img className="cf-card-avatar" src={profile.avatar} alt="" loading="lazy" />
               ) : (
-                <span key={i}>{f.text}</span>
+                <span className="cf-card-avatar cf-card-avatar-fallback" style={{ background: m.color }}>
+                  {m.username.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <span className="cf-card-id">
+                <span className="cf-card-name">{displayName}</span>
+                <span className="cf-card-handle">
+                  @{m.username} · on {SOURCE_LABELS[m.source]}
+                </span>
+              </span>
+              <SourceLogo source={m.source} size={16} />
+            </a>
+
+            {m.badges && m.badges.length > 0 && (
+              <span className="cf-card-badges">
+                <Badges badges={m.badges} />
+              </span>
+            )}
+
+            <span className="cf-card-stats">
+              <span className="cf-card-stat">
+                <b>{stat?.count ?? 1}</b>
+                <span>msg{(stat?.count ?? 1) === 1 ? "" : "s"} this session</span>
+              </span>
+              {since && (
+                <span className="cf-card-stat">
+                  <b>{since}</b>
+                  <span>on {SOURCE_LABELS[m.source]} since</span>
+                </span>
+              )}
+              {stat && (
+                <span className="cf-card-stat">
+                  <b>{fmtTime(stat.first)}</b>
+                  <span>first seen</span>
+                </span>
+              )}
+            </span>
+            {channel && channel !== SOURCE_LABELS[m.source] && (
+              <span className="cf-card-foot">chatting in {channel}</span>
+            )}
+
+            {moderation?.canModerate(m) && (
+              <span className="cf-card-mod">
+                <button type="button" onClick={() => moderation.onTimeout(m, 10)} title="Timeout 10 minutes">
+                  10m
+                </button>
+                <button type="button" onClick={() => moderation.onTimeout(m, 60)} title="Timeout 1 hour">
+                  1h
+                </button>
+                <button
+                  type="button"
+                  className="cf-card-mod-ban"
+                  onClick={() => moderation.onBan(m)}
+                  title={`Ban @${m.username} from #${channel}`}
+                >
+                  Ban
+                </button>
+              </span>
+            )}
+          </span>
+        </span>{" "}
+        <span className="cf-text">
+          {m.fragments && m.fragments.length
+            ? m.fragments.map((f, i) =>
+                f.type === "emote" ? (
+                  <img
+                    key={i}
+                    className="cf-emote"
+                    src={f.url}
+                    alt={f.name}
+                    title={f.name}
+                    loading="lazy"
+                  />
+                ) : (
+                  <span key={i}>{f.text}</span>
+                )
               )
-            )
-          : m.text}
+            : m.text}
+        </span>
       </span>
     </div>
   );
