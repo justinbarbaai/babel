@@ -10,6 +10,7 @@ import {
   FONT_OPTIONS,
   type OverlayOptions,
   type BadgeStyle,
+  type BgStyle,
   type FontSize,
   type NameColor,
   type AccountColor,
@@ -236,6 +237,17 @@ export default function ControlPanel() {
             options={[
               ["white", "White"],
               ["platform", "Platform"],
+            ]}
+          />
+
+          <Segmented<BgStyle>
+            label="Background behind text"
+            value={look.bg}
+            onChange={(bg) => setLook((l) => ({ ...l, bg }))}
+            options={[
+              ["box", "Boxes"],
+              ["glass", "Glass"],
+              ["none", "None"],
             ]}
           />
 
