@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { MBMark, MBWordmark } from "./brand";
+import { MBLockup } from "./brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { Ticker } from "./Ticker";
 import { TermFooter } from "./TermFooter";
+import { LoginMenu } from "./LoginMenu";
 import { useHub } from "../lib/useHub";
-import { getAuth, startLogin, clearAuth, type TwitchAuth } from "../lib/twitchAuth";
+import {
+  getAuth,
+  startLogin,
+  clearAuth,
+  getClientId,
+  setClientId,
+  type TwitchAuth,
+} from "../lib/twitchAuth";
 
 const NAV = [
   { href: "/", label: "Home" },
@@ -26,18 +34,19 @@ export function TermShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const { hubConnected } = useHub();
   const [auth, setAuth] = useState<TwitchAuth | null>(null);
+  const [twitchReady, setTwitchReady] = useState(false);
 
   useEffect(() => {
     setAuth(getAuth());
+    setTwitchReady(!!getClientId());
   }, []);
 
   return (
-    <div className="term">
+    <div className="term term-scroll">
       {/* ---- terminal top bar ---- */}
       <header className="term-bar">
         <Link href="/" className="term-logo" aria-label="Market Bubble">
-          <MBMark size={44} />
-          <MBWordmark className="term-wordmark" />
+          <MBLockup className="term-lockup" />
         </Link>
         <nav className="term-nav">
           {NAV.map((n) => (
@@ -54,30 +63,32 @@ export function TermShell({ children }: { children: ReactNode }) {
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
             Studio
           </a>
-          {auth ? (
-            <button className="term-auth" onClick={() => { clearAuth(); setAuth(null); }}>
-              @{auth.login} · logout
-            </button>
-          ) : (
-            <button className="term-auth" onClick={() => startLogin(path)}>
-              Log in
-            </button>
-          )}
+          <LoginMenu
+            auth={auth}
+            twitchReady={twitchReady}
+            onTwitchLogin={() => startLogin(path)}
+            onTwitchLogout={() => { clearAuth(); setAuth(null); }}
+            onSaveClientId={(id) => { setClientId(id); setTwitchReady(true); startLogin(path); }}
+          />
         </div>
       </header>
 
       {/* ---- dotted workspace canvas ---- */}
       <div className="work term-page">
         <div className="term-page-inner">{children}</div>
-        <TermFooter />
       </div>
 
-      {/* ---- bottom tape: live market ticker + brand ---- */}
-      <footer className="term-tape">
-        <span className="term-tape-cap left">Invest in yourself</span>
-        <div className="term-tape-ticker"><Ticker /></div>
-        <span className="term-tape-cap right">LIVE THURS 1PM · <b>Polymarket</b></span>
-      </footer>
+      {/* ---- bottom tape: live market ticker + brand (above the footer, like home) ---- */}
+      <div className="term-tape-slot">
+        <footer className="term-tape">
+          <span className="term-tape-cap left">Invest in yourself</span>
+          <div className="term-tape-ticker"><Ticker /></div>
+          <span className="term-tape-cap right">LIVE THURS 1PM · <b>Polymarket</b></span>
+        </footer>
+      </div>
+
+      {/* ---- full site footer ---- */}
+      <TermFooter />
     </div>
   );
 }

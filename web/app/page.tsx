@@ -4,9 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChatFeed, type Moderation } from "./components/ChatFeed";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { MBMark, MBWordmark } from "./components/brand";
+import { MBLockup } from "./components/brand";
 import { Ticker } from "./components/Ticker";
 import { CinemaMode } from "./components/CinemaMode";
+import { OffAir } from "./components/OffAir";
+import { LoginMenu } from "./components/LoginMenu";
+import { useKickSession } from "./lib/kickAuth";
 import { TermFooter } from "./components/TermFooter";
 import { LiveNumber } from "./components/LiveNumber";
 import { Panel, type Rect } from "./components/Panel";
@@ -55,6 +58,7 @@ export default function Home() {
     sendKick,
     siteLook,
   } = useHub();
+  const { session: kickSession } = useKickSession();
 
   const [parent, setParent] = useState("");
   const [selected, setSelected] = useState<Stream | null>(null);
@@ -163,8 +167,6 @@ export default function Home() {
 
   const [auth, setAuth] = useState<TwitchAuth | null>(null);
   const [clientId, setClientIdState] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [keyInput, setKeyInput] = useState("");
   const [draft, setDraft] = useState("");
   const senderRef = useRef<TwitchSender | null>(null);
 
@@ -204,6 +206,13 @@ export default function Home() {
       : `https://player.kick.com/${encodeURIComponent(selected.channel)}?muted=true&autoplay=true`;
   }, [selected, parent]);
 
+  // Is the show on air? Any host channel reporting live. Until viewers load we
+  // treat it as off air (so we don't flash the live workspace) — most of the
+  // time the show is offline anyway.
+  const isLive =
+    !!viewers && (viewers.channels || []).some((c) => c.live) ||
+    (!!viewers?.xLive?.live);
+
   // ---- live audience "index" ----
   const total = viewers?.totals.total ?? 0;
   const tw = viewers?.totals.twitch ?? 0;
@@ -232,7 +241,7 @@ export default function Home() {
   const twitchChannels = serverChannels?.twitch ?? [];
   const kickChannels = serverChannels?.kick ?? [];
   const canTwitch = !!auth && twitchChannels.length > 0;
-  const canKick = kickConnected && kickChannels.length > 0;
+  const canKick = (!!kickSession || kickConnected) && kickChannels.length > 0;
   const canChat = canTwitch || canKick;
   const [targets, setTargets] = useState<{ twitch: boolean; kick: boolean }>({ twitch: true, kick: true });
   const sendTwitch = targets.twitch && canTwitch;
@@ -242,17 +251,10 @@ export default function Home() {
     const text = draft.trim();
     if (!text || (!sendTwitch && !sendKickTarget)) return;
     if (sendTwitch) for (const ch of twitchChannels) senderRef.current?.send(ch, text);
-    if (sendKickTarget) for (const ch of kickChannels) sendKick(ch, text);
+    if (sendKickTarget) for (const ch of kickChannels) sendKick(ch, text, kickSession?.id);
     setDraft("");
   };
 
-  const saveKey = () => {
-    const id = keyInput.trim();
-    if (!id) return;
-    setClientId(id);
-    setClientIdState(id);
-    setShowKey(false);
-  };
 
   // ---- moderation + toast ----
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
@@ -310,14 +312,13 @@ export default function Home() {
   };
 
   return (
-    <div className="term term-room">
+    <div className={`term term-room${!isLive ? " offair" : ""}`}>
       <div className="term-room-stage">
       {/* ---- terminal top bar ---- */}
       <div className="term-bar-slot">
       <header className="term-bar">
         <Link href="/" className="term-logo" aria-label="Market Bubble">
-          <MBMark size={44} />
-          <MBWordmark className="term-wordmark" />
+          <MBLockup className="term-lockup" />
         </Link>
         <nav className="term-nav">
           <Link href="/" className="active">Home</Link>
@@ -344,31 +345,21 @@ export default function Home() {
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
             Studio
           </a>
-          {auth ? (
-            <button className="term-auth" onClick={() => { clearAuth(); setAuth(null); }}>
-              @{auth.login} · logout
-            </button>
-          ) : clientId ? (
-            <button className="term-auth" onClick={() => startLogin("/")}>Log in</button>
-          ) : showKey ? (
-            <span className="reader-key">
-              <input
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && saveKey()}
-                placeholder="Twitch Client ID"
-                spellCheck={false}
-              />
-              <button onClick={saveKey}>Save</button>
-            </span>
-          ) : (
-            <button className="term-auth" onClick={() => setShowKey(true)}>Join chat</button>
-          )}
+          <LoginMenu
+            auth={auth}
+            twitchReady={!!clientId}
+            onTwitchLogin={() => startLogin("/")}
+            onTwitchLogout={() => { clearAuth(); setAuth(null); }}
+            onSaveClientId={(id) => { setClientId(id); setClientIdState(id); startLogin("/"); }}
+          />
         </div>
       </header>
       </div>
 
-      {/* ---- arrangeable workspace: drag / resize the panels ---- */}
+      {/* ---- off air: replay theater · on air: arrangeable workspace ---- */}
+      {!isLive ? (
+        <OffAir />
+      ) : (
       <div className="work" ref={workRef}>
         {layout && (
           <>
@@ -566,6 +557,7 @@ export default function Home() {
         <span ref={vGuideRef} className="snap-guide v" style={{ display: "none" }} />
         <span ref={hGuideRef} className="snap-guide h" style={{ display: "none" }} />
       </div>
+      )}
 
       {/* ---- bottom tape: live market ticker + brand ---- */}
       <div className="term-tape-slot">

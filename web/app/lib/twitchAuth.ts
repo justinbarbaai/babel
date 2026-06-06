@@ -8,6 +8,7 @@
 
 const LS_CLIENT_ID = "mb_twitch_client_id";
 const LS_AUTH = "mb_twitch_auth";
+const LS_RETURN = "mb_twitch_return";
 // chat:* lets us send; moderator:manage:banned_users lets a logged-in mod time
 // out / ban chatters in channels they moderate.
 const SCOPES = "chat:read chat:edit moderator:manage:banned_users";
@@ -41,10 +42,16 @@ export function clearAuth() {
   localStorage.removeItem(LS_AUTH);
 }
 
-export function startLogin(redirectPath = "/reader") {
+// Always returns to the public home (one canonical redirect URI to register in
+// the Twitch app), then bounces to `returnPath` — so viewers never land on the
+// operator reader/studio pages.
+export function startLogin(returnPath = "/") {
   const clientId = getClientId();
   if (!clientId) return;
-  const redirect = `${window.location.origin}${redirectPath}`;
+  try {
+    localStorage.setItem(LS_RETURN, returnPath || "/");
+  } catch {}
+  const redirect = `${window.location.origin}/`;
   const url =
     `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirect)}` +
@@ -69,6 +76,14 @@ export async function handleRedirect(): Promise<TwitchAuth | null> {
     const j = await res.json();
     const auth: TwitchAuth = { token, login: j.login, userId: j.user_id };
     localStorage.setItem(LS_AUTH, JSON.stringify(auth));
+    // bounce back to the page the user signed in from (public pages only)
+    try {
+      const ret = localStorage.getItem(LS_RETURN);
+      localStorage.removeItem(LS_RETURN);
+      if (ret && ret !== window.location.pathname) {
+        window.location.replace(ret);
+      }
+    } catch {}
     return auth;
   } catch {
     return null;

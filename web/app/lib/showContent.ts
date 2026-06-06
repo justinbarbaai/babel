@@ -39,7 +39,10 @@ export type Host = {
   handle: string; // without the @
   role: string;
   avatar: string;
-  url: string;
+  url: string; // X profile
+  twitch?: string; // twitch channel slug
+  kick?: string; // kick channel slug
+  instagram?: string; // instagram handle
 };
 
 // Hosts of the show. Avatars are pulled live from X via unavatar (no API key).
@@ -50,6 +53,8 @@ export const HOSTS: Host[] = [
     role: "Host",
     avatar: "https://unavatar.io/twitter/Banks",
     url: "https://x.com/Banks",
+    twitch: "fazebanks",
+    instagram: "banks",
   },
   {
     name: "Ansem",
@@ -57,6 +62,7 @@ export const HOSTS: Host[] = [
     role: "Co-host",
     avatar: "https://unavatar.io/twitter/blknoiz06",
     url: "https://x.com/blknoiz06",
+    kick: "ansem",
   },
 ];
 

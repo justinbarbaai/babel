@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ChatFeed } from "./ChatFeed";
-import { MBMark, MBWordmark } from "./brand";
+import { MBLockup } from "./brand";
 import { SourceLogo, type SourceKey } from "./logos";
 import type { ChatMessage, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
@@ -103,8 +103,7 @@ export function CinemaMode({
         </div>
 
         <div className="cin-brand">
-          <MBMark size={20} />
-          <MBWordmark className="cin-brand-word" />
+          <MBLockup className="cin-brand-lockup" />
         </div>
       </div>
 

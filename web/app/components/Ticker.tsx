@@ -21,9 +21,13 @@ function fmtPrice(n: number): string {
   return n.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
 
+// Module-level cache so the tape shows last-good prices instantly across route
+// changes (remounts) and never blanks when CoinGecko rate-limits a refresh.
+let cachedQuotes: Quote[] = [];
+
 // Live crypto ticker (CoinGecko free API, no key) — refreshes every 60s.
 export function Ticker() {
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>(cachedQuotes);
 
   useEffect(() => {
     let alive = true;
@@ -33,16 +37,18 @@ export function Ticker() {
         const res = await fetch(
           `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
         );
-        if (!res.ok) return;
+        if (!res.ok) return; // keep last-good on rate limit / error
         const j = await res.json();
         if (!alive) return;
-        setQuotes(
-          COINS.map((c) => ({
-            sym: c.sym,
-            price: j[c.id]?.usd ?? 0,
-            change: j[c.id]?.usd_24h_change ?? 0,
-          })).filter((q) => q.price > 0)
-        );
+        const next = COINS.map((c) => ({
+          sym: c.sym,
+          price: j[c.id]?.usd ?? 0,
+          change: j[c.id]?.usd_24h_change ?? 0,
+        })).filter((q) => q.price > 0);
+        if (next.length) {
+          cachedQuotes = next;
+          setQuotes(next);
+        }
       } catch {}
     };
     load();

@@ -123,8 +123,8 @@ export function PolymarketBoard() {
   return (
     <div className="mkt-board">
       <div className="mkt-board-head">
-        <h2 className="mkt-board-title">Live on Polymarket</h2>
-        <span className="mkt-board-sub">Top markets by 24h volume</span>
+        <h2 className="mkt-board-title">Prediction Markets</h2>
+        <span className="mkt-board-sub">Live on Polymarket · top markets by 24h volume</span>
       </div>
 
       {!cards ? (

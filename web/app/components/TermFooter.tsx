@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { MBMark, MBWordmark } from "./brand";
+import { MBLockup } from "./brand";
 import { TwitchLogo, XLogo } from "./logos";
 
 function SpotifyIcon({ size = 17 }: { size?: number }) {
@@ -53,8 +53,7 @@ export function TermFooter() {
       <div className="term-foot-top">
         <div className="term-foot-brand">
           <Link href="/" className="reader-brand" aria-label="Market Bubble home">
-            <MBMark size={28} />
-            <MBWordmark stacked className="term-foot-word" />
+            <MBLockup className="term-foot-lockup" />
           </Link>
           <p className="term-foot-tagline">
             Twitch, Kick &amp; X chat, prediction markets, and the crypto wire — one room.

@@ -316,10 +316,10 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
     []
   );
 
-  const sendKick = useCallback((slug: string, content: string) => {
+  const sendKick = useCallback((slug: string, content: string, kickSession?: string | null) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== ws.OPEN) return;
-    ws.send(JSON.stringify({ type: "kickSend", slug, content }));
+    ws.send(JSON.stringify({ type: "kickSend", slug, content, kickSession: kickSession || undefined }));
   }, []);
 
   const disconnectKickAccount = useCallback(() => {

@@ -11,15 +11,20 @@ import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.
 import { fetchContent } from "./sources/content.js";
 import { fetchKickContent } from "./sources/kickContent.js";
 import { fetchTweets } from "./sources/tweets.js";
+import { fetchMarkets } from "./sources/markets.js";
 import { fetchProfile } from "./sources/profiles.js";
 import {
   kickConfigured,
   kickConnected,
   disconnectKick,
   buildKickLoginUrl,
+  buildKickUserLoginUrl,
   handleKickCallback,
+  kickSessionInfo,
+  disconnectKickSession,
   kickBan,
   kickSend,
+  kickSendAs,
 } from "./sources/kickAuth.js";
 
 const PORT = Number(process.env.PORT) || 8080;
@@ -331,15 +336,48 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Kick OAuth: callback — exchange the code, then bounce back to the web app.
+  // Kick OAuth: per-viewer login — each visitor signs into their OWN Kick.
+  if (url.pathname === "/auth/kick/user/login") {
+    if (!kickConfigured(kickCreds)) {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Kick OAuth is not configured (set KICK_CLIENT_ID/SECRET).");
+      return;
+    }
+    res.writeHead(302, { Location: buildKickUserLoginUrl(kickCreds, KICK_REDIRECT_URI) });
+    res.end();
+    return;
+  }
+
+  // Kick OAuth: per-viewer session status (browser checks on load). CORS-open.
+  if (url.pathname === "/auth/kick/session") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    const info = kickSessionInfo(url.searchParams.get("id") || "");
+    res.end(JSON.stringify(info));
+    return;
+  }
+
+  // Kick OAuth: per-viewer disconnect.
+  if (url.pathname === "/auth/kick/session/disconnect") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    disconnectKickSession(url.searchParams.get("id") || "");
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  // Kick OAuth: callback — handles both operator connect + per-viewer login.
   if (url.pathname === "/auth/kick/callback") {
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     try {
       if (!code || !state) throw new Error("missing code/state");
-      await handleKickCallback(kickCreds, KICK_REDIRECT_URI, code, state);
-      broadcast(configPayload());
-      res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });
+      const result = await handleKickCallback(kickCreds, KICK_REDIRECT_URI, code, state);
+      if (result?.sessionId) {
+        const u = result.username ? `&kick_user=${encodeURIComponent(result.username)}` : "";
+        res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick_session=${encodeURIComponent(result.sessionId)}${u}` });
+      } else {
+        broadcast(configPayload());
+        res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });
+      }
     } catch (err) {
       console.warn("[kick oauth]", err.message);
       res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=error` });
@@ -367,6 +405,21 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ clips, streams, tweets: x.tweets || [], updatedAt: Date.now() }));
     } catch (err) {
       res.end(JSON.stringify({ clips: [], streams: [], tweets: [], error: String(err?.message || err) }));
+    }
+    return;
+  }
+
+  // "The Tape" for the Market page: live equities + crypto + commodities.
+  if (url.pathname === "/markets") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    try {
+      const data = await fetchMarkets(process.env.FINNHUB_API_KEY);
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      res.end(JSON.stringify({ equities: [], crypto: [], commodities: [], error: String(err?.message || err) }));
     }
     return;
   }
@@ -429,16 +482,19 @@ wss.on("connection", (ws) => {
         if (ws.readyState === ws.OPEN)
           ws.send(JSON.stringify({ type: "sendResult", platform: "kick", ok, error: error || null }));
       };
-      if (!kickConnected()) return reply(false, "Connect Kick first.");
+      const session = typeof msg.kickSession === "string" && msg.kickSession ? msg.kickSession : null;
+      if (!session && !kickConnected()) return reply(false, "Sign in to Kick first.");
       const content = msg.content.trim();
       if (!content) return;
       const slug = String(msg.slug).toLowerCase();
       const ksrc = sources.kick.find((s) => s.slug === slug);
       const broadcasterUserId = ksrc?.kickUserId;
       if (!broadcasterUserId) return reply(false, `#${slug} isn't being aggregated.`);
-      kickSend(kickCreds, { broadcasterUserId, content })
-        .then(() => reply(true))
-        .catch((e) => reply(false, e.message));
+      // Per-viewer send when signed in; otherwise the operator account (studio).
+      const sending = session
+        ? kickSendAs(kickCreds, session, { broadcasterUserId, content })
+        : kickSend(kickCreds, { broadcasterUserId, content });
+      sending.then(() => reply(true)).catch((e) => reply(false, e.message));
       return;
     }
     if (msg.type === "kickDisconnect") {
