@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { SourceLogo } from "./logos";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
-import { TWEETS, CLIPS, STREAMS, HOSTS, X_PROFILE, type Clip, type Stream } from "../lib/showContent";
+import { TWEETS, CLIPS, STREAMS, HOSTS, X_PROFILE, type Tweet, type Clip, type Stream } from "../lib/showContent";
 
 // A thumbnail frame: renders the real image when a URL is provided, otherwise a
 // branded video-frame placeholder (so every card reads as media either way).
@@ -12,10 +12,12 @@ function Thumb({
   src,
   ratio = "16 / 9",
   duration,
+  source,
 }: {
   src?: string;
   ratio?: string;
   duration?: string;
+  source?: "twitch" | "kick";
 }) {
   return (
     <span className="cnt-thumb" style={{ aspectRatio: ratio }}>
@@ -25,6 +27,11 @@ function Thumb({
       ) : (
         <span className="cnt-thumb-ph" aria-hidden="true">
           <MBMark size={28} />
+        </span>
+      )}
+      {source && (
+        <span className={`cnt-thumb-src cnt-thumb-src-${source}`} aria-hidden="true">
+          <SourceLogo source={source} size={12} />
         </span>
       )}
       <span className="cnt-thumb-play" aria-hidden="true">
@@ -50,7 +57,7 @@ function Section({ title, count }: { title: string; count?: string }) {
 export function ContentBoard() {
   const { hubHttpUrl } = useHub();
   // Live clips + VODs from the hub (Twitch Helix); fall back to curated data.
-  const [live, setLive] = useState<{ clips?: Clip[]; streams?: Stream[] } | null>(null);
+  const [live, setLive] = useState<{ clips?: Clip[]; streams?: Stream[]; tweets?: Tweet[] } | null>(null);
   useEffect(() => {
     if (!hubHttpUrl) return;
     let alive = true;
@@ -69,6 +76,7 @@ export function ContentBoard() {
 
   const allClips = live?.clips?.length ? live.clips : CLIPS;
   const allStreams = live?.streams?.length ? live.streams : STREAMS;
+  const allTweets = live?.tweets?.length ? live.tweets : TWEETS;
   const lead = allClips[0];
   const clips = allClips.slice(1);
 
@@ -103,7 +111,7 @@ export function ContentBoard() {
       {/* lead story */}
       {lead && (
         <a className="cnt-lead" href={lead.url || X_PROFILE} rel="noreferrer">
-          <Thumb src={lead.thumb} ratio="16 / 9" />
+          <Thumb src={lead.thumb} ratio="16 / 9" source={lead.source} />
           <div className="cnt-lead-body">
             <span className="cnt-lead-kicker">Latest clip</span>
             <h2 className="cnt-lead-title">{lead.title}</h2>
@@ -117,7 +125,7 @@ export function ContentBoard() {
       <div className="cnt-strip">
         {clips.map((c, i) => (
           <a key={i} className="cnt-strip-card" href={c.url || "#"} rel="noreferrer">
-            <Thumb src={c.thumb} ratio="16 / 9" />
+            <Thumb src={c.thumb} ratio="16 / 9" duration={c.duration} source={c.source} />
             <span className="cnt-strip-title">{c.title}</span>
             <span className="cnt-strip-date">{c.date}</span>
           </a>
@@ -125,9 +133,9 @@ export function ContentBoard() {
       </div>
 
       {/* on X */}
-      <Section title="On X" count={`${TWEETS.length} posts`} />
+      <Section title="On X" count={`${allTweets.length} posts`} />
       <div className="cnt-x-grid">
-        {TWEETS.map((t, i) => (
+        {allTweets.map((t, i) => (
           <a
             key={i}
             className="cnt-xcard"
@@ -135,7 +143,12 @@ export function ContentBoard() {
             target="_blank"
             rel="noreferrer"
           >
-            <Thumb src={t.thumb} ratio="16 / 9" />
+            {t.thumb && (
+              <span className="cnt-xcard-media" style={{ aspectRatio: "16 / 9" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="cnt-thumb-img" src={t.thumb} alt="" loading="lazy" />
+              </span>
+            )}
             <span className="cnt-xcard-text">{t.text}</span>
             <span className="cnt-xcard-foot">
               <SourceLogo source="x" size={11} />
@@ -152,7 +165,7 @@ export function ContentBoard() {
       <div className="cnt-strip cnt-strip-streams">
         {allStreams.map((s, i) => (
           <a key={i} className="cnt-strip-card" href={s.url || "#"} rel="noreferrer">
-            <Thumb src={s.thumb} ratio="16 / 9" duration={s.duration} />
+            <Thumb src={s.thumb} ratio="16 / 9" duration={s.duration} source={s.source} />
             <span className="cnt-strip-title">{s.title}</span>
             <span className="cnt-strip-date">
               {s.date} · {s.views} views

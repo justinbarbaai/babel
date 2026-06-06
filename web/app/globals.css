@@ -5829,6 +5829,23 @@ body.panel-dragging iframe {
   border-radius: 4px;
   padding: 1px 6px;
 }
+.cnt-thumb-src {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(10, 10, 10, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  color: #fff;
+}
+.cnt-thumb-src-twitch { color: #b69cff; }
+.cnt-thumb-src-kick { color: #53fc18; }
 
 /* lead story */
 .cnt-lead {
@@ -5935,6 +5952,15 @@ body.panel-dragging iframe {
   border-color: var(--border-2);
   transform: translateY(-3px);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), 0 18px 40px -22px rgba(0, 0, 0, 0.6), inset 0 1px 0 var(--hair);
+}
+.cnt-xcard-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9px;
+  border: 1px solid var(--hair);
+  background: var(--bg-2, var(--panel));
 }
 .cnt-xcard-text { font-family: var(--serif); font-size: 14.5px; line-height: 1.4; color: var(--text); }
 .cnt-xcard-foot {

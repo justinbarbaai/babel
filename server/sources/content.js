@@ -72,6 +72,7 @@ export async function fetchContent(channels, creds, { ttlMs = 5 * 60 * 1000 } = 
           date: (c.created_at || "").slice(0, 10),
           thumb: sizeThumb(c.thumbnail_url),
           url: c.url,
+          source: "twitch",
           createdAt: c.created_at || "",
         });
       }
@@ -86,6 +87,7 @@ export async function fetchContent(channels, creds, { ttlMs = 5 * 60 * 1000 } = 
           views: formatViews(v.view_count),
           thumb: sizeThumb(v.thumbnail_url),
           url: v.url,
+          source: "twitch",
           createdAt: v.created_at || "",
         });
       }

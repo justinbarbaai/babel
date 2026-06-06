@@ -9,6 +9,8 @@ import { EmoteResolver } from "./sources/emoteResolver.js";
 import { TwitchBadgeResolver } from "./sources/twitchBadges.js";
 import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.js";
 import { fetchContent } from "./sources/content.js";
+import { fetchKickContent } from "./sources/kickContent.js";
+import { fetchTweets } from "./sources/tweets.js";
 import { fetchProfile } from "./sources/profiles.js";
 import {
   kickConfigured,
@@ -354,10 +356,17 @@ const server = http.createServer(async (req, res) => {
       "Access-Control-Allow-Origin": "*",
     });
     try {
-      const data = await fetchContent(config.twitchChannels, twitchCreds);
-      res.end(JSON.stringify(data));
+      const byDate = (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+      const [tw, kick, x] = await Promise.all([
+        fetchContent(config.twitchChannels, twitchCreds).catch(() => ({ clips: [], streams: [] })),
+        fetchKickContent(config.kickChannels?.[0]).catch(() => ({ clips: [], streams: [] })),
+        fetchTweets(undefined, xOpts.bearerToken).catch(() => ({ tweets: [] })),
+      ]);
+      const clips = [...(tw.clips || []), ...(kick.clips || [])].sort(byDate).slice(0, 14);
+      const streams = [...(tw.streams || []), ...(kick.streams || [])].sort(byDate).slice(0, 10);
+      res.end(JSON.stringify({ clips, streams, tweets: x.tweets || [], updatedAt: Date.now() }));
     } catch (err) {
-      res.end(JSON.stringify({ clips: [], streams: [], error: String(err?.message || err) }));
+      res.end(JSON.stringify({ clips: [], streams: [], tweets: [], error: String(err?.message || err) }));
     }
     return;
   }

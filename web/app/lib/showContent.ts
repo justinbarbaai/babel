@@ -11,11 +11,15 @@ export type Tweet = {
   url?: string;
 };
 
+export type Source = "twitch" | "kick";
+
 export type Clip = {
   title: string;
   date: string;
   thumb?: string; // image URL for the clip thumbnail
   url?: string;
+  source?: Source; // platform the clip came from
+  duration?: string; // "1M 20S"
 };
 
 export type Stream = {
@@ -25,6 +29,7 @@ export type Stream = {
   views: string; // "141.8K"
   thumb?: string; // image URL for the VOD thumbnail
   url?: string;
+  source?: Source; // platform the broadcast came from
 };
 
 export const X_PROFILE = "https://x.com/MarketBubble";
