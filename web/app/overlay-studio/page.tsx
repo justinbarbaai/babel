@@ -83,8 +83,8 @@ export default function OverlayStudio() {
           <span className="watch-sub">overlay studio</span>
         </div>
         <div className="topbar-right">
-          <a className="btn btn-ghost" href="/watch" target="_blank" rel="noreferrer">
-            Watch &amp; chat ↗
+          <a className="btn btn-ghost" href="/watch">
+            Watch &amp; chat
           </a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />

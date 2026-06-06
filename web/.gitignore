@@ -6,3 +6,6 @@ out/
 *.log
 .vercel
 next-env.d.ts.timestamp
+
+# TS build cache
+tsconfig.tsbuildinfo

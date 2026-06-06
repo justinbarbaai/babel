@@ -5,6 +5,7 @@ import {
   type LookOptions,
   type BadgeStyle,
   type BgStyle,
+  type ChatSkin,
   type FontSize,
   type NameColor,
   type AccountColor,
@@ -22,6 +23,18 @@ export function StyleControls({
 }) {
   return (
     <>
+      {/* "Market Bubble" is a preset: it also switches the font to the brand
+          serif, but never touches your Name color — pick that yourself below. */}
+      <Segmented<ChatSkin>
+        label="Chat style"
+        value={value.skin ?? "default"}
+        onChange={(skin) => onChange(skin === "paper" ? { skin, font: "mb" } : { skin })}
+        options={[
+          ["default", "Standard"],
+          ["paper", "Market Bubble"],
+        ]}
+      />
+
       <div className="selectfield">
         <span className="segmented-label">Chat font</span>
         <div className="select-wrap">

@@ -48,10 +48,20 @@ export function Panel({
   children: ReactNode;
 }) {
   const [live, setLive] = useState<Rect | null>(null);
+  // brief "settle" window after a drop, so the snap glides instead of teleporting
+  const [settle, setSettle] = useState(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const raf = useRef(0);
   const pending = useRef<(() => void) | null>(null);
 
   const eff = live || rect;
+
+  const triggerSettle = () => {
+    setSettle(true);
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => setSettle(false), 340);
+  };
+  useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
   // Once the parent has committed our snapped rect, drop the local override.
   useEffect(() => {
@@ -124,6 +134,7 @@ export function Panel({
       const rawY = clamp(oy + (ev.clientY - sy), 0, Math.max(0, bounds.h - h));
       const x = clamp(snapStart(rawX, w, vlines)[0], 0, bounds.w - w);
       const y = clamp(snapStart(rawY, h, hlines)[0], 0, bounds.h - h);
+      triggerSettle();
       setLive({ ...rect, x, y });
       onChange({ ...rect, x, y });
       onGuides?.(null, null);
@@ -164,6 +175,7 @@ export function Panel({
       const rawH = clamp(oh + (ev.clientY - sy), min.h, bounds.h - y);
       const w = clamp(snapEnd(x, rawW, vlines)[0], min.w, bounds.w - x);
       const h = clamp(snapEnd(y, rawH, hlines)[0], min.h, bounds.h - y);
+      triggerSettle();
       setLive({ ...rect, w, h });
       onChange({ ...rect, w, h });
       onGuides?.(null, null);
@@ -175,7 +187,7 @@ export function Panel({
 
   return (
     <div
-      className={`panel ${rounded ? "rounded" : ""} ${live ? "gesturing" : ""}`}
+      className={`panel ${rounded ? "rounded" : ""} ${live ? "gesturing" : ""} ${settle && !live ? "settling" : ""}`}
       style={{ left: eff.x, top: eff.y, width: eff.w, height: eff.h, zIndex: eff.z }}
       onPointerDown={onFocus}
     >

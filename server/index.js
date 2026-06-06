@@ -8,6 +8,7 @@ import { SOURCE_COLORS } from "./sources/constants.js";
 import { EmoteResolver } from "./sources/emoteResolver.js";
 import { TwitchBadgeResolver } from "./sources/twitchBadges.js";
 import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.js";
+import { fetchContent } from "./sources/content.js";
 import { fetchProfile } from "./sources/profiles.js";
 import {
   kickConfigured,
@@ -342,6 +343,22 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=error` });
     }
     res.end();
+    return;
+  }
+
+  // Clips + VODs for the Content page (Twitch Helix, reusing the viewer-count
+  // app credentials). Cached in the fetcher.
+  if (url.pathname === "/content") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    try {
+      const data = await fetchContent(config.twitchChannels, twitchCreds);
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      res.end(JSON.stringify({ clips: [], streams: [], error: String(err?.message || err) }));
+    }
     return;
   }
 

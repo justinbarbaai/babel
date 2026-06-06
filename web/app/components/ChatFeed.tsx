@@ -162,6 +162,7 @@ export function ChatFeed({
       className="cf-root"
       data-bg={options.bg}
       data-size={options.size}
+      data-skin={options.skin ?? "default"}
       data-shadow={options.shadow ? "1" : "0"}
       style={{ fontFamily: FONT_STACKS[options.font] }}
     >

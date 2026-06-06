@@ -4,10 +4,14 @@
 
 export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot" | "none";
 export type BgStyle = "glass" | "box" | "none";
+// Overall chat skin: "default" (platform colors) or "paper" (Market Bubble —
+// handwritten ink names + ink-stamp badges, no neon).
+export type ChatSkin = "default" | "paper";
 export type FontSize = "sm" | "md" | "lg";
 export type NameColor = "chatter" | "platform" | "white";
 export type AccountColor = "platform" | "white";
 export type FontChoice =
+  | "mb"
   | "inter"
   | "montserrat"
   | "poppins"
@@ -19,6 +23,7 @@ export type FontChoice =
 // CSS font-family stacks for each chat-font choice. Inter/Montserrat/Poppins/
 // Oswald/Anton load as web fonts (CSS vars); Impact/Futura are system fonts.
 export const FONT_STACKS: Record<FontChoice, string> = {
+  mb: "var(--serif), 'Times New Roman', Georgia, serif",
   inter: "var(--font-inter), system-ui, sans-serif",
   montserrat: "var(--font-montserrat), system-ui, sans-serif",
   poppins: "var(--font-poppins), system-ui, sans-serif",
@@ -29,6 +34,7 @@ export const FONT_STACKS: Record<FontChoice, string> = {
 };
 
 export const FONT_OPTIONS: [FontChoice, string][] = [
+  ["mb", "Market Bubble (serif)"],
   ["inter", "Inter (Twitch)"],
   ["montserrat", "Montserrat"],
   ["poppins", "Poppins"],
@@ -41,6 +47,8 @@ export const FONT_OPTIONS: [FontChoice, string][] = [
 export interface OverlayOptions {
   badge: BadgeStyle;
   bg: BgStyle;
+  // Overall chat skin (default vs the Market Bubble "paper" look).
+  skin: ChatSkin;
   shadow: boolean;
   size: FontSize;
   max: number;
@@ -64,6 +72,7 @@ export type LookOptions = Omit<OverlayOptions, "twitch" | "kick" | "xQuery">;
 export const DEFAULT_OPTIONS: OverlayOptions = {
   badge: "full",
   bg: "none",
+  skin: "default",
   shadow: true,
   size: "md",
   max: 40,
@@ -82,6 +91,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
 export const WATCH_DEFAULT_LOOK: LookOptions = {
   badge: "channel",
   bg: "box",
+  skin: "default",
   shadow: false,
   size: "md",
   max: 80,
@@ -102,6 +112,7 @@ export function pickLook(o: OverlayOptions): LookOptions {
 export const SITE_DEFAULT_LOOK: LookOptions = {
   badge: "channel",
   bg: "none",
+  skin: "default",
   shadow: false,
   size: "md",
   max: 120,
@@ -143,6 +154,7 @@ export function parseOptions(params: URLSearchParams): OverlayOptions {
   return {
     badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot", "none"], DEFAULT_OPTIONS.badge),
     bg: pick(params.get("bg"), ["glass", "box", "none"], DEFAULT_OPTIONS.bg),
+    skin: pick(params.get("sk"), ["default", "paper"], DEFAULT_OPTIONS.skin),
     shadow: params.get("shadow") !== "0",
     size: pick(params.get("size"), ["sm", "md", "lg"], DEFAULT_OPTIONS.size),
     max: clampInt(params.get("max"), DEFAULT_OPTIONS.max, 5, 200),
@@ -150,7 +162,7 @@ export function parseOptions(params: URLSearchParams): OverlayOptions {
     accountColor: pick(params.get("ac"), ["platform", "white"], DEFAULT_OPTIONS.accountColor),
     font: pick(
       params.get("fn"),
-      ["inter", "montserrat", "poppins", "oswald", "anton", "impact", "futura"],
+      ["mb", "inter", "montserrat", "poppins", "oswald", "anton", "impact", "futura"],
       DEFAULT_OPTIONS.font
     ),
     timestamps: params.get("ts") === "1",
@@ -164,6 +176,7 @@ export function buildQuery(o: OverlayOptions): string {
   const p = new URLSearchParams();
   p.set("badge", o.badge);
   p.set("bg", o.bg);
+  p.set("sk", o.skin);
   p.set("shadow", o.shadow ? "1" : "0");
   p.set("size", o.size);
   p.set("max", String(o.max));

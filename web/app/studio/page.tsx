@@ -128,8 +128,8 @@ function ControlPanel() {
         </div>
         <div className="topbar-right">
           <ThemeToggle className="term-icon" />
-          <a className="btn btn-ghost btn-watch" href="/" target="_blank" rel="noreferrer">
-            View site ↗
+          <a className="btn btn-ghost btn-watch" href="/">
+            View site
           </a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />
@@ -149,8 +149,8 @@ function ControlPanel() {
           </p>
         </div>
         <div className="hero-actions">
-          <a className="action action-primary" href="/watch" target="_blank" rel="noreferrer">
-            <span className="action-title">Watch &amp; chat ↗</span>
+          <a className="action action-primary" href="/watch">
+            <span className="action-title">Watch &amp; chat</span>
             <span className="action-desc">Stream player + unified chat in one view</span>
           </a>
           <button className="action" onClick={openReader} suppressHydrationWarning>

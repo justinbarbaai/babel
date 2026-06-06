@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LiveNumber } from "./LiveNumber";
 
 type Outcome = { label: string; prob: number };
 type Card = {
@@ -146,7 +147,7 @@ export function PolymarketBoard() {
 function MarketCard({ card }: { card: Card }) {
   const href = card.slug ? `https://polymarket.com/event/${card.slug}` : "https://polymarket.com";
   return (
-    <a className="mkt-card" href={href} target="_blank" rel="noreferrer">
+    <a className="mkt-card" href={href} rel="noreferrer">
       <div className="mkt-card-head">
         {card.icon ? (
           <img className="mkt-icon" src={card.icon} alt="" loading="lazy" />
@@ -175,7 +176,7 @@ function BinaryBody({ prob }: { prob: number }) {
   return (
     <div className="mkt-binary">
       <div className="mkt-binary-top">
-        <span className="mkt-binary-pct">{pct}%</span>
+        <LiveNumber className="mkt-binary-pct" value={pct} format={(n) => `${Math.round(n)}%`} />
         <span className="mkt-binary-yes">chance</span>
       </div>
       <div className="mkt-bar">
@@ -196,7 +197,7 @@ function MultiBody({ outcomes }: { outcomes: Outcome[] }) {
             <div className="mkt-row-bar">
               <span className="mkt-row-fill" style={{ width: `${Math.max(pct, 2)}%` }} />
             </div>
-            <span className="mkt-row-pct">{pct}%</span>
+            <LiveNumber className="mkt-row-pct" value={pct} format={(n) => `${Math.round(n)}%`} />
           </div>
         );
       })}

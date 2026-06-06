@@ -1,28 +1,14 @@
 import type { CSSProperties } from "react";
 
-// The Market Bubble mark: a square speech bubble with a jagged stock line that
-// breaks out the top-right as an arrow. Uses currentColor so it flips with theme.
+// The Market Bubble mark (real brand vector at /public/mb-icon.svg), rendered as
+// a currentColor mask so it flips ink/cream with the theme.
 export function MBMark({ size = 40, style }: { size?: number; style?: CSSProperties }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={3.4}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={style}
+    <span
+      className="mb-mark"
       aria-hidden="true"
-    >
-      {/* speech-bubble square */}
-      <path d="M11 13 H53 V47 H30 L22 56 V47 H11 Z" />
-      {/* stock line breaking out the top-right corner */}
-      <path d="M16 43 L26 33 L32 38 L42 26 L57 9" />
-      {/* arrowhead */}
-      <path d="M48 9 L57 9 L57 18" />
-    </svg>
+      style={{ width: size, height: size, ...style }}
+    />
   );
 }
 
@@ -41,6 +27,19 @@ export function MBWordmark({
       <span>Market</span>
       <span>Bubble</span>
     </span>
+  );
+}
+
+// Integrated logotype — the real brand vector at /public/mb-logotype.svg,
+// rendered as a currentColor mask (used large: boot / hero).
+export function MBLockup({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <span
+      className={`mb-lockup ${className || ""}`}
+      role="img"
+      aria-label="Market Bubble"
+      style={style}
+    />
   );
 }
 

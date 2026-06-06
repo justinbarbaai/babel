@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LiveNumber } from "./LiveNumber";
 
 type Reading = { value: number; label: string; ts: number };
 
@@ -69,7 +70,7 @@ export function FearGreed() {
       </div>
 
       <div className="fng-gauge">
-        <svg viewBox="0 0 280 168" width="100%" role="img" aria-label={`Fear and greed index ${v}`}>
+        <svg viewBox="0 0 280 150" width="100%" role="img" aria-label={`Fear and greed index ${v}`}>
           <defs>
             <linearGradient id="fng-arc" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#ea3943" />
@@ -102,16 +103,16 @@ export function FearGreed() {
               <circle cx={needle.x} cy={needle.y} r={5} fill={tone.color} />
             </>
           )}
-          <text x={arcStart.x} y={CY + 22} className="fng-end" textAnchor="middle">0</text>
-          <text x={arcEnd.x} y={CY + 22} className="fng-end" textAnchor="middle">100</text>
+          <text x={arcStart.x} y={CY + 6} className="fng-end" textAnchor="middle">0</text>
+          <text x={arcEnd.x} y={CY + 6} className="fng-end" textAnchor="middle">100</text>
         </svg>
+      </div>
 
-        <div className="fng-readout">
-          <span className="fng-value" style={{ color: tone.color }}>
-            {history ? v : "—"}
-          </span>
-          <span className="fng-label">{now?.label ?? "loading"}</span>
-        </div>
+      <div className="fng-readout">
+        <span className="fng-value" style={{ color: tone.color }}>
+          {history ? <LiveNumber value={v} format={(n) => String(Math.round(n))} /> : "—"}
+        </span>
+        <span className="fng-label">{now?.label ?? "loading"}</span>
       </div>
 
       <div className="fng-history">
@@ -127,7 +128,7 @@ function Stat({ title, r }: { title: string; r?: Reading }) {
   return (
     <div className="fng-stat">
       <span className="fng-stat-num" style={{ color: r ? tone.color : "var(--muted)" }}>
-        {r ? r.value : "—"}
+        {r ? <LiveNumber value={r.value} format={(n) => String(Math.round(n))} /> : "—"}
       </span>
       <span className="fng-stat-label">{title}</span>
     </div>

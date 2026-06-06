@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { MBMark, MBWordmark } from "./brand";
 import { ThemeToggle } from "./ThemeToggle";
 import { Ticker } from "./Ticker";
+import { TermFooter } from "./TermFooter";
 import { useHub } from "../lib/useHub";
 import { getAuth, startLogin, clearAuth, type TwitchAuth } from "../lib/twitchAuth";
 
@@ -13,6 +14,7 @@ const NAV = [
   { href: "/", label: "Home" },
   { href: "/market", label: "Market" },
   { href: "/news", label: "News" },
+  { href: "/content", label: "Content" },
 ];
 
 /**
@@ -33,19 +35,17 @@ export function TermShell({ children }: { children: ReactNode }) {
     <div className="term">
       {/* ---- terminal top bar ---- */}
       <header className="term-bar">
-        <div className="term-bar-left">
-          <Link href="/" className="term-logo" aria-label="Market Bubble">
-            <MBMark size={24} />
-            <MBWordmark className="term-wordmark" />
-          </Link>
-          <nav className="term-nav">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className={path === n.href ? "active" : ""}>
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+        <Link href="/" className="term-logo" aria-label="Market Bubble">
+          <MBMark size={44} />
+          <MBWordmark className="term-wordmark" />
+        </Link>
+        <nav className="term-nav">
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} className={path === n.href ? "active" : ""}>
+              {n.label}
+            </Link>
+          ))}
+        </nav>
         <div className="term-bar-right">
           <span className={`term-status ${hubConnected ? "on" : ""}`}>
             <span className="term-status-dot" /> {hubConnected ? "LIVE" : "OFFLINE"}
@@ -69,6 +69,7 @@ export function TermShell({ children }: { children: ReactNode }) {
       {/* ---- dotted workspace canvas ---- */}
       <div className="work term-page">
         <div className="term-page-inner">{children}</div>
+        <TermFooter />
       </div>
 
       {/* ---- bottom tape: live market ticker + brand ---- */}

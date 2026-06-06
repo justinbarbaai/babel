@@ -9,6 +9,7 @@ import {
   IBM_Plex_Mono,
 } from "next/font/google";
 import "./globals.css";
+import { SiteFX } from "./components/SiteFX";
 
 // Chat-overlay font choices, exposed as CSS variables and selectable per overlay.
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
@@ -51,7 +52,6 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
   variable: "--font-mono",
 });
-
 const fontVars = [inter, montserrat, poppins, oswald, anton, playfair, plexMono]
   .map((f) => f.variable)
   .join(" ");
@@ -72,9 +72,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={fontVars} data-theme="dark">
+      <head>
+        {/* preload the logo vectors so the boot logo is painted before it animates */}
+        <link rel="preload" href="/mb-logotype.svg" as="image" type="image/svg+xml" />
+        <link rel="preload" href="/mb-icon.svg" as="image" type="image/svg+xml" />
+      </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {children}
+        <SiteFX />
       </body>
     </html>
   );

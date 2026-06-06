@@ -77,7 +77,7 @@ export function NewsWire() {
     <>
       <div className="news-lead">
         {lead.map((it) => (
-          <a key={it.url} className="news-feat" href={it.url} target="_blank" rel="noreferrer">
+          <a key={it.url} className="news-feat" href={it.url} rel="noreferrer">
             <div
               className="news-feat-img"
               style={it.image ? { backgroundImage: `url(${it.image})` } : undefined}
@@ -97,7 +97,7 @@ export function NewsWire() {
 
       <div className="news-wire">
         {rest.map((it) => (
-          <a key={it.url} className="news-row" href={it.url} target="_blank" rel="noreferrer">
+          <a key={it.url} className="news-row" href={it.url} rel="noreferrer">
             {it.image ? (
               <img className="news-row-thumb" src={it.image} alt="" loading="lazy" />
             ) : (

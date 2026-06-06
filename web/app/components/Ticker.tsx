@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LiveNumber } from "./LiveNumber";
 
 type Coin = { sym: string; id: string };
 const COINS: Coin[] = [
@@ -62,7 +63,7 @@ export function Ticker() {
         {loop.map((q, i) => (
           <span className="ticker-item" key={i}>
             <span className="ticker-sym">{q.sym}</span>
-            <span className="ticker-price">${fmtPrice(q.price)}</span>
+            <LiveNumber className="ticker-price" value={q.price} format={(n) => `$${fmtPrice(n)}`} duration={800} />
             <span className={`ticker-chg ${q.change >= 0 ? "up" : "down"}`}>
               {q.change >= 0 ? "▲" : "▼"} {Math.abs(q.change).toFixed(2)}%
             </span>

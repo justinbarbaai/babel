@@ -6,10 +6,13 @@ import { ChatFeed, type Moderation } from "./components/ChatFeed";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { MBMark, MBWordmark } from "./components/brand";
 import { Ticker } from "./components/Ticker";
+import { CinemaMode } from "./components/CinemaMode";
+import { TermFooter } from "./components/TermFooter";
+import { LiveNumber } from "./components/LiveNumber";
 import { Panel, type Rect } from "./components/Panel";
 import { useHub, type ChatMessage } from "./lib/useHub";
 import { SITE_DEFAULT_LOOK, type OverlayOptions } from "./lib/overlay";
-import { SourceLogo, SOURCE_LABELS, type SourceKey } from "./components/logos";
+import { SourceLogo, type SourceKey } from "./components/logos";
 import {
   getAuth,
   getClientId,
@@ -55,6 +58,8 @@ export default function Home() {
 
   const [parent, setParent] = useState("");
   const [selected, setSelected] = useState<Stream | null>(null);
+  // Cinema mode: premium rounded-TV overlay (stream / chat / views, scenes).
+  const [cinema, setCinema] = useState(false);
   // Chat appearance is controlled from the Studio (admin) and broadcast to all
   // visitors via the hub; fall back to the shared default.
   const feedOptions = useMemo<OverlayOptions>(
@@ -195,8 +200,8 @@ export default function Home() {
   const playerSrc = useMemo(() => {
     if (!selected || !parent) return "";
     return selected.source === "twitch"
-      ? `https://player.twitch.tv/?channel=${encodeURIComponent(selected.channel)}&parent=${encodeURIComponent(parent)}`
-      : `https://player.kick.com/${encodeURIComponent(selected.channel)}`;
+      ? `https://player.twitch.tv/?channel=${encodeURIComponent(selected.channel)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`
+      : `https://player.kick.com/${encodeURIComponent(selected.channel)}?muted=true&autoplay=true`;
   }, [selected, parent]);
 
   // ---- live audience "index" ----
@@ -251,12 +256,22 @@ export default function Home() {
 
   // ---- moderation + toast ----
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  const [toastIn, setToastIn] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (text: string, ok: boolean) => {
     setToast({ text, ok });
+    setToastIn(false);
+    requestAnimationFrame(() => setToastIn(true)); // slide up on the next frame
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 3200);
+    toastTimer.current = setTimeout(() => setToastIn(false), 3200); // then slide out
   };
+  // once the slide-out has played, unmount the toast
+  useEffect(() => {
+    if (toast && !toastIn) {
+      const t = setTimeout(() => setToast(null), 320);
+      return () => clearTimeout(t);
+    }
+  }, [toast, toastIn]);
   const moderate = async (m: ChatMessage, minutes?: number) => {
     if (!m.channel) return;
     const label = minutes ? `Timed out ${m.username} (${minutes}m)` : `Banned ${m.username}`;
@@ -295,25 +310,34 @@ export default function Home() {
   };
 
   return (
-    <div className="term">
+    <div className="term term-room">
+      <div className="term-room-stage">
       {/* ---- terminal top bar ---- */}
+      <div className="term-bar-slot">
       <header className="term-bar">
-        <div className="term-bar-left">
-          <Link href="/" className="term-logo" aria-label="Market Bubble">
-            <MBMark size={24} />
-            <MBWordmark className="term-wordmark" />
-          </Link>
-          <nav className="term-nav">
-            <Link href="/" className="active">Home</Link>
-            <Link href="/market">Market</Link>
-            <Link href="/news">News</Link>
-          </nav>
-        </div>
+        <Link href="/" className="term-logo" aria-label="Market Bubble">
+          <MBMark size={44} />
+          <MBWordmark className="term-wordmark" />
+        </Link>
+        <nav className="term-nav">
+          <Link href="/" className="active">Home</Link>
+          <Link href="/market">Market</Link>
+          <Link href="/news">News</Link>
+          <Link href="/content">Content</Link>
+        </nav>
         <div className="term-bar-right">
           <span className={`term-status ${hubConnected ? "on" : ""}`}>
             <span className="term-status-dot" /> {hubConnected ? "LIVE" : "OFFLINE"}
           </span>
           <ThemeToggle className="term-icon" />
+          <button
+            className={`term-cine ${cinema ? "on" : ""}`}
+            onClick={() => setCinema((c) => !c)}
+            aria-pressed={cinema}
+            title="Cinema mode — fullscreen TV view"
+          >
+            Cinema
+          </button>
           <button className="term-icon" onClick={resetLayout} aria-label="Reset layout" title="Reset layout">
             ⤢
           </button>
@@ -342,6 +366,7 @@ export default function Home() {
           )}
         </div>
       </header>
+      </div>
 
       {/* ---- arrangeable workspace: drag / resize the panels ---- */}
       <div className="work" ref={workRef}>
@@ -426,9 +451,9 @@ export default function Home() {
               onGuides={showGuides}
               onGhost={showGhost}
               headerRight={
-                streams.length > 1 ? (
-                  <div className="panel-switch">
-                    {streams.map((s) => {
+                <div className="panel-switch">
+                  {streams.length > 1 &&
+                    streams.map((s) => {
                       const on = selected?.source === s.source && selected?.channel === s.channel;
                       return (
                         <button
@@ -441,19 +466,40 @@ export default function Home() {
                         </button>
                       );
                     })}
-                  </div>
-                ) : null
+                  <button
+                    className="panel-fs-btn"
+                    aria-label="Fullscreen"
+                    title="Fullscreen (won't pause the stream)"
+                    onClick={(e) => {
+                      const panel = (e.currentTarget as HTMLElement).closest(".panel") as HTMLElement | null;
+                      try {
+                        if (document.fullscreenElement) document.exitFullscreen()?.catch?.(() => {});
+                        else panel?.requestFullscreen?.()?.catch?.(() => {});
+                      } catch {}
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M16 21h3a2 2 0 0 0 2-2v-3M8 21H5a2 2 0 0 1-2-2v-3" />
+                    </svg>
+                  </button>
+                </div>
               }
             >
               {playerSrc ? (
-                <iframe
-                  key={playerSrc}
-                  src={playerSrc}
-                  title={selected ? `${SOURCE_LABELS[selected.source]} — ${selected.channel}` : "stream"}
-                  allowFullScreen
-                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                  frameBorder="0"
-                />
+                <div className="sp">
+                  <iframe
+                    className="sp-frame"
+                    key={playerSrc}
+                    src={playerSrc}
+                    title={selected ? `${selected.source} — ${selected.channel}` : "stream"}
+                    allowFullScreen
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                    frameBorder="0"
+                  />
+                  {/* partial shield: blocks stray clicks on the video (no pause)
+                      but leaves Twitch's bottom controls reachable for mute/volume */}
+                  <div className="sp-shield" />
+                </div>
               ) : (
                 <div className="term-pip-empty">
                   <span className="muted small">stream offline</span>
@@ -475,7 +521,20 @@ export default function Home() {
               headerRight={<span className="panel-meta">Twitch · Kick · X</span>}
             >
               <div className="term-index-quote">
-                <span className="term-index-num">{viewers ? fmt(total) : "—"}</span>
+                {viewers ? (
+                  <span className="views-pop-wrap">
+                    <LiveNumber className="term-index-num" value={total} format={fmt} />
+                    <span className="views-pop" role="tooltip">
+                      <span className="views-pop-head">Audience · by source</span>
+                      <ViewsPopRow source="twitch" label="Twitch" count={tw} channels={serverChannels?.twitch} />
+                      <ViewsPopRow source="kick" label="Kick" count={kk} channels={serverChannels?.kick} />
+                      <ViewsPopRow source="x" label="X" count={xv} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
+                      <span className="views-pop-foot">{fmt(total)} watching now</span>
+                    </span>
+                  </span>
+                ) : (
+                  <span className="term-index-num">—</span>
+                )}
                 <span className={`term-index-delta ${delta >= 0 ? "up" : "down"}`}>
                   {delta >= 0 ? "▲" : "▼"} {fmtK(Math.abs(delta))}
                 </span>
@@ -488,15 +547,15 @@ export default function Home() {
               </div>
               <div className="term-vol">
                 <div className="term-vol-cell">
-                  <span className="term-vol-num">{fmtK(perMin)}</span>
+                  <LiveNumber className="term-vol-num" value={perMin} format={fmtK} flash={false} />
                   <span className="term-vol-label">msgs / min</span>
                 </div>
                 <div className="term-vol-cell">
-                  <span className="term-vol-num">{fmtK(chatters)}</span>
+                  <LiveNumber className="term-vol-num" value={chatters} format={fmtK} flash={false} />
                   <span className="term-vol-label">chatters</span>
                 </div>
                 <div className="term-vol-cell">
-                  <span className="term-vol-num">{fmtK(totalMessages)}</span>
+                  <LiveNumber className="term-vol-num" value={totalMessages} format={fmtK} />
                   <span className="term-vol-label">messages</span>
                 </div>
               </div>
@@ -509,14 +568,60 @@ export default function Home() {
       </div>
 
       {/* ---- bottom tape: live market ticker + brand ---- */}
+      <div className="term-tape-slot">
       <footer className="term-tape">
         <span className="term-tape-cap left">Invest in yourself</span>
         <div className="term-tape-ticker"><Ticker /></div>
         <span className="term-tape-cap right">LIVE THURS 1PM · <b>Polymarket</b></span>
       </footer>
+      </div>
+      </div>
 
-      {toast && <div className={`watch-toast ${toast.ok ? "ok" : "err"}`} role="status">{toast.text}</div>}
+      {/* ---- full site footer (scroll below the room) ---- */}
+      <TermFooter />
+
+      <CinemaMode
+        open={cinema}
+        onClose={() => setCinema(false)}
+        messages={messages}
+        options={feedOptions}
+        profiles={profiles}
+        requestProfile={requestProfile}
+        viewers={viewers}
+        streams={streams}
+        selected={selected}
+        onSelect={setSelected}
+        parent={parent}
+      />
+
+      {toast && (
+        <div className={`watch-toast ${toast.ok ? "ok" : "err"} ${toastIn ? "in" : "out"}`} role="status">
+          {toast.text}
+        </div>
+      )}
     </div>
+  );
+}
+
+function ViewsPopRow({
+  source,
+  label,
+  count,
+  channels,
+}: {
+  source: Exclude<SourceKey, never>;
+  label: string;
+  count: number;
+  channels?: string[];
+}) {
+  return (
+    <span className="views-pop-row" data-source={source}>
+      <span className="views-pop-src">
+        <SourceLogo source={source} size={13} /> {label}
+      </span>
+      <span className="views-pop-chan">{channels && channels.length ? channels.join(", ") : "—"}</span>
+      <span className="views-pop-val">{count.toLocaleString()}</span>
+    </span>
   );
 }
 
@@ -527,7 +632,7 @@ function IndexRow({ label, cls, value, pct }: { label: string; cls: string; valu
       <div className="term-row-track">
         <span className={`term-row-fill ${cls}`} style={{ width: `${Math.max(2, pct)}%` }} />
       </div>
-      <span className="term-row-val">{fmtK(value)}</span>
+      <LiveNumber className="term-row-val" value={value} format={fmtK} />
       <span className="term-row-pct">{Math.round(pct)}%</span>
     </div>
   );
