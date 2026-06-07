@@ -9,12 +9,14 @@ import { Ticker } from "./components/Ticker";
 import { CinemaMode } from "./components/CinemaMode";
 import { OffAir } from "./components/OffAir";
 import { LoginMenu } from "./components/LoginMenu";
+import { ChatCustomizer } from "./components/ChatCustomizer";
 import { useKickSession } from "./lib/kickAuth";
+import { useChatPrefs } from "./lib/chatPrefs";
 import { TermFooter } from "./components/TermFooter";
 import { LiveNumber } from "./components/LiveNumber";
 import { Panel, type Rect } from "./components/Panel";
 import { useHub, type ChatMessage } from "./lib/useHub";
-import { SITE_DEFAULT_LOOK, type OverlayOptions } from "./lib/overlay";
+import { SITE_DEFAULT_LOOK, type OverlayOptions, type LookOptions } from "./lib/overlay";
 import { SourceLogo, type SourceKey } from "./components/logos";
 import {
   getAuth,
@@ -66,9 +68,28 @@ export default function Home() {
   const [cinema, setCinema] = useState(false);
   // Chat appearance is controlled from the Studio (admin) and broadcast to all
   // visitors via the hub; fall back to the shared default.
+  // Per-viewer chat styling, layered over the show's global look (their device only).
+  const { prefs: chatPrefs, patch: patchChatPrefs, reset: resetChatPrefs, customized } = useChatPrefs();
+  const [editChat, setEditChat] = useState(false);
+  // The viewer's effective look (show default + studio override + their prefs).
+  const myLook = useMemo<LookOptions>(
+    () => ({ ...SITE_DEFAULT_LOOK, ...(siteLook || {}), ...chatPrefs }),
+    [siteLook, chatPrefs]
+  );
   const feedOptions = useMemo<OverlayOptions>(
-    () => ({ ...SITE_DEFAULT_LOOK, ...(siteLook || {}), twitch: [], kick: [], xQuery: "" }),
-    [siteLook]
+    () => ({ ...myLook, twitch: [], kick: [], xQuery: "" }),
+    [myLook]
+  );
+  // The viewer's overlay = their look + the show's channels (so it renders the
+  // real show chat, styled their way).
+  const myOverlayOptions = useMemo<OverlayOptions>(
+    () => ({
+      ...myLook,
+      twitch: serverChannels?.twitch ?? [],
+      kick: serverChannels?.kick ?? [],
+      xQuery: serverChannels?.xQuery ?? "",
+    }),
+    [myLook, serverChannels]
   );
 
   // ---- arrangeable workspace (draggable / resizable panels) ----
@@ -374,7 +395,18 @@ export default function Home() {
               onFocus={() => focusPanel("chat")}
               onGuides={showGuides}
               onGhost={showGhost}
-              headerRight={<span className="panel-meta">{fmtK(chatters)} talking · {fmtK(perMin)}/min</span>}
+              headerRight={
+                <span className="panel-meta panel-meta-row">
+                  <span>{fmtK(chatters)} talking · {fmtK(perMin)}/min</span>
+                  <button
+                    className={`chat-edit-btn ${editChat ? "on" : ""}`}
+                    onClick={() => setEditChat((v) => !v)}
+                    title="Customize your chat"
+                  >
+                    {customized ? "Edit ✦" : "Edit"}
+                  </button>
+                </span>
+              }
             >
               <div className="panel-chat">
                 <div className="panel-chat-feed">
@@ -584,6 +616,16 @@ export default function Home() {
         selected={selected}
         onSelect={setSelected}
         parent={parent}
+      />
+
+      <ChatCustomizer
+        open={editChat}
+        onClose={() => setEditChat(false)}
+        look={myLook}
+        onChange={patchChatPrefs}
+        onReset={resetChatPrefs}
+        customized={customized}
+        overlayOptions={myOverlayOptions}
       />
 
       {toast && (

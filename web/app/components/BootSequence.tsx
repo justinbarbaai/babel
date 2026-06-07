@@ -6,18 +6,13 @@ import { useEffect, useState } from "react";
  * Cold-open boot (LETTERPRESS): a paper field, the logotype stamps in, then it
  * lifts to the room — and signals the header logo to "re-stamp" into place as it
  * goes. Cover shows immediately; the press is held until the thread is idle so
- * it paints. Plays once per browser session.
+ * it paints. Plays on every full page load / refresh (not client-side nav, since
+ * this lives in the layout and only remounts on a real load).
  */
 export function BootSequence() {
   const [phase, setPhase] = useState<"idle" | "cover" | "play" | "out">("idle");
 
   useEffect(() => {
-    let booted = false;
-    try {
-      booted = sessionStorage.getItem("mb.booted") === "1";
-    } catch {}
-    if (booted) return;
-
     setPhase("cover");
     let done = false;
     const start = () => {
@@ -46,9 +41,6 @@ export function BootSequence() {
     }, 1700);
     const t2 = setTimeout(() => {
       setPhase("idle");
-      try {
-        sessionStorage.setItem("mb.booted", "1");
-      } catch {}
     }, 2300);
     return () => {
       clearTimeout(t1);
