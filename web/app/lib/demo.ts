@@ -51,10 +51,20 @@ const MSGS = [
   "banks the goat", "actual financial wizardry", "hold the line 🫡",
 ];
 
-const COLORS = [
+// Chatters' personal name colors (used when nameColor = "chatter", like a real
+// Twitch/Kick username color).
+const USER_COLORS = [
   "#ff7f50", "#1e90ff", "#2ecc7a", "#ff69b4", "#9acd32",
   "#daa520", "#8a2be2", "#ff5c5c", "#46d1ff", "#ffd166",
 ];
+
+// Platform tints — drive the logo + badge color (and the "platform" name mode),
+// exactly like the real feed. These are the brand colors.
+const PLATFORM_COLOR: Record<string, string> = {
+  twitch: "#9146ff",
+  kick: "#53fc18",
+  x: "#ffffff",
+};
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -64,15 +74,14 @@ function makeMsg(): ChatMessage {
   counter += 1;
   // ~70% Twitch, 30% Kick for a believable mix
   const source: SourceKey = Math.random() < 0.7 ? "twitch" : "kick";
-  const color = pick(COLORS);
   return {
     id: `demo-${counter}-${Math.floor(rand(0, 1e6))}`,
     source,
     username: pick(NAMES),
     text: pick(MSGS),
     timestamp: Date.now(),
-    color,
-    userColor: color,
+    color: PLATFORM_COLOR[source], // platform tint → logo + badge + "platform" name mode
+    userColor: pick(USER_COLORS), // the chatter's own color → "chatter" name mode
     channel: source === "twitch" ? "fazebanks" : "ansem",
   };
 }
