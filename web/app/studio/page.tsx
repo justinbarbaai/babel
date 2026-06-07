@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { ChatFeed } from "../components/ChatFeed";
 import { ChannelList } from "../components/ChannelList";
 import { Connections } from "../components/Connections";
@@ -14,12 +15,19 @@ import {
   type OverlayOptions,
 } from "../lib/overlay";
 import { SourceLogo, SOURCE_LABELS, type SourceKey } from "../components/logos";
-import { MBMark, MBWordmark } from "../components/brand";
+import { MBLockup } from "../components/brand";
 import { StudioGate } from "../components/StudioGate";
 import { ThemeToggle } from "../components/ThemeToggle";
-import Link from "next/link";
 
 const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
+type Tab = "hosts" | "appearance" | "connections";
+const TABS: [Tab, string][] = [
+  ["hosts", "Hosts"],
+  ["appearance", "Appearance"],
+  ["connections", "Connections"],
+];
+
+const clean = (s: string) => s.replace(/^@/, "").trim();
 
 export default function StudioPage() {
   return (
@@ -46,6 +54,15 @@ function ControlPanel() {
     hubHttpUrl,
   } = useHub();
 
+  const [tab, setTab] = useState<Tab>("hosts");
+
+  // Per-host handles (the show = Banks on Twitch + Ansem on Kick, both on X).
+  const [banksTwitch, setBanksTwitch] = useState("fazebanks");
+  const [banksX, setBanksX] = useState("Banks");
+  const [ansemKick, setAnsemKick] = useState("ansem");
+  const [ansemX, setAnsemX] = useState("blknoiz06");
+
+  // Raw / advanced channel config (multi-channel power use).
   const [twitch, setTwitch] = useState<string[]>([]);
   const [kick, setKick] = useState<string[]>([]);
   const [xQuery, setXQuery] = useState("");
@@ -58,11 +75,8 @@ function ControlPanel() {
   const [look, setLook] = useState<LookOptions>(SITE_DEFAULT_LOOK);
   const [lookSeeded, setLookSeeded] = useState(false);
 
-  useEffect(() => {
-    setOrigin(window.location.origin);
-  }, []);
+  useEffect(() => setOrigin(window.location.origin), []);
 
-  // Seed the appearance controls from the hub's current site look (once).
   useEffect(() => {
     if (siteLook && !lookSeeded) {
       setLook({ ...SITE_DEFAULT_LOOK, ...siteLook } as LookOptions);
@@ -78,19 +92,25 @@ function ControlPanel() {
     });
   };
 
-  // Seed the channel inputs from whatever the hub is currently following.
+  // Seed inputs from whatever the hub currently follows.
   useEffect(() => {
     if (serverChannels && !seeded) {
       setTwitch(serverChannels.twitch);
       setKick(serverChannels.kick);
       setXQuery(serverChannels.xQuery);
       setXLiveHandle(serverChannels.xLiveHandle ?? "");
+      if (serverChannels.twitch[0]) setBanksTwitch(serverChannels.twitch[0]);
+      if (serverChannels.kick[0]) setAnsemKick(serverChannels.kick[0]);
+      // pull host X handles out of a "from:a OR from:b" query if present
+      const froms = (serverChannels.xQuery.match(/from:(\w+)/gi) || []).map((m) => m.slice(5));
+      if (froms[0]) setBanksX(froms[0]);
+      if (froms[1]) setAnsemX(froms[1]);
       setSeeded(true);
     }
   }, [serverChannels, seeded]);
 
-  const cleanTwitch = useMemo(() => twitch.map((s) => s.trim()).filter(Boolean), [twitch]);
-  const cleanKick = useMemo(() => kick.map((s) => s.trim()).filter(Boolean), [kick]);
+  const cleanTwitch = useMemo(() => twitch.map(clean).filter(Boolean), [twitch]);
+  const cleanKick = useMemo(() => kick.map(clean).filter(Boolean), [kick]);
 
   const previewOptions: OverlayOptions = useMemo(
     () => ({ ...look, twitch: cleanTwitch, kick: cleanKick, xQuery }),
@@ -98,39 +118,40 @@ function ControlPanel() {
   );
 
   const readerUrl = useMemo(
-    () =>
-      `${origin}/reader?${buildQuery({
-        ...DEFAULT_OPTIONS,
-        twitch: cleanTwitch,
-        kick: cleanKick,
-        xQuery,
-      })}`,
+    () => `${origin}/reader?${buildQuery({ ...DEFAULT_OPTIONS, twitch: cleanTwitch, kick: cleanKick, xQuery })}`,
     [origin, cleanTwitch, cleanKick, xQuery]
   );
+  const openReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
 
-  const openReader = () =>
-    window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
-
-  const apply = () =>
-    applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery, xLiveHandle }, xToken);
-
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") apply();
+  // Apply the show feed from the two host cards.
+  const applyHosts = () => {
+    const xHandles = [banksX, ansemX].map(clean).filter(Boolean);
+    const xq = xHandles.map((h) => `from:${h}`).join(" OR ");
+    const tw = [clean(banksTwitch)].filter(Boolean);
+    const kk = [clean(ansemKick)].filter(Boolean);
+    setTwitch(tw);
+    setKick(kk);
+    setXQuery(xq);
+    const live = xLiveHandle || clean(banksX);
+    setXLiveHandle(live);
+    applyChannels({ twitch: tw, kick: kk, xQuery: xq, xLiveHandle: live }, xToken);
   };
+
+  // Apply the advanced raw channel config.
+  const applyAdvanced = () =>
+    applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery, xLiveHandle }, xToken);
 
   return (
     <div className="console">
       <header className="topbar">
-        <div className="studio-brand">
-          <MBMark size={24} />
-          <MBWordmark className="studio-brand-word" />
+        <Link href="/" className="studio-brand" aria-label="Market Bubble">
+          <MBLockup className="studio-lockup" />
           <span className="studio-tag">Studio</span>
-        </div>
+        </Link>
         <div className="topbar-right">
           <ThemeToggle className="term-icon" />
-          <a className="btn btn-ghost btn-watch" href="/">
-            View site
-          </a>
+          <a className="btn btn-ghost btn-watch" href="/watch">Watch</a>
+          <a className="btn btn-ghost btn-watch" href="/">View site</a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />
             <span>{hubConnected ? "live" : "offline"}</span>
@@ -138,32 +159,13 @@ function ControlPanel() {
         </div>
       </header>
 
-      {/* ---- Primary actions ---- */}
-      <section className="hero">
-        <div className="hero-copy">
-          <span className="studio-eyebrow">Admin</span>
-          <h1 className="hero-title">Run the room.</h1>
-          <p className="hero-sub">
-            Set the channels, connections, and overlay that power the public Market Bubble
-            site.
-          </p>
-        </div>
-        <div className="hero-actions">
-          <a className="action action-primary" href="/watch">
-            <span className="action-title">Watch &amp; chat</span>
-            <span className="action-desc">Stream player + unified chat in one view</span>
-          </a>
-          <button className="action" onClick={openReader} suppressHydrationWarning>
-            <span className="action-title">Pop out reader ↗</span>
-            <span className="action-desc">Floating, resizable chat window</span>
-          </button>
-          <a className="action action-ghost" href="/overlay-studio">
-            <span className="action-title">Chat overlay for OBS</span>
-            <span className="action-desc">Build a transparent browser source</span>
-          </a>
-        </div>
+      <section className="studio-head">
+        <span className="studio-eyebrow">Operator console</span>
+        <h1 className="studio-h1">Run the room.</h1>
+        <p className="studio-sub">The show is Banks &amp; Ansem — set their channels, the look, and connections that power the public site.</p>
       </section>
 
+      {/* live source status */}
       <div className="statusrow">
         {SOURCES.map((src) => {
           const disabled = src === "x" && !xEnabled;
@@ -175,9 +177,7 @@ function ControlPanel() {
               </span>
               <div className="sc-meta">
                 <div className="sc-name">{SOURCE_LABELS[src]}</div>
-                <div className="sc-target">
-                  {disabled ? "no API token" : statuses[src].channel || "—"}
-                </div>
+                <div className="sc-target">{disabled ? "no API token" : statuses[src].channel || "—"}</div>
               </div>
               <span className={`dot ${on ? "on" : "off"}`} />
             </div>
@@ -185,88 +185,220 @@ function ControlPanel() {
         })}
       </div>
 
-      <div className="grid">
-        {/* ---- Channels ---- */}
-        <section className="card">
-          <h2 className="card-title">Channels</h2>
-          <div className="fields">
-            <ChannelList label="Twitch channels" values={twitch} onChange={setTwitch} onKeyDown={onKey} placeholder="e.g. FaZeBanks" />
-            <ChannelList label="Kick channels" values={kick} onChange={setKick} onKeyDown={onKey} placeholder="e.g. ansem" />
-            <Field
-              label="X search query"
-              value={xQuery}
-              onChange={setXQuery}
-              onKeyDown={onKey}
-              placeholder="e.g. @handle or keyword"
-            />
-            <Field
-              label="X live account (viewer count)"
-              value={xLiveHandle}
-              onChange={setXLiveHandle}
-              onKeyDown={onKey}
-              placeholder="e.g. banks"
-              hint="The X account whose live broadcast viewer count shows on the dashboard. No API token needed."
-            />
-            <Field
-              label="X bearer token (your own — enables X)"
-              value={xToken}
-              onChange={setXToken}
-              onKeyDown={onKey}
-              type="password"
-              placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
-              hint={
-                xEnabled
-                  ? "X is connected. Token stays on the server, never in the overlay link."
-                  : "Paste your own X bearer token to turn on X (kept server-side, not in the link)."
-              }
-            />
-            <button className="btn btn-gold" onClick={apply}>
-              Apply channels
-            </button>
-          </div>
-        </section>
+      {/* tabs */}
+      <nav className="studio-tabs" role="tablist">
+        {TABS.map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            className={`studio-tab ${tab === key ? "on" : ""}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-        {/* ---- Preview ---- */}
-        <section className="card preview-card">
-          <div className="preview-head">
-            <h2 className="card-title">Live chat preview</h2>
-            <span className="muted small">{messages.length} msgs</span>
-          </div>
-          <div className={`preview-stage bg-${look.bg}`}>
-            <ChatFeed
-              messages={messages}
-              options={previewOptions}
-              placeholder={
-                <span>
-                  Waiting for chat… set live channels and hit <b>Apply</b>.
-                </span>
-              }
+      {/* ---- HOSTS ---- */}
+      {tab === "hosts" && (
+        <>
+          <div className="host-grid">
+            <HostCard
+              name="Banks"
+              role="Host"
+              xHandle={banksX}
+              statuses={statuses}
+              fields={[
+                { source: "twitch", label: "Twitch channel", value: banksTwitch, onChange: setBanksTwitch, placeholder: "fazebanks" },
+                { source: "x", label: "X handle", value: banksX, onChange: setBanksX, placeholder: "Banks" },
+              ]}
+            />
+            <HostCard
+              name="Ansem"
+              role="Co-host"
+              xHandle={ansemX}
+              statuses={statuses}
+              fields={[
+                { source: "kick", label: "Kick channel", value: ansemKick, onChange: setAnsemKick, placeholder: "ansem" },
+                { source: "x", label: "X handle", value: ansemX, onChange: setAnsemX, placeholder: "blknoiz06" },
+              ]}
             />
           </div>
-          <p className="muted small">
-            Server: <code>{hubUrl}</code> must be running to receive chat.
-          </p>
-        </section>
-      </div>
+          <div className="host-apply">
+            <button className="btn btn-gold" onClick={applyHosts}>Apply show feed</button>
+            <span className="muted small">
+              Merges Banks (Twitch) + Ansem (Kick) + both on X into the one chat everyone sees.
+            </span>
+          </div>
 
-      {/* ---- Public chat appearance (broadcast to all visitors) ---- */}
-      <section className="card">
-        <h2 className="card-title">Chat appearance</h2>
-        <p className="muted small" style={{ marginTop: 0 }}>
-          Controls how the chat looks on the public Market Bubble site — applies live to
-          everyone watching.
-        </p>
-        <StyleControls value={look} onChange={patchLook} />
-      </section>
+          <section className="card preview-card">
+            <div className="preview-head">
+              <h2 className="card-title">Live chat preview</h2>
+              <span className="muted small">{messages.length} msgs</span>
+            </div>
+            <div className={`preview-stage bg-${look.bg}`}>
+              <ChatFeed
+                messages={messages}
+                options={previewOptions}
+                placeholder={<span>Waiting for chat… set the hosts and hit <b>Apply show feed</b>.</span>}
+              />
+            </div>
+            <p className="muted small">Server: <code>{hubUrl}</code> must be running to receive chat.</p>
+          </section>
+        </>
+      )}
 
-      <Connections
-        xEnabled={xEnabled}
-        kickEnabled={kickEnabled}
-        kickConnected={kickConnected}
-        hubHttpUrl={hubHttpUrl}
-        onDisconnectKick={disconnectKickAccount}
-      />
+      {/* ---- APPEARANCE ---- */}
+      {tab === "appearance" && (
+        <>
+          <div className="grid">
+            <section className="card">
+              <h2 className="card-title">Chat appearance</h2>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                The default look on the public site — applies live to everyone. (Viewers can still
+                restyle their own copy.)
+              </p>
+              <StyleControls value={look} onChange={patchLook} />
+            </section>
+
+            <section className="card preview-card">
+              <div className="preview-head">
+                <h2 className="card-title">Preview</h2>
+                <span className="muted small">{messages.length} msgs</span>
+              </div>
+              <div className={`preview-stage bg-${look.bg}`}>
+                <ChatFeed messages={messages} options={previewOptions} placeholder={<span>Live preview of the show look.</span>} />
+              </div>
+            </section>
+          </div>
+
+          <section className="card">
+            <h2 className="card-title">Outputs</h2>
+            <div className="hero-actions">
+              <a className="action action-primary" href="/watch">
+                <span className="action-title">Watch &amp; chat</span>
+                <span className="action-desc">Stream player + unified chat in one view</span>
+              </a>
+              <button className="action" onClick={openReader} suppressHydrationWarning>
+                <span className="action-title">Pop out reader ↗</span>
+                <span className="action-desc">Floating, resizable chat window</span>
+              </button>
+              <a className="action action-ghost" href="/overlay-studio">
+                <span className="action-title">Chat overlay for OBS</span>
+                <span className="action-desc">Build a transparent browser source</span>
+              </a>
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* ---- CONNECTIONS ---- */}
+      {tab === "connections" && (
+        <>
+          <Connections
+            xEnabled={xEnabled}
+            kickEnabled={kickEnabled}
+            kickConnected={kickConnected}
+            hubHttpUrl={hubHttpUrl}
+            onDisconnectKick={disconnectKickAccount}
+          />
+
+          <section className="card">
+            <h2 className="card-title">X access</h2>
+            <div className="fields">
+              <Field
+                label="X bearer token (enables X)"
+                value={xToken}
+                onChange={setXToken}
+                type="password"
+                placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
+                hint={xEnabled ? "X is connected. Token stays server-side, never in any link." : "Paste your X bearer token to turn on X (kept server-side)."}
+              />
+              <Field
+                label="X live account (viewer count)"
+                value={xLiveHandle}
+                onChange={setXLiveHandle}
+                placeholder="e.g. banks"
+                hint="The X account whose live broadcast viewer count shows on the site."
+              />
+              <button className="btn btn-gold" onClick={applyAdvanced}>Save X access</button>
+            </div>
+          </section>
+
+          <section className="card">
+            <h2 className="card-title">Advanced channels</h2>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Power use — aggregate extra channels beyond the two hosts.
+            </p>
+            <div className="fields">
+              <ChannelList label="Twitch channels" values={twitch} onChange={setTwitch} placeholder="e.g. FaZeBanks" />
+              <ChannelList label="Kick channels" values={kick} onChange={setKick} placeholder="e.g. ansem" />
+              <Field label="X search query" value={xQuery} onChange={setXQuery} placeholder="from:Banks OR from:blknoiz06" />
+              <button className="btn btn-gold" onClick={applyAdvanced}>Apply channels</button>
+            </div>
+          </section>
+        </>
+      )}
     </div>
+  );
+}
+
+type HostField = {
+  source: SourceKey;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+};
+
+function HostCard({
+  name,
+  role,
+  xHandle,
+  fields,
+  statuses,
+}: {
+  name: string;
+  role: string;
+  xHandle: string;
+  fields: HostField[];
+  statuses: Record<SourceKey, { connected: boolean; channel: string }>;
+}) {
+  return (
+    <section className="host-card">
+      <div className="host-top">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="host-av" src={`https://unavatar.io/twitter/${clean(xHandle)}`} alt={name} />
+        <div className="host-id">
+          <span className="host-name">{name}</span>
+          <span className="host-role">{role}</span>
+        </div>
+        <div className="host-dots">
+          {fields.map((f) => {
+            const live = f.source !== "x" && statuses[f.source]?.connected;
+            return (
+              <span key={f.source} className={`host-dot ${live ? "on" : ""}`} title={SOURCE_LABELS[f.source]}>
+                <SourceLogo source={f.source} size={13} />
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div className="host-fields">
+        {fields.map((f) => (
+          <div className="field" key={f.source}>
+            <label>
+              <span className="host-field-logo" style={{ color: f.source === "x" ? "var(--text)" : srcColor(f.source) }}>
+                <SourceLogo source={f.source} size={12} />
+              </span>{" "}
+              {f.label}
+            </label>
+            <input value={f.value} onChange={(e) => f.onChange(e.target.value)} placeholder={f.placeholder} spellCheck={false} />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
