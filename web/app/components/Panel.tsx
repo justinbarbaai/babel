@@ -22,6 +22,7 @@ export function Panel({
   grid = 22,
   snap = 9,
   min = { w: 240, h: 160 },
+  minY = 0,
   pad = true,
   rounded = true,
   headerRight,
@@ -38,6 +39,7 @@ export function Panel({
   grid?: number;
   snap?: number;
   min?: { w: number; h: number };
+  minY?: number;
   pad?: boolean;
   rounded?: boolean;
   headerRight?: ReactNode;
@@ -118,12 +120,12 @@ export function Panel({
     const move = (ev: PointerEvent) =>
       schedule(() => {
         const rawX = clamp(ox + (ev.clientX - sx), 0, Math.max(0, bounds.w - w));
-        const rawY = clamp(oy + (ev.clientY - sy), 0, Math.max(0, bounds.h - h));
+        const rawY = clamp(oy + (ev.clientY - sy), minY, Math.max(minY, bounds.h - h));
         setLive({ ...rect, x: rawX, y: rawY }); // panel follows cursor freely
         const [snX, gx] = snapStart(rawX, w, vlines);
         const [snY, gy] = snapStart(rawY, h, hlines);
         onGuides?.(gx, gy);
-        onGhost?.({ x: clamp(snX, 0, bounds.w - w), y: clamp(snY, 0, bounds.h - h), w, h });
+        onGhost?.({ x: clamp(snX, 0, bounds.w - w), y: clamp(snY, minY, Math.max(minY, bounds.h - h)), w, h });
       });
     const up = (ev: PointerEvent) => {
       stopRaf();
@@ -131,9 +133,9 @@ export function Panel({
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       const rawX = clamp(ox + (ev.clientX - sx), 0, Math.max(0, bounds.w - w));
-      const rawY = clamp(oy + (ev.clientY - sy), 0, Math.max(0, bounds.h - h));
+      const rawY = clamp(oy + (ev.clientY - sy), minY, Math.max(minY, bounds.h - h));
       const x = clamp(snapStart(rawX, w, vlines)[0], 0, bounds.w - w);
-      const y = clamp(snapStart(rawY, h, hlines)[0], 0, bounds.h - h);
+      const y = clamp(snapStart(rawY, h, hlines)[0], minY, Math.max(minY, bounds.h - h));
       triggerSettle();
       setLive({ ...rect, x, y });
       onChange({ ...rect, x, y });

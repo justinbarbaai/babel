@@ -430,8 +430,6 @@ export default function Home() {
         <OffAir />
       ) : (
       <div className="work" ref={workRef}>
-        {/* hard barrier separating the floating header from the panels */}
-        <div className="work-barrier" aria-hidden="true" />
         {layout && (
           <>
             {/* THE ROOM — chat */}
@@ -441,6 +439,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.stream, layout.index]}
               min={{ w: 300, h: 240 }}
+              minY={HK_TOP}
               onChange={(r) => moveRect("chat", r)}
               onFocus={() => focusPanel("chat")}
               onGuides={showGuides}
@@ -519,6 +518,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.chat, layout.index]}
               min={{ w: 280, h: 200 }}
+              minY={HK_TOP}
               onChange={(r) => moveRect("stream", r)}
               onFocus={() => focusPanel("stream")}
               onGuides={showGuides}
@@ -587,6 +587,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.chat, layout.stream]}
               min={{ w: 280, h: 220 }}
+              minY={HK_TOP}
               onChange={(r) => moveRect("index", r)}
               onFocus={() => focusPanel("index")}
               onGuides={showGuides}
