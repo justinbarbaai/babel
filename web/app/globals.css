@@ -3314,16 +3314,14 @@ body.overlay-bare::before {
   color: var(--text);
   display: block;
 }
-/* In the live room the header is fixed (no scroll), so the tall logo used to push
-   the whole workspace down. Instead: a short nav bar with the logo OVERFLOWING
-   below it (size unchanged), so the workspace starts high and gets the room. A
-   keep-out in the layout (see page.tsx) stops panels sitting under the logo. */
-.term-room:not(.offair) .term-bar-slot,
-.term-room:not(.offair) .term-bar-slot > .term-bar { overflow: visible; }
-.term-room:not(.offair) .term-bar { position: relative; padding-top: 9px; padding-bottom: 9px; }
-.term-room:not(.offair) .term-logo { position: absolute; left: 28px; top: 9px; z-index: 6; }
-.term-room:not(.offair) .term-nav { grid-column: 2; }
-.term-room:not(.offair) .term-bar-right { grid-column: 3; }
+/* Live room header: a tall bar with the logo pushed to the top and the nav +
+   controls dropped to the vertical middle. */
+.term-room:not(.offair) .term-bar {
+  align-items: center;
+  padding: 14px 28px;
+  min-height: 152px;
+}
+.term-room:not(.offair) .term-logo { align-self: flex-start; }
 .term-room:not(.offair) .term-lockup { width: 150px; height: 141px; }
 /* footer + cinema lockup */
 .term-foot-lockup {
