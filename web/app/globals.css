@@ -3953,6 +3953,9 @@ body.overlay-bare::before {
 .oa-stage { max-width: 1120px; margin: 0 auto; }
 .oa-player {
   position: relative;
+  /* sit above the site grain (z 9998) so the VOD renders crisp — the grain's
+     blend mode would otherwise film over the video (visible in dark mode). */
+  z-index: 9999;
   width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: 16px;
@@ -6102,7 +6105,9 @@ body.panel-dragging iframe {
 .cin {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* above the off-air player (z 9999) so it still covers the VOD when open, and
+     above the grain (9998) so the cinema video is crisp too. */
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
