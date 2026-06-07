@@ -14,6 +14,7 @@ import { fetchKickContent } from "./sources/kickContent.js";
 import { fetchTweets } from "./sources/tweets.js";
 import { fetchMarkets } from "./sources/markets.js";
 import { fetchProfile } from "./sources/profiles.js";
+import { fetchSocials } from "./sources/socials.js";
 import {
   kickConfigured,
   kickConnected,
@@ -467,6 +468,25 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify(data));
     } catch (err) {
       res.end(JSON.stringify({ equities: [], crypto: [], commodities: [], error: String(err?.message || err) }));
+    }
+    return;
+  }
+
+  // Live host follower counts (Twitch + X). Heavily cached server-side.
+  if (url.pathname === "/socials") {
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    try {
+      const data = await fetchSocials(
+        { twitch: ["fazebanks"], x: ["Banks", "blknoiz06"] },
+        twitchCreds,
+        xOpts.bearerToken
+      );
+      res.end(JSON.stringify(data));
+    } catch (err) {
+      res.end(JSON.stringify({ twitch: {}, x: {}, error: String(err?.message || err) }));
     }
     return;
   }
