@@ -15,7 +15,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ChatMessage, ViewerSnapshot, Channels } from "./useHub";
 import type { SourceKey } from "../components/logos";
 
-export const DEMO_MODE = true;
+// Flip to `true` to re-enter promo/demo mode (fake live show for recording).
+export const DEMO_MODE = false;
 
 // A Twitch VOD to roll in the "live" stream panel during the promo. Swap this id
 // for any clip/VOD you want featured.
