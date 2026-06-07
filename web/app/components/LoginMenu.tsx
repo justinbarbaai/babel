@@ -64,15 +64,32 @@ export function LoginMenu({
     if (id) onSaveClientId(id);
   };
 
+  // When signed in, show the profile photo in a circle instead of "@handle".
+  // Prefer the Twitch pfp; fall back to Kick if only Kick is connected.
+  const signedIn = !!auth || !!kick;
+  const avatarUrl = auth
+    ? `https://unavatar.io/twitch/${auth.login}`
+    : kick?.username
+    ? `https://unavatar.io/kick/${kick.username}`
+    : "";
+
   return (
     <div className="login-menu">
       <button
         ref={btnRef}
-        className={`term-auth ${auth ? "on" : ""}`}
+        className={`term-auth ${signedIn ? "on" : ""} ${signedIn && avatarUrl ? "has-av" : ""}`}
         onClick={toggle}
         aria-expanded={open}
+        aria-label={signedIn ? "Your account" : "Log in"}
       >
-        {auth ? `@${auth.login}` : "Log in"}
+        {signedIn && avatarUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img className="login-av" src={avatarUrl} alt="Your account" />
+        ) : signedIn ? (
+          "Account"
+        ) : (
+          "Log in"
+        )}
       </button>
 
       {open &&

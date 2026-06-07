@@ -3446,6 +3446,23 @@ body.overlay-bare::before {
   background: transparent;
 }
 .term-auth.on { color: var(--text); }
+/* signed-in avatar trigger: just the round pfp, no pill chrome */
+.term-auth.has-av {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+}
+.login-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  border: 1px solid var(--border-2);
+  box-shadow: 0 0 0 2px var(--hair);
+  transition: box-shadow 0.15s ease;
+}
+.term-auth.has-av:hover .login-av { box-shadow: 0 0 0 2px var(--border-2); }
 
 /* ---- login menu popover ---- */
 .login-menu { position: relative; }
