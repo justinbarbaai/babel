@@ -1,6 +1,7 @@
 import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs";
+import { Readable } from "node:stream";
 import { WebSocketServer } from "ws";
 import { TwitchSource } from "./sources/twitch.js";
 import { KickSource } from "./sources/kick.js";
@@ -487,6 +488,40 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify(data));
     } catch (err) {
       res.end(JSON.stringify({ twitch: {}, x: {}, error: String(err?.message || err) }));
+    }
+    return;
+  }
+
+  // Proxy X (twimg) video so the browser loads it same-origin — twimg blocks
+  // cross-origin <video> requests otherwise. Range requests are forwarded so
+  // seeking + progressive buffering work.
+  if (url.pathname === "/vid") {
+    const u = url.searchParams.get("u") || "";
+    if (!/^https:\/\/video\.twimg\.com\/[\w./-]+\.mp4/.test(u)) {
+      res.writeHead(400, { "Access-Control-Allow-Origin": "*" });
+      res.end("bad url");
+      return;
+    }
+    try {
+      const headers = {};
+      if (req.headers.range) headers.Range = req.headers.range;
+      const upstream = await fetch(u, { headers });
+      const out = {
+        "Content-Type": upstream.headers.get("content-type") || "video/mp4",
+        "Accept-Ranges": "bytes",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400",
+      };
+      const cl = upstream.headers.get("content-length");
+      const cr = upstream.headers.get("content-range");
+      if (cl) out["Content-Length"] = cl;
+      if (cr) out["Content-Range"] = cr;
+      res.writeHead(upstream.status, out);
+      if (upstream.body) Readable.fromWeb(upstream.body).pipe(res);
+      else res.end();
+    } catch {
+      res.writeHead(502, { "Access-Control-Allow-Origin": "*" });
+      res.end("proxy error");
     }
     return;
   }

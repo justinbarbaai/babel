@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
 import { usePlayer } from "../lib/player";
+import { TweetPreview } from "./TweetCard";
 import type { Media } from "../lib/media";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
@@ -157,48 +158,29 @@ export function ContentBoard() {
       {/* on X */}
       <Section title="On X" count={`${allTweets.length} posts`} />
       <div className="cnt-x-grid">
-        {allTweets.map((t, i) => (
-          <a
-            key={i}
-            className="cnt-xcard"
-            href={t.url || X_PROFILE}
-            target="_blank"
-            rel="noreferrer"
-            onClick={open({
-              kind: "clip",
-              source: "x",
-              title: t.text,
-              url: t.url,
-              thumb: t.thumb,
-              tweet: {
-                handle: t.handle,
-                name: t.name,
-                avatar: t.avatar,
-                verified: t.verified,
-                text: t.text,
-                video: t.video,
-                thumb: t.thumb,
-                date: t.date,
-                likes: t.likes,
-                replies: t.replies,
-              },
-            })}
-          >
-            {t.thumb && (
-              <span className="cnt-xcard-media" style={{ aspectRatio: "16 / 9" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="cnt-thumb-img" src={t.thumb} alt="" loading="lazy" />
-              </span>
-            )}
-            <span className="cnt-xcard-text">{t.text}</span>
-            <span className="cnt-xcard-foot">
-              <SourceLogo source="x" size={11} />
-              <span className="cnt-xcard-handle">{t.handle}</span>
-              {t.retweet && <span className="cnt-xcard-rt">RT</span>}
-              <span className="cnt-xcard-date">{t.date}</span>
-            </span>
-          </a>
-        ))}
+        {allTweets.map((t, i) => {
+          const tweet = {
+            handle: t.handle,
+            name: t.name,
+            avatar: t.avatar,
+            verified: t.verified,
+            text: t.text,
+            video: t.video,
+            thumb: t.thumb,
+            date: t.date,
+            likes: t.likes,
+            replies: t.replies,
+          };
+          return (
+            <TweetPreview
+              key={i}
+              tweet={tweet}
+              onOpen={() =>
+                play({ kind: "clip", source: "x", title: t.text, url: t.url || X_PROFILE, thumb: t.thumb, tweet })
+              }
+            />
+          );
+        })}
       </div>
 
       {/* broadcasts */}

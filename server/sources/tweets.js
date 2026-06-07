@@ -98,8 +98,10 @@ async function fetchHandle(handle, bearerToken) {
       if (!video && (m.type === "video" || m.type === "animated_gif")) {
         const mp4s = (m.variants || [])
           .filter((v) => v.content_type === "video/mp4")
-          .sort((a, b) => (b.bit_rate || 0) - (a.bit_rate || 0));
-        if (mp4s[0]) video = mp4s[0].url;
+          .sort((a, b) => (a.bit_rate || 0) - (b.bit_rate || 0));
+        // pick a ~720p variant (highest under ~2.2Mbps) to keep the proxy light
+        const pick = mp4s.filter((v) => (v.bit_rate || 0) <= 2200000).pop() || mp4s[mp4s.length - 1];
+        if (pick) video = pick.url;
       }
     }
 

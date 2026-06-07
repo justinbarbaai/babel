@@ -7067,6 +7067,50 @@ body.panel-dragging iframe {
 .tw-stats { display: inline-flex; gap: 14px; }
 .tw-open { margin-left: auto; color: #1d9bf0; text-decoration: none; font-weight: 600; }
 .tw-open:hover { text-decoration: underline; }
+.tw-playbadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  padding-left: 3px;
+}
+
+/* compact preview card (Content grid) — same new-X look */
+.tw-card-preview {
+  text-align: left;
+  width: 100%;
+  border: 1px solid #2f3336;
+  border-radius: 16px;
+  background: #000;
+  cursor: pointer;
+  gap: 10px;
+  padding: 14px 15px;
+  transition: border-color 0.15s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tw-card-preview:hover { border-color: #4a4f54; transform: translateY(-2px); }
+.tw-card-preview .tw-av { width: 38px; height: 38px; }
+.tw-card-preview .tw-name { font-size: 14px; }
+.tw-card-preview .tw-handle { font-size: 13px; }
+.tw-card-preview .tw-text { font-size: 14.5px; line-height: 1.4; }
+.tw-text-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tw-media-preview { position: relative; display: block; aspect-ratio: 16 / 9; }
+.tw-media-preview .tw-img { height: 100%; max-height: none; object-fit: cover; }
+.tw-card-preview .tw-foot { font-size: 12.5px; padding-top: 10px; }
 .vm-noembed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .vm-noembed img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.45; }
 .vm-open {
