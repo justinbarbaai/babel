@@ -3316,8 +3316,8 @@ body.overlay-bare::before {
 }
 /* In the live room the header is fixed (no scroll), so a big logo steals space
    the panels need — compact it there. The off-air home keeps the hero size. */
-.term-room:not(.offair) .term-bar { padding-top: 8px; padding-bottom: 8px; }
-.term-room:not(.offair) .term-lockup { width: 112px; height: 105px; }
+.term-room:not(.offair) .term-bar { padding-top: 10px; padding-bottom: 10px; }
+.term-room:not(.offair) .term-lockup { width: 150px; height: 141px; }
 /* footer + cinema lockup */
 .term-foot-lockup {
   width: 78px;

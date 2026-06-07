@@ -33,6 +33,16 @@ import { twitchBan } from "./lib/twitchMod";
 type Stream = { source: Exclude<SourceKey, "x">; channel: string };
 
 const LAYOUT_KEY = "mb.workspace.v2";
+
+// Keep a panel inside the current workspace bounds (so a layout saved when the
+// header/window was a different size never overflows under the ticker tape).
+function clampRect(r: Rect, W: number, H: number): Rect {
+  const w = Math.min(Math.max(280, r.w), W);
+  const h = Math.min(Math.max(180, r.h), H);
+  const x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
+  const y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
+  return { ...r, x, y, w, h };
+}
 type PanelId = "chat" | "stream" | "index";
 type Workspace = Record<PanelId, Rect>;
 
@@ -172,7 +182,12 @@ export default function Home() {
       if (raw) {
         const saved = JSON.parse(raw) as Workspace;
         zRef.current = Math.max(3, ...Object.values(saved).map((r) => r.z));
-        setLayout(saved);
+        const { w: W, h: H } = bounds;
+        setLayout({
+          chat: clampRect(saved.chat, W, H),
+          stream: clampRect(saved.stream, W, H),
+          index: clampRect(saved.index, W, H),
+        });
         return;
       }
     } catch {}
