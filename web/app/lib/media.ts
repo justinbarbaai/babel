@@ -5,6 +5,19 @@
 export type MediaKind = "clip" | "vod" | "stream";
 export type MediaSource = "twitch" | "kick" | "x";
 
+export type Tweet = {
+  handle?: string;
+  name?: string;
+  avatar?: string;
+  verified?: boolean;
+  text?: string;
+  video?: string;
+  thumb?: string;
+  date?: string;
+  likes?: number;
+  replies?: number;
+};
+
 export type Media = {
   kind: MediaKind;
   title: string;
@@ -15,6 +28,7 @@ export type Media = {
   duration?: string;
   views?: string;
   channel?: string; // for a live stream embed
+  tweet?: Tweet; // for X posts — rendered as a native modern tweet card
 };
 
 export function twitchClipSlug(url: string): string | null {

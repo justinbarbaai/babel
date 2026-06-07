@@ -3,11 +3,17 @@
 
 export type Tweet = {
   handle: string; // "@MarketBubble"
+  name?: string; // display name, e.g. "Market Bubble"
+  avatar?: string; // author profile image URL
+  verified?: boolean;
   date: string; // human label, e.g. "Jun 5"
   text: string;
   retweet?: boolean;
   media?: boolean; // show a media frame on the card
   thumb?: string; // image URL for the card thumbnail
+  video?: string; // native mp4 URL when the post has a video
+  likes?: number;
+  replies?: number;
   url?: string;
 };
 

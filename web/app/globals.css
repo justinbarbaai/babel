@@ -7018,9 +7018,55 @@ body.panel-dragging iframe {
   color: #e7e9ea;
 }
 .vm[data-x] .vm-btn:hover { background: rgba(255, 255, 255, 0.16); }
-.vm[data-x] .vm-stage { aspect-ratio: auto; height: min(74vh, 680px); background: #000; }
+.vm[data-x] .vm-stage { aspect-ratio: auto; max-height: min(74vh, 760px); background: #000; overflow-y: auto; }
 .vm[data-x] .mp-iframe-x { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; }
 .vm[data-x] .vm-noembed { position: static; height: 100%; }
+
+/* ---- custom modern (new-X) tweet card ---- */
+.tw-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 14px;
+  background: #000;
+  color: #e7e9ea;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+.tw-top { display: flex; align-items: center; gap: 11px; }
+.tw-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: #16181c; }
+.tw-id { display: flex; flex-direction: column; min-width: 0; margin-right: auto; line-height: 1.2; }
+.tw-name { display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 15px; color: #e7e9ea; }
+.tw-verified { flex: none; }
+.tw-handle { font-size: 14px; color: #71767b; }
+.tw-xlogo { color: #e7e9ea; flex: none; }
+.tw-text {
+  font-size: 17px;
+  line-height: 1.45;
+  color: #e7e9ea;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tw-link { color: #1d9bf0; }
+.tw-media {
+  display: block;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #2f3336;
+  background: #000;
+}
+.tw-video, .tw-img { display: block; width: 100%; max-height: 62vh; object-fit: contain; background: #000; }
+.tw-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13.5px;
+  color: #71767b;
+  border-top: 1px solid #2f3336;
+  padding-top: 12px;
+}
+.tw-stats { display: inline-flex; gap: 14px; }
+.tw-open { margin-left: auto; color: #1d9bf0; text-decoration: none; font-weight: 600; }
+.tw-open:hover { text-decoration: underline; }
 .vm-noembed { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .vm-noembed img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.45; }
 .vm-open {

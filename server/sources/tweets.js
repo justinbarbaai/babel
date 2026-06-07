@@ -64,10 +64,10 @@ async function fetchHandle(handle, bearerToken) {
   const params = new URLSearchParams({
     query: `from:${handle} -is:reply -is:retweet`,
     max_results: String(PER_HANDLE),
-    "tweet.fields": "created_at,author_id,attachments,referenced_tweets",
+    "tweet.fields": "created_at,author_id,attachments,referenced_tweets,public_metrics",
     expansions: "author_id,attachments.media_keys",
-    "user.fields": "username",
-    "media.fields": "preview_image_url,url,type",
+    "user.fields": "username,name,profile_image_url,verified",
+    "media.fields": "preview_image_url,url,type,variants",
   });
 
   const res = await fetch(`${RECENT_URL}?${params.toString()}`, {
@@ -82,14 +82,25 @@ async function fetchHandle(handle, bearerToken) {
   const out = [];
   for (const t of json?.data ?? []) {
     if (!t?.text) continue;
-    const username = users.get(t.author_id)?.username || handle;
+    const user = users.get(t.author_id);
+    const username = user?.username || handle;
+    const name = user?.name || username;
+    // bump the avatar to a larger crop (X returns _normal = 48px)
+    const avatar = (user?.profile_image_url || "").replace("_normal", "_400x400");
+    const verified = Boolean(user?.verified);
 
     let thumb = "";
+    let video = "";
     for (const k of t.attachments?.media_keys || []) {
       const m = media.get(k);
       if (!m) continue;
-      thumb = m.url || m.preview_image_url || "";
-      if (thumb) break;
+      if (!thumb) thumb = m.url || m.preview_image_url || "";
+      if (!video && (m.type === "video" || m.type === "animated_gif")) {
+        const mp4s = (m.variants || [])
+          .filter((v) => v.content_type === "video/mp4")
+          .sort((a, b) => (b.bit_rate || 0) - (a.bit_rate || 0));
+        if (mp4s[0]) video = mp4s[0].url;
+      }
     }
 
     // Strip t.co links, decode HTML entities X returns (&amp; &lt; ...), and
@@ -110,10 +121,16 @@ async function fetchHandle(handle, bearerToken) {
 
     out.push({
       handle: `@${username}`,
+      name,
+      avatar,
+      verified,
       date: prettyDate(t.created_at),
       text,
       media: Boolean(thumb),
       thumb,
+      video,
+      likes: t.public_metrics?.like_count ?? 0,
+      replies: t.public_metrics?.reply_count ?? 0,
       url: `https://x.com/${username}/status/${t.id}`,
       createdAt: t.created_at || "",
     });

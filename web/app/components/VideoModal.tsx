@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { usePlayer } from "../lib/player";
 import { sourceLabel } from "../lib/media";
 import { MediaPlayer, mediaEmbeddable } from "./MediaPlayer";
+import { TweetCard } from "./TweetCard";
 
 // Centered in-site player for a clip / VOD. Plays on the site instead of
 // bouncing to Twitch/Kick; can be minimized into the floating mini-player.
@@ -52,14 +53,26 @@ export function VideoModal() {
 
         <div className="vm-body">
           <div className="vm-stage">
-            {parent && embeddable ? (
+            {isX ? (
+              modal.tweet ? (
+                <TweetCard tweet={modal.tweet} url={modal.url} />
+              ) : (
+                <div className="vm-noembed">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {modal.thumb && <img src={modal.thumb} alt={modal.title} />}
+                  <a className="vm-open" href={modal.url} target="_blank" rel="noreferrer">
+                    Open on X ↗
+                  </a>
+                </div>
+              )
+            ) : parent && embeddable ? (
               <MediaPlayer media={modal} muted={false} />
             ) : (
               <div className="vm-noembed">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {modal.thumb && <img src={modal.thumb} alt={modal.title} />}
                 <a className="vm-open" href={modal.url} target="_blank" rel="noreferrer">
-                  {isX ? "Open on X" : `Watch on ${label}`} ↗
+                  Watch on {label} ↗
                 </a>
               </div>
             )}
