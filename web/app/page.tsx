@@ -440,15 +440,17 @@ export default function Home() {
           >
             Cinema
           </button>
-          <button
-            className={`term-icon ${focusMode ? "on" : ""}`}
-            onClick={() => setFocusMode((f) => !f)}
-            aria-pressed={focusMode}
-            aria-label="Fullscreen chat"
-            title="Fullscreen — hide header & footer, free the panels (Esc to exit)"
-          >
-            ⤢
-          </button>
+          {showLive && (
+            <button
+              className={`term-icon ${focusMode ? "on" : ""}`}
+              onClick={() => setFocusMode((f) => !f)}
+              aria-pressed={focusMode}
+              aria-label="Fullscreen chat"
+              title="Fullscreen — hide header & footer, free the panels (Esc to exit)"
+            >
+              ⤢
+            </button>
+          )}
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
             Studio
           </a>
