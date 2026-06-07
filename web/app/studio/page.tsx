@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChatFeed } from "../components/ChatFeed";
-import { Connections } from "../components/Connections";
 import { useHub } from "../lib/useHub";
 import {
   SITE_DEFAULT_LOOK,
@@ -15,13 +14,17 @@ import { SourceLogo, SOURCE_LABELS, type SourceKey } from "../components/logos";
 import { MBLockup } from "../components/brand";
 import { StudioGate } from "../components/StudioGate";
 import { ThemeToggle } from "../components/ThemeToggle";
+import {
+  getAuth,
+  getClientId,
+  setClientId,
+  startLogin,
+  handleRedirect,
+  clearAuth,
+  type TwitchAuth,
+} from "../lib/twitchAuth";
 
 const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
-type Tab = "hosts" | "connections";
-const TABS: [Tab, string][] = [
-  ["hosts", "Hosts"],
-  ["connections", "Connections"],
-];
 
 const clean = (s: string) => s.replace(/^@/, "").trim();
 
@@ -48,16 +51,13 @@ function ControlPanel() {
     hubHttpUrl,
   } = useHub();
 
-  const [tab, setTab] = useState<Tab>("hosts");
-
-  // Per-host handles (the show = Banks on Twitch + Ansem on Kick, both on X).
-  // This is the SINGLE source of truth for the show's channels.
+  // The show = Banks on Twitch + Ansem on Kick, both on X. Connecting / setting
+  // any of these merges its chat into the single feed everyone sees.
   const [banksTwitch, setBanksTwitch] = useState("fazebanks");
   const [banksX, setBanksX] = useState("Banks");
   const [ansemKick, setAnsemKick] = useState("ansem");
   const [ansemX, setAnsemX] = useState("blknoiz06");
 
-  // Derived channel config (built from the host cards on Apply).
   const [twitch, setTwitch] = useState<string[]>([]);
   const [kick, setKick] = useState<string[]>([]);
   const [xQuery, setXQuery] = useState("");
@@ -66,7 +66,25 @@ function ControlPanel() {
   const [seeded, setSeeded] = useState(false);
   const [origin, setOrigin] = useState("");
 
-  useEffect(() => setOrigin(window.location.origin), []);
+  // ---- Twitch OAuth (client-side implicit; one connection for the show) ----
+  const [twAuth, setTwAuth] = useState<TwitchAuth | null>(null);
+  const [twClientId, setTwClientId] = useState("");
+  const [twSetup, setTwSetup] = useState(false);
+  const [twKey, setTwKey] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    setTwClientId(getClientId());
+    handleRedirect().then((a) => setTwAuth(a || getAuth()));
+  }, []);
+
+  const saveTwKey = () => {
+    const id = twKey.trim();
+    if (!id) return;
+    setClientId(id);
+    setTwClientId(id);
+    setTwSetup(false);
+  };
 
   // Seed inputs from whatever the hub currently follows.
   useEffect(() => {
@@ -77,7 +95,6 @@ function ControlPanel() {
       setXLiveHandle(serverChannels.xLiveHandle ?? "");
       if (serverChannels.twitch[0]) setBanksTwitch(serverChannels.twitch[0]);
       if (serverChannels.kick[0]) setAnsemKick(serverChannels.kick[0]);
-      // pull host X handles out of a "from:a OR from:b" query if present
       const froms = (serverChannels.xQuery.match(/from:(\w+)/gi) || []).map((m) => m.slice(5));
       if (froms[0]) setBanksX(froms[0]);
       if (froms[1]) setAnsemX(froms[1]);
@@ -88,8 +105,6 @@ function ControlPanel() {
   const cleanTwitch = useMemo(() => twitch.map(clean).filter(Boolean), [twitch]);
   const cleanKick = useMemo(() => kick.map(clean).filter(Boolean), [kick]);
 
-  // The Studio preview always shows the ship default look. Viewers personalize
-  // their own chat from the live room — Studio no longer sets a global look.
   const previewOptions: OverlayOptions = useMemo(
     () => ({ ...SITE_DEFAULT_LOOK, twitch: cleanTwitch, kick: cleanKick, xQuery }),
     [cleanTwitch, cleanKick, xQuery]
@@ -101,7 +116,7 @@ function ControlPanel() {
   );
   const openReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
 
-  // Apply the show feed from the two host cards — the one place channels live.
+  // Merge everything that's set/connected into the one show feed.
   const applyHosts = () => {
     const xHandles = [banksX, ansemX].map(clean).filter(Boolean);
     const xq = xHandles.map((h) => `from:${h}`).join(" OR ");
@@ -115,9 +130,44 @@ function ControlPanel() {
     applyChannels({ twitch: tw, kick: kk, xQuery: xq, xLiveHandle: live }, xToken);
   };
 
-  // Save X credentials without disturbing the host channels.
   const saveXAccess = () =>
     applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery, xLiveHandle }, xToken);
+
+  // ---- connect controls (rendered inside the platform blocks) ----
+  const twitchConnect: ReactNode = twAuth ? (
+    <div className="acct-conn on">
+      <span className="acct-as">● @{twAuth.login}</span>
+      <button className="acct-btn ghost" onClick={() => { clearAuth(); setTwAuth(null); }}>Disconnect</button>
+    </div>
+  ) : twClientId ? (
+    <button className="acct-btn connect" data-platform="twitch" onClick={() => startLogin("/studio")}>
+      Connect Twitch
+    </button>
+  ) : twSetup ? (
+    <div className="acct-key">
+      <input value={twKey} onChange={(e) => setTwKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && saveTwKey()} placeholder="Twitch Client ID" spellCheck={false} />
+      <button className="acct-btn solid" onClick={saveTwKey}>Save</button>
+    </div>
+  ) : (
+    <button className="acct-btn ghost" onClick={() => setTwSetup(true)}>Set up (add Client ID)</button>
+  );
+
+  const kickConnect: ReactNode = kickConnected ? (
+    <div className="acct-conn on">
+      <span className="acct-as">● Account linked</span>
+      <button className="acct-btn ghost" onClick={disconnectKickAccount}>Disconnect</button>
+    </div>
+  ) : kickEnabled ? (
+    <a className="acct-btn connect" data-platform="kick" href={`${hubHttpUrl}/auth/kick/login`}>Connect Kick</a>
+  ) : (
+    <p className="acct-note">
+      Add <code>KICK_CLIENT_ID</code> / <code>KICK_CLIENT_SECRET</code> to the hub to enable.
+    </p>
+  );
+
+  const xConnect: ReactNode = (
+    <p className="acct-note">Posts arrive via the X API token — set it under <b>X access</b> below.</p>
+  );
 
   return (
     <div className="console">
@@ -139,10 +189,10 @@ function ControlPanel() {
 
       <section className="studio-head">
         <span className="studio-eyebrow">Operator console</span>
-        <h1 className="studio-h1">Run the room.</h1>
+        <h1 className="studio-h1">Connect the show.</h1>
         <p className="studio-sub">
-          The show is Banks &amp; Ansem. Set their channels in <b>Hosts</b>, and link the accounts that
-          power posting in <b>Connections</b>. The chat look is each viewer&apos;s own — set from the live room.
+          Link Banks &amp; Ansem&apos;s accounts — every account you connect merges into the one chat
+          everyone sees. The chat look is each viewer&apos;s own, set from the live room.
         </p>
       </section>
 
@@ -166,184 +216,185 @@ function ControlPanel() {
         })}
       </div>
 
-      {/* tabs */}
-      <nav className="studio-tabs" role="tablist">
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            className={`studio-tab ${tab === key ? "on" : ""}`}
-            onClick={() => setTab(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      {/* ---- HOSTS — the single source of truth for the show's channels ---- */}
-      {tab === "hosts" && (
-        <>
-          <div className="host-grid">
-            <HostCard
-              name="Banks"
-              role="Host"
-              xHandle={banksX}
-              statuses={statuses}
-              fields={[
-                { source: "twitch", label: "Twitch channel", value: banksTwitch, onChange: setBanksTwitch, placeholder: "fazebanks" },
-                { source: "x", label: "X handle", value: banksX, onChange: setBanksX, placeholder: "Banks" },
-              ]}
-            />
-            <HostCard
-              name="Ansem"
-              role="Co-host"
-              xHandle={ansemX}
-              statuses={statuses}
-              fields={[
-                { source: "kick", label: "Kick channel", value: ansemKick, onChange: setAnsemKick, placeholder: "ansem" },
-                { source: "x", label: "X handle", value: ansemX, onChange: setAnsemX, placeholder: "blknoiz06" },
-              ]}
-            />
-          </div>
-          <div className="host-apply">
-            <button className="btn btn-gold" onClick={applyHosts}>Apply show feed</button>
-            <span className="muted small">
-              Merges Banks (Twitch) + Ansem (Kick) + both on X into the one chat everyone sees.
-            </span>
-          </div>
-
-          <section className="card preview-card">
-            <div className="preview-head">
-              <h2 className="card-title">Live chat preview</h2>
-              <span className="muted small">{messages.length} msgs</span>
-            </div>
-            <div className={`preview-stage bg-${SITE_DEFAULT_LOOK.bg}`}>
-              <ChatFeed
-                messages={messages}
-                options={previewOptions}
-                placeholder={<span>Waiting for chat… set the hosts and hit <b>Apply show feed</b>.</span>}
-              />
-            </div>
-            <p className="muted small">Server: <code>{hubUrl}</code> must be running to receive chat.</p>
-          </section>
-
-          <section className="card">
-            <h2 className="card-title">Outputs</h2>
-            <div className="hero-actions">
-              <a className="action action-primary" href="/watch">
-                <span className="action-title">Watch &amp; chat</span>
-                <span className="action-desc">Stream player + unified chat in one view</span>
-              </a>
-              <button className="action" onClick={openReader} suppressHydrationWarning>
-                <span className="action-title">Pop out reader ↗</span>
-                <span className="action-desc">Floating, resizable chat window</span>
-              </button>
-              <a className="action action-ghost" href="/overlay-studio">
-                <span className="action-title">Chat overlay for OBS</span>
-                <span className="action-desc">Build a transparent browser source</span>
-              </a>
-            </div>
-          </section>
-        </>
-      )}
-
-      {/* ---- CONNECTIONS — account credentials / plumbing only (no channels) ---- */}
-      {tab === "connections" && (
-        <>
-          <Connections
-            xEnabled={xEnabled}
-            kickEnabled={kickEnabled}
-            kickConnected={kickConnected}
-            hubHttpUrl={hubHttpUrl}
-            onDisconnectKick={disconnectKickAccount}
+      {/* host account cards — connect + channel, the one place the feed is built */}
+      <div className="host-grid">
+        <HostAccountCard name="Banks" role="Host" avatarHandle={banksX}>
+          <PlatformBlock
+            source="twitch"
+            value={banksTwitch}
+            onChange={setBanksTwitch}
+            placeholder="fazebanks"
+            on={!!twAuth}
+            stateLabel={twAuth ? "Connected" : "Not connected"}
+            connect={twitchConnect}
           />
+          <PlatformBlock
+            source="x"
+            value={banksX}
+            onChange={setBanksX}
+            placeholder="Banks"
+            on={xEnabled}
+            stateLabel={xEnabled ? "API on" : "No token"}
+            connect={xConnect}
+          />
+        </HostAccountCard>
 
-          <section className="card">
-            <h2 className="card-title">X access</h2>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              Credentials only — the X handles themselves are set on the <b>Hosts</b> tab.
-            </p>
-            <div className="fields">
-              <Field
-                label="X bearer token (enables X)"
-                value={xToken}
-                onChange={setXToken}
-                type="password"
-                placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
-                hint={xEnabled ? "X is connected. Token stays server-side, never in any link." : "Paste your X bearer token to turn on X (kept server-side)."}
-              />
-              <Field
-                label="X live account (viewer count)"
-                value={xLiveHandle}
-                onChange={setXLiveHandle}
-                placeholder="e.g. banks"
-                hint="The X account whose live broadcast viewer count shows on the site."
-              />
-              <button className="btn btn-gold" onClick={saveXAccess}>Save X access</button>
-            </div>
-          </section>
-        </>
-      )}
+        <HostAccountCard name="Ansem" role="Co-host" avatarHandle={ansemX}>
+          <PlatformBlock
+            source="kick"
+            value={ansemKick}
+            onChange={setAnsemKick}
+            placeholder="ansem"
+            on={kickConnected}
+            stateLabel={kickConnected ? "Connected" : "Not connected"}
+            connect={kickConnect}
+          />
+          <PlatformBlock
+            source="x"
+            value={ansemX}
+            onChange={setAnsemX}
+            placeholder="blknoiz06"
+            on={xEnabled}
+            stateLabel={xEnabled ? "API on" : "No token"}
+            connect={xConnect}
+          />
+        </HostAccountCard>
+      </div>
+
+      <div className="host-apply">
+        <button className="btn btn-gold" onClick={applyHosts}>Apply &amp; merge chat</button>
+        <span className="muted small">
+          Merges every connected account — Banks (Twitch) + Ansem (Kick) + both on X — into the one
+          chat everyone sees.
+        </span>
+      </div>
+
+      {/* X access (credential only) */}
+      <section className="card">
+        <h2 className="card-title">X access</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          The X API token that powers posts &amp; live views. The handles themselves live on the host
+          cards above.
+        </p>
+        <div className="fields">
+          <Field
+            label="X bearer token (enables X)"
+            value={xToken}
+            onChange={setXToken}
+            type="password"
+            placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
+            hint={xEnabled ? "X is connected. Token stays server-side, never in any link." : "Paste your X bearer token to turn on X (kept server-side)."}
+          />
+          <Field
+            label="X live account (viewer count)"
+            value={xLiveHandle}
+            onChange={setXLiveHandle}
+            placeholder="e.g. banks"
+            hint="The X account whose live broadcast viewer count shows on the site."
+          />
+          <button className="btn btn-gold" onClick={saveXAccess}>Save X access</button>
+        </div>
+      </section>
+
+      {/* live chat preview */}
+      <section className="card preview-card">
+        <div className="preview-head">
+          <h2 className="card-title">Live chat preview</h2>
+          <span className="muted small">{messages.length} msgs</span>
+        </div>
+        <div className={`preview-stage bg-${SITE_DEFAULT_LOOK.bg}`}>
+          <ChatFeed
+            messages={messages}
+            options={previewOptions}
+            placeholder={<span>Waiting for chat… connect the hosts and hit <b>Apply &amp; merge chat</b>.</span>}
+          />
+        </div>
+        <p className="muted small">Server: <code>{hubUrl}</code> must be running to receive chat.</p>
+      </section>
+
+      {/* outputs */}
+      <section className="card">
+        <h2 className="card-title">Outputs</h2>
+        <div className="hero-actions">
+          <a className="action action-primary" href="/watch">
+            <span className="action-title">Watch &amp; chat</span>
+            <span className="action-desc">Stream player + unified chat in one view</span>
+          </a>
+          <button className="action" onClick={openReader} suppressHydrationWarning>
+            <span className="action-title">Pop out reader ↗</span>
+            <span className="action-desc">Floating, resizable chat window</span>
+          </button>
+          <a className="action action-ghost" href="/overlay-studio">
+            <span className="action-title">Chat overlay for OBS</span>
+            <span className="action-desc">Build a transparent browser source</span>
+          </a>
+        </div>
+      </section>
     </div>
   );
 }
 
-type HostField = {
-  source: SourceKey;
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-};
-
-function HostCard({
+function HostAccountCard({
   name,
   role,
-  xHandle,
-  fields,
-  statuses,
+  avatarHandle,
+  children,
 }: {
   name: string;
   role: string;
-  xHandle: string;
-  fields: HostField[];
-  statuses: Record<SourceKey, { connected: boolean; channel: string }>;
+  avatarHandle: string;
+  children: ReactNode;
 }) {
   return (
-    <section className="host-card">
+    <section className="host-card acct-card">
       <div className="host-top">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="host-av" src={`https://unavatar.io/twitter/${clean(xHandle)}`} alt={name} />
+        <img className="host-av" src={`https://unavatar.io/twitter/${clean(avatarHandle)}`} alt={name} />
         <div className="host-id">
           <span className="host-name">{name}</span>
           <span className="host-role">{role}</span>
         </div>
-        <div className="host-dots">
-          {fields.map((f) => {
-            const live = f.source !== "x" && statuses[f.source]?.connected;
-            return (
-              <span key={f.source} className={`host-dot ${live ? "on" : ""}`} title={SOURCE_LABELS[f.source]}>
-                <SourceLogo source={f.source} size={13} />
-              </span>
-            );
-          })}
-        </div>
       </div>
-      <div className="host-fields">
-        {fields.map((f) => (
-          <div className="field" key={f.source}>
-            <label>
-              <span className="host-field-logo" style={{ color: f.source === "x" ? "var(--text)" : srcColor(f.source) }}>
-                <SourceLogo source={f.source} size={12} />
-              </span>{" "}
-              {f.label}
-            </label>
-            <input value={f.value} onChange={(e) => f.onChange(e.target.value)} placeholder={f.placeholder} spellCheck={false} />
-          </div>
-        ))}
-      </div>
+      <div className="acct-blocks">{children}</div>
     </section>
+  );
+}
+
+function PlatformBlock({
+  source,
+  value,
+  onChange,
+  placeholder,
+  on,
+  stateLabel,
+  connect,
+}: {
+  source: SourceKey;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  on: boolean;
+  stateLabel: string;
+  connect: ReactNode;
+}) {
+  return (
+    <div className="acct-block" data-platform={source}>
+      <div className="acct-head">
+        <span className="acct-logo" style={{ color: source === "x" ? "var(--text)" : srcColor(source) }}>
+          <SourceLogo source={source} size={15} />
+        </span>
+        <span className="acct-plat">{SOURCE_LABELS[source]}</span>
+        <span className={`acct-state ${on ? "on" : ""}`}>{stateLabel}</span>
+      </div>
+      <input
+        className="acct-input"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        spellCheck={false}
+      />
+      <div className="acct-connect">{connect}</div>
+    </div>
   );
 }
 
