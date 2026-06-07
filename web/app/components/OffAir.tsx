@@ -5,6 +5,7 @@ import { useHub } from "../lib/useHub";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
 import { MediaPlayer } from "./MediaPlayer";
+import type { Media } from "../lib/media";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -57,7 +58,7 @@ export function OffAir() {
       .then((d) => {
         if (!alive) return;
         const tw: Stream[] = (d.streams || []).filter(
-          (s: Stream) => (s as any).source !== "kick" && twitchVodId(s.url)
+          (s: Stream) => (s as { source?: string }).source !== "kick" && twitchVodId(s.url)
         );
         setVods(tw);
         setSelected((cur) => cur || tw[0] || null);
@@ -68,8 +69,11 @@ export function OffAir() {
     };
   }, [hubHttpUrl]);
 
-  const vodId = twitchVodId(selected?.url);
-  const parent = typeof window !== "undefined" ? window.location.hostname : "localhost";
+  // The theater plays the latest broadcast VOD; the Embed API force-plays it
+  // (muted) once the player is ready — same trick the competitor uses.
+  const heroMedia: Media | null = selected
+    ? { kind: "vod", title: selected.title, url: selected.url, source: "twitch" }
+    : null;
 
   const next = useMemo(() => (now ? nextLive(now) : null), [now]);
   const nextLabel = next
@@ -87,28 +91,25 @@ export function OffAir() {
         )}
       </div>
 
-      {/* centered replay theater */}
+      {/* centered theater — latest clip autoplays; rail swaps to a full VOD */}
       <div className="oa-stage">
-        {selected && vodId ? (
+        {heroMedia ? (
           <div className="oa-player">
             {/* same player engine as the mini-player */}
-            <MediaPlayer
-              media={{ kind: "vod", title: selected.title, url: selected.url, source: "twitch" }}
-              muted
-            />
+            <MediaPlayer media={heroMedia} muted />
           </div>
         ) : (
           <div className="oa-player oa-player-empty">
             <span className="muted">Loading the latest broadcast…</span>
           </div>
         )}
-        {selected && (
+        {heroMedia && (
           <div className="oa-stage-cap">
             <div className="oa-stage-meta">
-              <span className="oa-stage-badge">Replay</span>
-              <span className="oa-stage-title">{selected.title}</span>
+              <span className="oa-stage-badge">{heroMedia.kind === "clip" ? "Highlight" : "Replay"}</span>
+              <span className="oa-stage-title">{heroMedia.title}</span>
             </div>
-            <a className="oa-stage-go" href={selected.url} target="_blank" rel="noreferrer">
+            <a className="oa-stage-go" href={heroMedia.url} target="_blank" rel="noreferrer">
               <SourceLogo source="twitch" size={12} /> Watch on Twitch ↗
             </a>
           </div>
