@@ -1,5 +1,6 @@
 import "dotenv/config";
 import http from "node:http";
+import fs from "node:fs";
 import { WebSocketServer } from "ws";
 import { TwitchSource } from "./sources/twitch.js";
 import { KickSource } from "./sources/kick.js";
@@ -83,6 +84,52 @@ let currentStyle = null;
 // Admin-set chat appearance for the public room (separate from the overlay
 // style). Broadcast to every visitor; remembered for new connections.
 let siteLook = null;
+
+// ---- durable settings: survive hub restarts (channels + chat look). Secrets
+// (X token, OAuth) stay in .env / memory and are never written here. ----
+const STATE_FILE = new URL("./.mb-state.json", import.meta.url);
+function loadState() {
+  try {
+    const s = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+    if (s.siteLook && typeof s.siteLook === "object") siteLook = s.siteLook;
+    const c = s.config;
+    if (c && typeof c === "object") {
+      if (Array.isArray(c.twitchChannels)) config.twitchChannels = c.twitchChannels;
+      if (Array.isArray(c.kickChannels)) config.kickChannels = c.kickChannels;
+      if (typeof c.xQuery === "string") config.xQuery = c.xQuery;
+      if (typeof c.xLiveHandle === "string") config.xLiveHandle = c.xLiveHandle;
+    }
+  } catch {
+    /* no saved state yet */
+  }
+}
+let saveTimer = null;
+function saveState() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(
+        STATE_FILE,
+        JSON.stringify(
+          {
+            siteLook,
+            config: {
+              twitchChannels: config.twitchChannels,
+              kickChannels: config.kickChannels,
+              xQuery: config.xQuery,
+              xLiveHandle: config.xLiveHandle,
+            },
+          },
+          null,
+          2
+        )
+      );
+    } catch (e) {
+      console.warn("[state] save failed:", e.message);
+    }
+  }, 300);
+}
+loadState();
 
 // Latest combined viewer-count snapshot, refreshed on an interval and sent to
 // each newly-connected client so the dashboard shows a number immediately.
@@ -507,6 +554,7 @@ wss.on("connection", (ws) => {
       // visitors. Remembered so newly-connected clients get the current look.
       siteLook = msg.look;
       broadcast({ type: "siteLook", look: siteLook });
+      saveState();
       return;
     }
     if (msg.type === "style" && msg.style && typeof msg.style === "object") {
@@ -544,6 +592,7 @@ wss.on("connection", (ws) => {
       console.log("Reconfiguring sources:", config);
       startSources();
       broadcast(configPayload());
+      saveState();
     }
   });
 

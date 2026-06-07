@@ -663,24 +663,22 @@ code {
   border: 1px solid var(--border);
   overflow: hidden;
   position: relative;
-  background:
-    linear-gradient(135deg, #11131a 0%, #0a0b0f 100%);
-  /* The preview is always a dark "over-gameplay" stage, so pin the chat's theme
-     colors to dark-mode values — otherwise light theme paints dark text on this
-     dark stage (the "black letters" bug). var()-based rules (incl. paper skin)
-     all resolve against these. */
+  /* Warm "after-hours" stage matching the brand (not a purple gamer gradient). */
+  background: radial-gradient(120% 120% at 50% 0%, #1a1917 0%, #0e0d0b 74%);
+  /* The preview is always a dark stage, so pin the chat's theme colors to
+     dark-mode values — otherwise light theme paints dark text on this dark stage
+     (the "black letters" bug). var()-based rules (incl. paper skin) resolve
+     against these. */
   --text: #f4efe4;
   --muted: rgba(244, 239, 228, 0.62);
   --hair: rgba(244, 239, 228, 0.12);
 }
-/* a faux gameplay shimmer so "transparent" / shadow choices are visible */
 .preview-stage.bg-none,
 .preview-stage.bg-box,
 .preview-stage.bg-glass {
   background:
-    radial-gradient(900px 500px at 20% 10%, rgba(145, 70, 255, 0.14), transparent 55%),
-    radial-gradient(700px 500px at 90% 90%, rgba(83, 252, 24, 0.10), transparent 55%),
-    linear-gradient(135deg, #15131d 0%, #0a0b0f 100%);
+    radial-gradient(900px 520px at 18% 8%, rgba(244, 239, 228, 0.05), transparent 55%),
+    radial-gradient(120% 120% at 50% 0%, #1a1917 0%, #0e0d0b 74%);
 }
 
 .muted {
@@ -6549,9 +6547,17 @@ body.panel-dragging iframe {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(125% 120% at 50% 38%, #f3ebda, #e3dbc6 88%);
+  /* dark by default (site default theme); light override below */
+  background: radial-gradient(125% 120% at 50% 38%, #201e1a, #121110 88%);
   transition: opacity 0.6s ease, transform 0.6s ease;
 }
+:root[data-theme="light"] .boot {
+  background: radial-gradient(125% 120% at 50% 38%, #f3ebda, #e3dbc6 88%);
+}
+/* the logo art is solid black: invert it to cream on the dark boot, leave it ink
+   on the light (paper) boot. Static filter — doesn't touch the press animation. */
+.boot-lockup { filter: invert(0.93) sepia(0.06); }
+:root[data-theme="light"] .boot-lockup { filter: none; }
 .boot.out {
   opacity: 0;
   transform: scale(1.015);
