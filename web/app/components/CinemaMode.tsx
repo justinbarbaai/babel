@@ -4,15 +4,17 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChatFeed } from "./ChatFeed";
 import { MBLockup } from "./brand";
 import { SourceLogo, type SourceKey } from "./logos";
+import { DEMO_MODE, DEMO_VOD_ID } from "../lib/demo";
 import type { ChatMessage, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 
 type Stream = { source: Exclude<SourceKey, "x">; channel: string };
 type Els = { stream: boolean; chat: boolean; views: boolean };
+type Layout = "overlay" | "rail";
 const SCENES: { key: string; label: string; els: Els }[] = [
   { key: "broadcast", label: "Broadcast", els: { stream: true, chat: true, views: true } },
-  { key: "audience", label: "Audience", els: { stream: false, chat: true, views: true } },
   { key: "theater", label: "Theater", els: { stream: true, chat: false, views: false } },
+  { key: "spotlight", label: "Spotlight", els: { stream: true, chat: false, views: true } },
 ];
 
 type Props = {
@@ -46,6 +48,21 @@ export function CinemaMode({
   const [els, setEls] = useState<Els>(SCENES[0].els);
   const [render, setRender] = useState(false);
   const [vis, setVis] = useState(false);
+  const [layout, setLayout] = useState<Layout>("rail");
+
+  // remember the layout choice across opens
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("mb.cinLayout");
+      if (v === "overlay" || v === "rail") setLayout(v);
+    } catch {}
+  }, []);
+  const chooseLayout = (l: Layout) => {
+    setLayout(l);
+    try {
+      localStorage.setItem("mb.cinLayout", l);
+    } catch {}
+  };
 
   // mount with an enter animation; on close, play the exit before unmounting
   useEffect(() => {
@@ -79,9 +96,18 @@ export function CinemaMode({
   if (!render) return null;
   const scene = SCENES[idx];
 
+  const railStyle =
+    layout === "rail"
+      ? {
+          gridTemplateColumns:
+            els.chat || els.views ? "minmax(0, 1fr) clamp(300px, 26vw, 400px)" : "minmax(0, 1fr)",
+          gridTemplateRows: "auto minmax(0, 1fr)",
+        }
+      : undefined;
+
   return (
     <div className={`cin ${vis ? "in" : ""}`} role="dialog" aria-modal="true">
-      <div className="cin-stage" data-scene={scene.key}>
+      <div className="cin-stage" data-scene={scene.key} data-layout={layout} style={railStyle}>
         {els.stream && selected ? (
           <CinemaStream key={`${selected.source}:${selected.channel}`} selected={selected} parent={parent} />
         ) : (
@@ -131,6 +157,15 @@ export function CinemaMode({
         <Chip on={els.stream} onClick={() => setEls((e) => ({ ...e, stream: !e.stream }))}>Stream</Chip>
         <Chip on={els.chat} onClick={() => setEls((e) => ({ ...e, chat: !e.chat }))}>Chat</Chip>
         <Chip on={els.views} onClick={() => setEls((e) => ({ ...e, views: !e.views }))}>Views</Chip>
+        <span className="cin-dock-sep" />
+        <div className="cin-layouts" role="group" aria-label="Layout">
+          <button className={`cin-lbtn ${layout === "overlay" ? "on" : ""}`} onClick={() => chooseLayout("overlay")}>
+            Overlay
+          </button>
+          <button className={`cin-lbtn ${layout === "rail" ? "on" : ""}`} onClick={() => chooseLayout("rail")}>
+            Rail
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -148,8 +183,10 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 /* ---- the cinema stream: own SDK player, unmuted (opened by a click), shielded
    so the cursor can't pause it, with a custom volume slider ---- */
 function CinemaStream({ selected, parent }: { selected: Stream; parent: string }) {
-  const src =
-    selected.source === "twitch"
+  const src = DEMO_MODE
+    ? // promo demo: roll the VOD in cinema as if it were the live feed
+      `https://player.twitch.tv/?video=${DEMO_VOD_ID}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`
+    : selected.source === "twitch"
       ? `https://player.twitch.tv/?channel=${encodeURIComponent(selected.channel)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`
       : `https://player.kick.com/${encodeURIComponent(selected.channel)}?muted=true&autoplay=true`;
   return (
