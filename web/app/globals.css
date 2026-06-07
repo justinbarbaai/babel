@@ -4133,6 +4133,37 @@ body.overlay-bare::before {
   padding: 0 30px 48px;
 }
 
+/* Content pages: float the header (like the live room) so its tall logo stops
+   reserving a 241px block that shoves the page title down. The header keeps its
+   exact position + sizes — it just overhangs the empty top-left; clicks pass
+   through to the content. A top "barrier" on the page brings the title up to sit
+   just under the nav row. Raise/lower the title by tuning --term-barrier. */
+.term.term-scroll {
+  position: relative;
+  --term-barrier: 150px;
+}
+.term.term-scroll > .term-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.term.term-scroll > .term-bar .term-logo,
+.term.term-scroll > .term-bar .term-nav,
+.term.term-scroll > .term-bar .term-bar-right {
+  pointer-events: auto;
+}
+.term.term-scroll > .work.term-page {
+  padding-top: var(--term-barrier);
+}
+/* Narrower viewports: the content column slides left under the logo, so drop the
+   title below the logo's full height to avoid overlapping the wordmark. */
+@media (max-width: 1320px) {
+  .term.term-scroll { --term-barrier: 226px; }
+}
+
 body.panel-dragging {
   user-select: none;
   cursor: grabbing;
@@ -6552,7 +6583,7 @@ body.panel-dragging iframe {
   inset: 0;
   z-index: 9998;
   pointer-events: none;
-  opacity: 0.45;
+  opacity: 0.6;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px 180px;
