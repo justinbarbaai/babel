@@ -51,6 +51,24 @@ const MSGS = [
   "banks the goat", "actual financial wizardry", "hold the line 🫡",
 ];
 
+// X (Twitter) handles + posts pulled from the live on @MarketBubble.
+const X_NAMES = [
+  "MacroMike", "onchain_amy", "solana_sage", "degenintern", "cryptoanalyst",
+  "tradfi_refugee", "altcoinanna", "the_chartist", "liquidity_luke", "memecoinmolly",
+];
+const X_MSGS = [
+  "watching @MarketBubble — ansem's $SOL read is wild",
+  "banks + ansem cooking on @MarketBubble 🔥",
+  "$BTC reclaiming 62k live on @MarketBubble 👀",
+  "the @MarketBubble polymarket segment is elite",
+  "tuned into @MarketBubble, this is must-watch",
+  "$SOL into the close looking strong",
+  "@MarketBubble best finance show on the internet",
+  "ngl @MarketBubble changed how I trade",
+  "this @MarketBubble clip is going viral",
+  "ansem called it again on @MarketBubble",
+];
+
 // Chatters' personal name colors (used when nameColor = "chatter", like a real
 // Twitch/Kick username color).
 const USER_COLORS = [
@@ -69,20 +87,44 @@ const PLATFORM_COLOR: Record<string, string> = {
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
+const CHANNEL_FOR: Record<string, string> = {
+  twitch: "fazebanks",
+  kick: "ansem",
+  x: "MarketBubble",
+};
+
 let counter = 0;
 function makeMsg(): ChatMessage {
   counter += 1;
-  // ~70% Twitch, 30% Kick for a believable mix
-  const source: SourceKey = Math.random() < 0.7 ? "twitch" : "kick";
+  // believable platform mix: ~58% Twitch, 25% Kick, 17% X (from the live on X)
+  const roll = Math.random();
+  const source: SourceKey = roll < 0.58 ? "twitch" : roll < 0.83 ? "kick" : "x";
+  const isX = source === "x";
   return {
     id: `demo-${counter}-${Math.floor(rand(0, 1e6))}`,
     source,
-    username: pick(NAMES),
-    text: pick(MSGS),
+    username: isX ? pick(X_NAMES) : pick(NAMES),
+    text: isX ? pick(X_MSGS) : pick(MSGS),
     timestamp: Date.now(),
     color: PLATFORM_COLOR[source], // platform tint → logo + badge + "platform" name mode
-    userColor: pick(USER_COLORS), // the chatter's own color → "chatter" name mode
-    channel: source === "twitch" ? "fazebanks" : "ansem",
+    // X posts carry no per-user color (matches the real feed); others get one.
+    userColor: isX ? null : pick(USER_COLORS),
+    channel: CHANNEL_FOR[source],
+  };
+}
+
+// A message authored by the viewer typing from the site (the typing demo).
+function makeYouMsg(text: string, source: "twitch" | "kick", username: string): ChatMessage {
+  counter += 1;
+  return {
+    id: `demo-you-${counter}`,
+    source,
+    username,
+    text,
+    timestamp: Date.now(),
+    color: PLATFORM_COLOR[source],
+    userColor: "#ffd166", // gold so "you" stands out a touch
+    channel: CHANNEL_FOR[source],
   };
 }
 
@@ -113,6 +155,8 @@ export type DemoFeed = {
   messages: ChatMessage[];
   viewers: ViewerSnapshot;
   channels: Channels;
+  // Post a message as the viewer (typing from the site) — for the promo demo.
+  say: (text: string, source: "twitch" | "kick", username: string) => void;
 };
 
 // Returns a live-looking fake feed when DEMO_MODE is on, else null.
@@ -141,6 +185,12 @@ export function useDemoFeed(): DemoFeed | null {
     };
   }, []);
 
+  const say = (text: string, source: "twitch" | "kick", username: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setMessages((m) => [...m, makeYouMsg(t, source, username || "you")].slice(-200));
+  };
+
   if (!DEMO_MODE) return null;
-  return { messages, viewers, channels: DEMO_CHANNELS };
+  return { messages, viewers, channels: DEMO_CHANNELS, say };
 }

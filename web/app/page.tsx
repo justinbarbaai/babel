@@ -350,8 +350,9 @@ export default function Home() {
   // ---- chat send ----
   const twitchChannels = serverChannels?.twitch ?? [];
   const kickChannels = serverChannels?.kick ?? [];
-  const canTwitch = !!auth && twitchChannels.length > 0;
-  const canKick = (!!kickSession || kickConnected) && kickChannels.length > 0;
+  // In demo mode the composer is always usable (so the promo can show typing).
+  const canTwitch = !!demo || (!!auth && twitchChannels.length > 0);
+  const canKick = !!demo || ((!!kickSession || kickConnected) && kickChannels.length > 0);
   const canChat = canTwitch || canKick;
   const [targets, setTargets] = useState<{ twitch: boolean; kick: boolean }>({ twitch: true, kick: true });
   const sendTwitch = targets.twitch && canTwitch;
@@ -360,6 +361,12 @@ export default function Home() {
   const submit = () => {
     const text = draft.trim();
     if (!text || (!sendTwitch && !sendKickTarget)) return;
+    // Demo: post the typed message into the fake feed as the viewer.
+    if (demo) {
+      demo.say(text, sendTwitch ? "twitch" : "kick", auth?.login || "you");
+      setDraft("");
+      return;
+    }
     if (sendTwitch) for (const ch of twitchChannels) senderRef.current?.send(ch, text);
     if (sendKickTarget) for (const ch of kickChannels) sendKick(ch, text, kickSession?.id);
     setDraft("");
