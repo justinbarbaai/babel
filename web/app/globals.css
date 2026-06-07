@@ -29,8 +29,9 @@
 
 /* Light "paper" theme — warm newsprint, ink type. Flips on <html data-theme>. */
 :root[data-theme="light"] {
-  --bg: #f3efe6;
-  --bg-2: #e9e3d6;
+  /* match the boot's light (paper) field: #f3ebda center -> #e3dbc6 */
+  --bg: #f3ebda;
+  --bg-2: #e3dbc6;
   --panel: rgba(20, 16, 10, 0.035);
   --panel-2: rgba(20, 16, 10, 0.06);
   --border: rgba(20, 16, 10, 0.12);
