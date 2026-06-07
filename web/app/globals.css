@@ -6720,9 +6720,11 @@ body.panel-dragging iframe {
   width: min(380px, 92vw);
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  /* solid, opaque panel — was var(--panel) (~4% alpha), which let the whole
+     page bleed through and made the controls unreadable */
+  background: var(--bg-2);
   border-left: 1px solid var(--border-2);
-  box-shadow: -24px 0 60px -28px rgba(0, 0, 0, 0.7);
+  box-shadow: -24px 0 80px -24px rgba(0, 0, 0, 0.55);
   transform: translateX(100%);
   transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
