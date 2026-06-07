@@ -1,15 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChatFeed } from "../components/ChatFeed";
 import { useHub } from "../lib/useHub";
-import {
-  SITE_DEFAULT_LOOK,
-  buildQuery,
-  DEFAULT_OPTIONS,
-  type OverlayOptions,
-} from "../lib/overlay";
+import { SITE_DEFAULT_LOOK, type OverlayOptions } from "../lib/overlay";
 import { SourceLogo, SOURCE_LABELS, type SourceKey } from "../components/logos";
 import { MBLockup } from "../components/brand";
 import { StudioGate } from "../components/StudioGate";
@@ -64,7 +59,17 @@ function ControlPanel() {
   const [xLiveHandle, setXLiveHandle] = useState("");
   const [xToken, setXToken] = useState("");
   const [seeded, setSeeded] = useState(false);
-  const [origin, setOrigin] = useState("");
+
+  // Guest streamers — connect a Twitch or Kick channel (not X) and their chat
+  // merges into the show feed too.
+  type Guest = { id: number; platform: "twitch" | "kick"; channel: string };
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const guestId = useRef(0);
+  const addGuest = () =>
+    setGuests((g) => [...g, { id: ++guestId.current, platform: "twitch", channel: "" }]);
+  const updateGuest = (id: number, patch: Partial<Guest>) =>
+    setGuests((g) => g.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const removeGuest = (id: number) => setGuests((g) => g.filter((x) => x.id !== id));
 
   // ---- Twitch OAuth (client-side implicit; one connection for the show) ----
   const [twAuth, setTwAuth] = useState<TwitchAuth | null>(null);
@@ -73,7 +78,6 @@ function ControlPanel() {
   const [twKey, setTwKey] = useState("");
 
   useEffect(() => {
-    setOrigin(window.location.origin);
     setTwClientId(getClientId());
     handleRedirect().then((a) => setTwAuth(a || getAuth()));
   }, []);
@@ -110,18 +114,14 @@ function ControlPanel() {
     [cleanTwitch, cleanKick, xQuery]
   );
 
-  const readerUrl = useMemo(
-    () => `${origin}/reader?${buildQuery({ ...DEFAULT_OPTIONS, twitch: cleanTwitch, kick: cleanKick, xQuery })}`,
-    [origin, cleanTwitch, cleanKick, xQuery]
-  );
-  const openReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
-
-  // Merge everything that's set/connected into the one show feed.
+  // Merge everything that's set/connected — hosts + guests — into one feed.
   const applyHosts = () => {
     const xHandles = [banksX, ansemX].map(clean).filter(Boolean);
     const xq = xHandles.map((h) => `from:${h}`).join(" OR ");
-    const tw = [clean(banksTwitch)].filter(Boolean);
-    const kk = [clean(ansemKick)].filter(Boolean);
+    const guestTw = guests.filter((g) => g.platform === "twitch").map((g) => clean(g.channel));
+    const guestKk = guests.filter((g) => g.platform === "kick").map((g) => clean(g.channel));
+    const tw = [...new Set([clean(banksTwitch), ...guestTw].filter(Boolean))];
+    const kk = [...new Set([clean(ansemKick), ...guestKk].filter(Boolean))];
     setTwitch(tw);
     setKick(kk);
     setXQuery(xq);
@@ -178,7 +178,6 @@ function ControlPanel() {
         </Link>
         <div className="topbar-right">
           <ThemeToggle className="term-icon" />
-          <a className="btn btn-ghost btn-watch" href="/watch">Watch</a>
           <a className="btn btn-ghost btn-watch" href="/">View site</a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />
@@ -259,6 +258,21 @@ function ControlPanel() {
             connect={xConnect}
           />
         </HostAccountCard>
+
+        {guests.map((g) => (
+          <GuestCard
+            key={g.id}
+            guest={g}
+            onChange={(p) => updateGuest(g.id, p)}
+            onRemove={() => removeGuest(g.id)}
+          />
+        ))}
+
+        <button className="acct-add" onClick={addGuest}>
+          <span className="acct-add-plus">+</span>
+          <span className="acct-add-label">Add guest</span>
+          <span className="acct-add-sub">Twitch or Kick — merges their chat in</span>
+        </button>
       </div>
 
       <div className="host-apply">
@@ -311,26 +325,54 @@ function ControlPanel() {
         </div>
         <p className="muted small">Server: <code>{hubUrl}</code> must be running to receive chat.</p>
       </section>
-
-      {/* outputs */}
-      <section className="card">
-        <h2 className="card-title">Outputs</h2>
-        <div className="hero-actions">
-          <a className="action action-primary" href="/watch">
-            <span className="action-title">Watch &amp; chat</span>
-            <span className="action-desc">Stream player + unified chat in one view</span>
-          </a>
-          <button className="action" onClick={openReader} suppressHydrationWarning>
-            <span className="action-title">Pop out reader ↗</span>
-            <span className="action-desc">Floating, resizable chat window</span>
-          </button>
-          <a className="action action-ghost" href="/overlay-studio">
-            <span className="action-title">Chat overlay for OBS</span>
-            <span className="action-desc">Build a transparent browser source</span>
-          </a>
-        </div>
-      </section>
     </div>
+  );
+}
+
+function GuestCard({
+  guest,
+  onChange,
+  onRemove,
+}: {
+  guest: { id: number; platform: "twitch" | "kick"; channel: string };
+  onChange: (patch: Partial<{ platform: "twitch" | "kick"; channel: string }>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <section className="host-card acct-card guest-card">
+      <div className="host-top">
+        <div className="host-id">
+          <span className="host-name">Guest</span>
+          <span className="host-role">Stream + chat</span>
+        </div>
+        <button className="acct-remove" onClick={onRemove} aria-label="Remove guest">✕</button>
+      </div>
+      <div className="acct-blocks">
+        <div className="acct-block" data-platform={guest.platform}>
+          <div className="acct-head">
+            <span className="acct-plat">Platform</span>
+            <div className="acct-seg">
+              <button className={guest.platform === "twitch" ? "on" : ""} onClick={() => onChange({ platform: "twitch" })}>
+                <SourceLogo source="twitch" size={12} /> Twitch
+              </button>
+              <button className={guest.platform === "kick" ? "on" : ""} onClick={() => onChange({ platform: "kick" })}>
+                <SourceLogo source="kick" size={12} /> Kick
+              </button>
+            </div>
+          </div>
+          <input
+            className="acct-input"
+            value={guest.channel}
+            onChange={(e) => onChange({ channel: e.target.value })}
+            placeholder={guest.platform === "twitch" ? "their_twitch" : "their_kick"}
+            spellCheck={false}
+          />
+          <p className="acct-note">
+            Their {guest.platform === "twitch" ? "Twitch" : "Kick"} chat merges into the show on Apply.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

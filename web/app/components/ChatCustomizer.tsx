@@ -25,8 +25,10 @@ export function ChatCustomizer({
   overlayOptions: OverlayOptions;
 }) {
   const [copied, setCopied] = useState(false);
-  const overlayUrl =
-    typeof window !== "undefined" ? `${window.location.origin}/overlay?${buildQuery(overlayOptions)}` : "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const overlayUrl = origin ? `${origin}/overlay?${buildQuery(overlayOptions)}` : "";
+  const readerUrl = origin ? `${origin}/reader?${buildQuery(overlayOptions)}` : "";
+  const popReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
 
   const copy = async () => {
     try {
@@ -49,6 +51,10 @@ export function ChatCustomizer({
 
         <div className="cc-body">
           <StyleControls value={look} onChange={onChange} />
+
+          <button className="cc-popout" onClick={popReader}>
+            ↗ Pop out chat into its own window
+          </button>
 
           <div className="cc-overlay">
             <span className="cc-overlay-title">Your overlay</span>
