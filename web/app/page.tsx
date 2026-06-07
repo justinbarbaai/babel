@@ -39,11 +39,11 @@ const HK_TOP = 132;
 
 // Keep a panel inside the workspace bounds (so a layout saved at a different
 // size never overflows under the ticker tape) and below the top barrier.
-function clampRect(r: Rect, W: number, H: number): Rect {
+function clampRect(r: Rect, W: number, H: number, minY = HK_TOP): Rect {
   const w = Math.min(Math.max(280, r.w), W);
-  const h = Math.min(Math.max(180, r.h), Math.max(180, H - HK_TOP));
+  const h = Math.min(Math.max(180, r.h), Math.max(180, H - minY));
   const x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
-  const y = Math.min(Math.max(HK_TOP, r.y), Math.max(HK_TOP, H - h));
+  const y = Math.min(Math.max(minY, r.y), Math.max(minY, H - h));
   return { ...r, x, y, w, h };
 }
 type PanelId = "chat" | "stream" | "index";
@@ -122,6 +122,11 @@ export default function Home() {
   }, [isLive]);
   const showLive = manualView ? manualView === "live" : isLive;
 
+  // Fullscreen "focus" mode: hide the header + footer so the whole screen is the
+  // chat / stream / views, and free the panels to move anywhere (barrier -> 0).
+  const [focusMode, setFocusMode] = useState(false);
+  const barrier = focusMode ? 0 : HK_TOP;
+
   // ---- arrangeable workspace (draggable / resizable panels) ----
   const workRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ w: 0, h: 0 });
@@ -160,8 +165,8 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const el = workRef.current;
     const measure = () => {
-      const el = workRef.current;
       if (el && el.clientWidth) setBounds({ w: el.clientWidth, h: el.clientHeight });
     };
     // Re-run when the live room becomes visible — the workspace only mounts then,
@@ -169,11 +174,37 @@ export default function Home() {
     measure();
     const raf = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
+    // Observe the workspace so entering/leaving fullscreen (header + tape collapse)
+    // re-measures the freed space and the panels can use it.
+    let ro: ResizeObserver | undefined;
+    if (el && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    }
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", measure);
+      ro?.disconnect();
     };
   }, [showLive]);
+
+  // Keep panels valid as the workspace size or barrier changes (fullscreen,
+  // resize) — only rewrites a panel if it actually fell out of bounds.
+  useEffect(() => {
+    if (bounds.w === 0) return;
+    setLayout((l) => {
+      if (!l) return l;
+      const next: Workspace = {
+        chat: clampRect(l.chat, bounds.w, bounds.h, barrier),
+        stream: clampRect(l.stream, bounds.w, bounds.h, barrier),
+        index: clampRect(l.index, bounds.w, bounds.h, barrier),
+      };
+      const same = (Object.keys(next) as PanelId[]).every(
+        (k) => l[k].x === next[k].x && l[k].y === next[k].y && l[k].w === next[k].w && l[k].h === next[k].h
+      );
+      return same ? l : next;
+    });
+  }, [bounds, barrier]);
 
   // Load a saved arrangement, or lay out sensible defaults once we know the size.
   useEffect(() => {
@@ -224,12 +255,18 @@ export default function Home() {
       const z = ++zRef.current;
       return l[id].z === z ? l : { ...l, [id]: { ...l[id], z } };
     });
-  const resetLayout = () => {
-    try {
-      localStorage.removeItem(LAYOUT_KEY);
-    } catch {}
-    setLayout(null);
-  };
+  // Leave fullscreen when the live room closes; Esc also exits.
+  useEffect(() => {
+    if (!showLive && focusMode) setFocusMode(false);
+  }, [showLive, focusMode]);
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFocusMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusMode]);
 
   const [auth, setAuth] = useState<TwitchAuth | null>(null);
   const [clientId, setClientIdState] = useState("");
@@ -371,7 +408,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`term term-room${!showLive ? " offair" : ""}`}>
+    <div className={`term term-room${!showLive ? " offair" : ""}${showLive && focusMode ? " focus" : ""}`}>
       <div className="term-room-stage">
       {/* ---- terminal top bar ---- */}
       <div className="term-bar-slot">
@@ -386,9 +423,6 @@ export default function Home() {
           <Link href="/content">Content</Link>
         </nav>
         <div className="term-bar-right">
-          <span className={`term-status ${hubConnected ? "on" : ""}`}>
-            <span className="term-status-dot" /> {hubConnected ? "LIVE" : "OFFLINE"}
-          </span>
           <button
             className="term-cine term-viewswitch"
             onClick={() => setManualView(showLive ? "offair" : "live")}
@@ -406,7 +440,13 @@ export default function Home() {
           >
             Cinema
           </button>
-          <button className="term-icon" onClick={resetLayout} aria-label="Reset layout" title="Reset layout">
+          <button
+            className={`term-icon ${focusMode ? "on" : ""}`}
+            onClick={() => setFocusMode((f) => !f)}
+            aria-pressed={focusMode}
+            aria-label="Fullscreen chat"
+            title="Fullscreen — hide header & footer, free the panels (Esc to exit)"
+          >
             ⤢
           </button>
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
@@ -437,7 +477,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.stream, layout.index]}
               min={{ w: 300, h: 240 }}
-              minY={HK_TOP}
+              minY={barrier}
               onChange={(r) => moveRect("chat", r)}
               onFocus={() => focusPanel("chat")}
               onGuides={showGuides}
@@ -516,7 +556,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.chat, layout.index]}
               min={{ w: 280, h: 200 }}
-              minY={HK_TOP}
+              minY={barrier}
               onChange={(r) => moveRect("stream", r)}
               onFocus={() => focusPanel("stream")}
               onGuides={showGuides}
@@ -585,7 +625,7 @@ export default function Home() {
               bounds={bounds}
               siblings={[layout.chat, layout.stream]}
               min={{ w: 280, h: 220 }}
-              minY={HK_TOP}
+              minY={barrier}
               onChange={(r) => moveRect("index", r)}
               onFocus={() => focusPanel("index")}
               onGuides={showGuides}
@@ -638,6 +678,12 @@ export default function Home() {
         <span ref={vGuideRef} className="snap-guide v" style={{ display: "none" }} />
         <span ref={hGuideRef} className="snap-guide h" style={{ display: "none" }} />
       </div>
+      )}
+
+      {showLive && focusMode && (
+        <button className="full-exit" onClick={() => setFocusMode(false)} title="Exit fullscreen (Esc)">
+          Exit fullscreen ✕
+        </button>
       )}
 
       {/* ---- bottom tape: live market ticker + brand ---- */}

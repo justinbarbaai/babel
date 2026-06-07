@@ -8,7 +8,6 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Ticker } from "./Ticker";
 import { TermFooter } from "./TermFooter";
 import { LoginMenu } from "./LoginMenu";
-import { useHub } from "../lib/useHub";
 import {
   getAuth,
   startLogin,
@@ -32,7 +31,6 @@ const NAV = [
  */
 export function TermShell({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { hubConnected } = useHub();
   const [auth, setAuth] = useState<TwitchAuth | null>(null);
   const [twitchReady, setTwitchReady] = useState(false);
 
@@ -56,9 +54,6 @@ export function TermShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="term-bar-right">
-          <span className={`term-status ${hubConnected ? "on" : ""}`}>
-            <span className="term-status-dot" /> {hubConnected ? "LIVE" : "OFFLINE"}
-          </span>
           <ThemeToggle className="term-icon" />
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
             Studio

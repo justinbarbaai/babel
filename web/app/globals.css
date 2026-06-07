@@ -5782,6 +5782,35 @@ body.panel-dragging iframe {
   pointer-events: none;
 }
 
+/* floating exit for fullscreen (header is hidden in focus mode) */
+.full-exit {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 240;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-2);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  animation: fadeInExit 0.4s ease 0.25s forwards;
+}
+.full-exit:hover { background: var(--hair); }
+@keyframes fadeInExit {
+  to { opacity: 1; }
+}
+
 /* ---- focus toggle switch ---- */
 .focus-switch {
   display: inline-flex;
