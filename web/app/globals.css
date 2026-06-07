@@ -2864,7 +2864,7 @@ body.overlay-bare::before {
 
 /* ---- section heads (market / news) ---- */
 .mb-section-head {
-  padding: 14px 0 24px;
+  padding: 0 0 24px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 28px;
 }
@@ -4133,14 +4133,26 @@ body.overlay-bare::before {
   padding: 0 30px 48px;
 }
 
-/* Content pages: float the header (like the live room) so its tall logo stops
-   reserving a 241px block that shoves the page title down. The header keeps its
-   exact position + sizes — it just overhangs the empty top-left; clicks pass
-   through to the content. A top "barrier" on the page brings the title up to sit
-   just under the nav row. Raise/lower the title by tuning --term-barrier. */
+/* Float the header (like the live room) so its tall logo stops reserving a
+   241px block that shoves page content down. The header keeps its exact position
+   + sizes — it just overhangs the empty top-left; clicks pass through to the
+   content. A single shared "barrier" lands the first content row just below the
+   logo, so Home / Content / Market / News all start at the same height. Tune the
+   start point in one place via --term-barrier. */
+.term {
+  --term-barrier: 210px;
+}
+/* Narrower viewports: the content column slides left under the logo, so keep the
+   first row below the logo's full height to avoid overlapping the wordmark. */
+@media (max-width: 1320px) {
+  .term {
+    --term-barrier: 226px;
+  }
+}
+
+/* ---- Content / Market / News (scrolling shell) ---- */
 .term.term-scroll {
   position: relative;
-  --term-barrier: 150px;
 }
 .term.term-scroll > .term-bar {
   position: absolute;
@@ -4158,10 +4170,27 @@ body.overlay-bare::before {
 .term.term-scroll > .work.term-page {
   padding-top: var(--term-barrier);
 }
-/* Narrower viewports: the content column slides left under the logo, so drop the
-   title below the logo's full height to avoid overlapping the wordmark. */
-@media (max-width: 1320px) {
-  .term.term-scroll { --term-barrier: 226px; }
+
+/* ---- Home (off-air): float the same way so the masthead lines up with the
+   page titles on the other pages instead of sitting lower. ---- */
+.term-room.offair .term-room-stage {
+  position: relative;
+}
+.term-room.offair .term-bar-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.term-room.offair .term-logo,
+.term-room.offair .term-nav,
+.term-room.offair .term-bar-right {
+  pointer-events: auto;
+}
+.term-room.offair .oa {
+  padding-top: var(--term-barrier);
 }
 
 body.panel-dragging {
