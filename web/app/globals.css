@@ -3323,6 +3323,25 @@ body.overlay-bare::before {
 }
 .term-room:not(.offair) .term-logo { align-self: flex-start; }
 .term-room:not(.offair) .term-lockup { width: 150px; height: 141px; }
+
+/* The header doesn't move — but it FLOATS over the workspace instead of taking a
+   fixed block, so the panels can sit higher (the "barrier" moves up). Clicks
+   pass through the header's empty areas to the panels behind. The layout keeps
+   panels clear of the logo/buttons (see page.tsx). */
+.term-room:not(.offair) .term-room-stage { position: relative; }
+.term-room:not(.offair) .term-bar-slot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+.term-room:not(.offair) .term-logo,
+.term-room:not(.offair) .term-nav,
+.term-room:not(.offair) .term-bar-right {
+  pointer-events: auto;
+}
 /* footer + cinema lockup */
 .term-foot-lockup {
   width: 78px;

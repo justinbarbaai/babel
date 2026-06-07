@@ -34,13 +34,24 @@ type Stream = { source: Exclude<SourceKey, "x">; channel: string };
 
 const LAYOUT_KEY = "mb.workspace.v2";
 
-// Keep a panel inside the current workspace bounds (so a layout saved when the
-// header/window was a different size never overflows under the ticker tape).
+// The floating header sits over the workspace: a centered buttons band across
+// the top, and the logo down the top-left. Panels keep clear of both.
+const HK_TOP = 102; // below the centered nav/controls band
+const HK_LOGO_W = 178; // logo column width
+const HK_LOGO_H = 160; // logo height (left only)
+
+// Keep a panel inside the workspace bounds (so a layout saved at a different
+// size never overflows under the ticker tape) and clear of the floating header.
 function clampRect(r: Rect, W: number, H: number): Rect {
-  const w = Math.min(Math.max(280, r.w), W);
-  const h = Math.min(Math.max(180, r.h), H);
-  const x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
-  const y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
+  let w = Math.min(Math.max(280, r.w), W);
+  let h = Math.min(Math.max(180, r.h), H);
+  let x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
+  let y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
+  const minY = x < HK_LOGO_W ? HK_LOGO_H : HK_TOP;
+  if (y < minY) {
+    y = minY;
+    h = Math.min(h, Math.max(180, H - y));
+  }
   return { ...r, x, y, w, h };
 }
 type PanelId = "chat" | "stream" | "index";
@@ -196,11 +207,13 @@ export default function Home() {
     const chatW = Math.min(560, Math.max(360, W * 0.4));
     const railX = chatW + g * 2;
     const railW = Math.max(280, W - chatW - g * 3);
-    const streamH = Math.min(railW * (9 / 16) + 46, H * 0.62);
+    const streamH = Math.min(railW * (9 / 16) + 46, H * 0.6);
+    // chat (left) sits below the logo; stream + audience (right rail) below the
+    // nav band — both higher than the old full-header barrier.
     setLayout({
-      chat: { x: g, y: g, w: chatW, h: H - g * 2, z: 3 },
-      stream: { x: railX, y: g, w: railW, h: streamH, z: 2 },
-      index: { x: railX, y: g + streamH + g, w: railW, h: Math.max(220, H - streamH - g * 3), z: 1 },
+      chat: { x: g, y: HK_LOGO_H, w: chatW, h: H - HK_LOGO_H - g, z: 3 },
+      stream: { x: railX, y: HK_TOP, w: railW, h: streamH, z: 2 },
+      index: { x: railX, y: HK_TOP + streamH + g, w: railW, h: Math.max(200, H - HK_TOP - streamH - g * 2), z: 1 },
     });
   }, [bounds, layout]);
 
