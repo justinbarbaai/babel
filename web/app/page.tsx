@@ -34,24 +34,16 @@ type Stream = { source: Exclude<SourceKey, "x">; channel: string };
 
 const LAYOUT_KEY = "mb.workspace.v2";
 
-// The floating header sits over the workspace: a centered buttons band across
-// the top, and the logo down the top-left. Panels keep clear of both.
-const HK_TOP = 102; // below the centered nav/controls band
-const HK_LOGO_W = 178; // logo column width
-const HK_LOGO_H = 160; // logo height (left only)
+// Top barrier under the floating header — panels can't go above this line.
+const HK_TOP = 132;
 
 // Keep a panel inside the workspace bounds (so a layout saved at a different
-// size never overflows under the ticker tape) and clear of the floating header.
+// size never overflows under the ticker tape) and below the top barrier.
 function clampRect(r: Rect, W: number, H: number): Rect {
-  let w = Math.min(Math.max(280, r.w), W);
-  let h = Math.min(Math.max(180, r.h), H);
-  let x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
-  let y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
-  const minY = x < HK_LOGO_W ? HK_LOGO_H : HK_TOP;
-  if (y < minY) {
-    y = minY;
-    h = Math.min(h, Math.max(180, H - y));
-  }
+  const w = Math.min(Math.max(280, r.w), W);
+  const h = Math.min(Math.max(180, r.h), Math.max(180, H - HK_TOP));
+  const x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
+  const y = Math.min(Math.max(HK_TOP, r.y), Math.max(HK_TOP, H - h));
   return { ...r, x, y, w, h };
 }
 type PanelId = "chat" | "stream" | "index";
@@ -204,16 +196,18 @@ export default function Home() {
     } catch {}
     const { w: W, h: H } = bounds;
     const g = 14;
-    const chatW = Math.min(560, Math.max(360, W * 0.4));
-    const railX = chatW + g * 2;
-    const railW = Math.max(280, W - chatW - g * 3);
-    const streamH = Math.min(railW * (9 / 16) + 46, H * 0.6);
-    // chat (left) sits below the logo; stream + audience (right rail) below the
-    // nav band — both higher than the old full-header barrier.
+    const top = HK_TOP; // 132 — chat + right rail both start here
+    const chatW = Math.min(580, Math.max(360, Math.round(W * 0.4)));
+    const railX = chatW + 16;
+    const railW = Math.max(280, W - railX - g);
+    const availH = Math.max(360, H - top - g);
+    const streamH = Math.round(availH * 0.7);
+    // Matches the hand-tuned arrangement: chat flush-left full-height, stream over
+    // the audience in the right rail — all topping out at the barrier.
     setLayout({
-      chat: { x: g, y: HK_LOGO_H, w: chatW, h: H - HK_LOGO_H - g, z: 3 },
-      stream: { x: railX, y: HK_TOP, w: railW, h: streamH, z: 2 },
-      index: { x: railX, y: HK_TOP + streamH + g, w: railW, h: Math.max(200, H - HK_TOP - streamH - g * 2), z: 1 },
+      chat: { x: 0, y: top, w: chatW, h: H - top - g, z: 3 },
+      stream: { x: railX, y: top, w: railW, h: streamH, z: 2 },
+      index: { x: railX, y: top + streamH, w: railW, h: Math.max(180, availH - streamH), z: 1 },
     });
   }, [bounds, layout]);
 
