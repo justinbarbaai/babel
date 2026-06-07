@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useHub } from "../lib/useHub";
 import { SourceLogo, InstagramLogo } from "./logos";
+import { HostSocialCard } from "./HostSocialCard";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -168,7 +169,7 @@ export function OffAir() {
         </div>
         <div className="oa-hosts">
           {HOSTS.map((h) => (
-            <div key={h.handle} className="oa-host">
+            <div key={h.handle} className="oa-host" tabIndex={0}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="oa-host-av" src={h.avatar} alt={h.name} loading="lazy" />
               <div className="oa-host-id">
@@ -195,6 +196,7 @@ export function OffAir() {
                   <SourceLogo source="x" size={11} /> X
                 </a>
               </div>
+              <HostSocialCard host={h} />
             </div>
           ))}
         </div>

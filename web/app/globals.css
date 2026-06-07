@@ -1123,6 +1123,92 @@ a.cf-card-head:hover {
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
+
+/* ---- host social hover card (mirrors the chat profile card) ---- */
+.cnt-host,
+.oa-host {
+  position: relative;
+}
+/* lift the hovered card (and its popup) above later siblings like the lead clip */
+.cnt-host:hover,
+.cnt-host:focus-within,
+.oa-host:hover,
+.oa-host:focus-within {
+  z-index: 41;
+}
+.cnt-host:focus-visible,
+.oa-host:focus-visible { outline: none; }
+.hsc-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: 252px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 13px;
+  border-radius: 14px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 22px 48px -20px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  transform-origin: top left;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cnt-host:hover .hsc-pop,
+.cnt-host:focus-within .hsc-pop,
+.oa-host:hover .hsc-pop,
+.oa-host:focus-within .hsc-pop {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.hsc-head { display: flex; align-items: center; gap: 10px; }
+.hsc-av {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--hair);
+  flex: none;
+}
+.hsc-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hsc-name { font-family: var(--serif); font-weight: 800; font-size: 16px; line-height: 1.1; }
+.hsc-handle {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hsc-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.hsc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border-2);
+  background: var(--row-bg);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.hsc-link:hover { background: var(--panel-2); }
+.hsc-link-logo { display: inline-flex; }
+.hsc-link[data-source="twitch"] .hsc-link-logo { color: #9146ff; }
+.hsc-link[data-source="kick"] .hsc-link-logo { color: #53fc18; }
+.hsc-link[data-source="instagram"] .hsc-link-logo { color: #e1306c; }
+.hsc-link[data-source="x"] .hsc-link-logo { color: var(--text); }
+.hsc-link-label { margin-right: auto; }
+.hsc-link-arrow { color: var(--muted); font-size: 10px; }
 .cf-text {
   color: var(--text);
   font-weight: 700;

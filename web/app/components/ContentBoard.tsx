@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SourceLogo } from "./logos";
+import { HostSocialCard } from "./HostSocialCard";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
 import { TWEETS, CLIPS, STREAMS, HOSTS, X_PROFILE, type Tweet, type Clip, type Stream } from "../lib/showContent";
@@ -93,7 +94,7 @@ export function ContentBoard() {
       {/* hosts */}
       <div className="cnt-hosts">
         {HOSTS.map((h) => (
-          <a key={h.handle} className="cnt-host" href={h.url} target="_blank" rel="noreferrer">
+          <div key={h.handle} className="cnt-host" tabIndex={0}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="cnt-host-av" src={h.avatar} alt={h.name} loading="lazy" />
             <span className="cnt-host-id">
@@ -101,10 +102,11 @@ export function ContentBoard() {
               <span className="cnt-host-handle">@{h.handle}</span>
             </span>
             <span className="cnt-host-role">{h.role}</span>
-            <span className="cnt-host-follow">
+            <a className="cnt-host-follow" href={h.url} target="_blank" rel="noreferrer">
               <SourceLogo source="x" size={12} /> Follow ↗
-            </span>
-          </a>
+            </a>
+            <HostSocialCard host={h} />
+          </div>
         ))}
       </div>
 
