@@ -665,6 +665,13 @@ code {
   position: relative;
   background:
     linear-gradient(135deg, #11131a 0%, #0a0b0f 100%);
+  /* The preview is always a dark "over-gameplay" stage, so pin the chat's theme
+     colors to dark-mode values — otherwise light theme paints dark text on this
+     dark stage (the "black letters" bug). var()-based rules (incl. paper skin)
+     all resolve against these. */
+  --text: #f4efe4;
+  --muted: rgba(244, 239, 228, 0.62);
+  --hair: rgba(244, 239, 228, 0.12);
 }
 /* a faux gameplay shimmer so "transparent" / shadow choices are visible */
 .preview-stage.bg-none,
@@ -6569,6 +6576,17 @@ body.panel-dragging iframe {
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 /* ---- per-viewer chat customizer (Edit toggle + drawer) ---- */
+.term-viewswitch { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.term-viewswitch-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--down);
+  box-shadow: 0 0 7px var(--down);
+  animation: vsPulse 1.6s ease-in-out infinite;
+}
+@keyframes vsPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
 .panel-meta-row { display: inline-flex; align-items: center; gap: 12px; }
 .chat-edit-btn {
   font-family: var(--mono);

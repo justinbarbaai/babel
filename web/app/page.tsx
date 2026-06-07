@@ -234,6 +234,19 @@ export default function Home() {
     !!viewers && (viewers.channels || []).some((c) => c.live) ||
     (!!viewers?.xLive?.live);
 
+  // Off air / on air view. Default follows live status automatically; the viewer
+  // can manually peek the other view. A real live↔offline transition snaps back
+  // to auto, so going live always shows the live room without anyone switching.
+  const [manualView, setManualView] = useState<null | "offair" | "live">(null);
+  const prevLiveRef = useRef(isLive);
+  useEffect(() => {
+    if (prevLiveRef.current !== isLive) {
+      prevLiveRef.current = isLive;
+      setManualView(null);
+    }
+  }, [isLive]);
+  const showLive = manualView ? manualView === "live" : isLive;
+
   // ---- live audience "index" ----
   const total = viewers?.totals.total ?? 0;
   const tw = viewers?.totals.twitch ?? 0;
@@ -333,7 +346,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`term term-room${!isLive ? " offair" : ""}`}>
+    <div className={`term term-room${!showLive ? " offair" : ""}`}>
       <div className="term-room-stage">
       {/* ---- terminal top bar ---- */}
       <div className="term-bar-slot">
@@ -351,6 +364,14 @@ export default function Home() {
           <span className={`term-status ${hubConnected ? "on" : ""}`}>
             <span className="term-status-dot" /> {hubConnected ? "LIVE" : "OFFLINE"}
           </span>
+          <button
+            className="term-cine term-viewswitch"
+            onClick={() => setManualView(showLive ? "offair" : "live")}
+            title={showLive ? "Back to the lobby" : "Open the live room"}
+          >
+            {showLive ? "Lobby" : "Live room"}
+            {isLive && !showLive && <span className="term-viewswitch-dot" />}
+          </button>
           <ThemeToggle className="term-icon" />
           <button
             className={`term-cine ${cinema ? "on" : ""}`}
@@ -378,7 +399,7 @@ export default function Home() {
       </div>
 
       {/* ---- off air: replay theater · on air: arrangeable workspace ---- */}
-      {!isLive ? (
+      {!showLive ? (
         <OffAir />
       ) : (
       <div className="work" ref={workRef}>

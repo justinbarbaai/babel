@@ -96,7 +96,7 @@ export class XSource extends EventEmitter {
     const params = new URLSearchParams({
       query: buildRule(this.query),
       max_results: "10",
-      "tweet.fields": "created_at,author_id",
+      "tweet.fields": "created_at,author_id,referenced_tweets",
       expansions: "author_id",
       "user.fields": "username",
     });
@@ -111,6 +111,7 @@ export class XSource extends EventEmitter {
     // Recent search returns newest-first; emit oldest-first so it reads naturally.
     for (const tweet of [...(json?.data ?? [])].reverse()) {
       if (!tweet?.text || this.seen.has(tweet.id)) continue;
+      if (tweet.referenced_tweets?.length) continue; // skip RT / quote / reply
       this.seen.add(tweet.id);
       const username = users.get(tweet.author_id) ?? "unknown";
       const ts = tweet.created_at ? Date.parse(tweet.created_at) : Date.now();
@@ -153,7 +154,7 @@ export class XSource extends EventEmitter {
 
   async openStream() {
     const params = new URLSearchParams({
-      "tweet.fields": "created_at,author_id",
+      "tweet.fields": "created_at,author_id,referenced_tweets",
       expansions: "author_id",
       "user.fields": "username",
     });
@@ -229,6 +230,7 @@ export class XSource extends EventEmitter {
     }
     const tweet = frame?.data;
     if (!tweet?.text || this.seen.has(tweet.id)) return;
+    if (tweet.referenced_tweets?.length) return; // skip RT / quote / reply
     if (tweet.id) {
       this.seen.add(tweet.id);
       if (this.seen.size > 200) this.seen = new Set([...this.seen].slice(-100));
@@ -256,11 +258,11 @@ export class XSource extends EventEmitter {
   }
 }
 
-// A bare "@handle" (or "handle") becomes the account's own posts plus mentions,
-// so it behaves like following a channel. Anything containing operators or
-// spaces is passed through verbatim as a stream rule.
+// Build a stream rule that only matches the host(s') OWN original tweets — no
+// retweets, quote-tweets, replies, or mentions of them. A bare "@handle" becomes
+// from:handle; a multi-account query (from:a OR from:b) is wrapped as-is.
 function buildRule(query) {
   const handle = query.match(/^@?(\w{1,15})$/);
-  if (handle) return `from:${handle[1]} OR @${handle[1]}`;
-  return query;
+  const base = handle ? `from:${handle[1]}` : query;
+  return `(${base}) -is:retweet -is:quote -is:reply`;
 }
