@@ -7,9 +7,11 @@
   --panel-2: rgba(248, 245, 238, 0.1);
   --border: rgba(248, 245, 238, 0.13);
   --border-2: rgba(248, 245, 238, 0.22);
-  --text: #f4efe4;
+  /* paper-white ink: same warm paper tone as the boot field + light bg,
+     so logo + headlines + body read as paper, not stark white */
+  --text: #f3ebda;
   --muted: #b0a99b;
-  --accent: #f7f2e8;
+  --accent: #f3ebda;
   --accent-2: #cdc4b3;
   --accent-ink: #1a1917;
   --twitch: #9146ff;
@@ -2862,7 +2864,7 @@ body.overlay-bare::before {
 
 /* ---- section heads (market / news) ---- */
 .mb-section-head {
-  padding: 56px 0 24px;
+  padding: 14px 0 24px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 28px;
 }
