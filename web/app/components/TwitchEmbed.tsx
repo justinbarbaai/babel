@@ -67,7 +67,10 @@ export function TwitchEmbed({
         const forcePlay = () => {
           try {
             const p = embed.getPlayer();
-            p.setMuted(muted);
+            if (muted) {
+              p.setMuted(true);
+              p.setVolume(0);
+            }
             p.play();
           } catch {}
         };
