@@ -34,13 +34,23 @@ type Stream = { source: Exclude<SourceKey, "x">; channel: string };
 
 const LAYOUT_KEY = "mb.workspace.v2";
 
+// The live-room logo overflows the short header into the workspace's top-left;
+// panels must stay clear of this zone (in workspace coords).
+const LOGO_KEEPOUT = { w: 186, h: 116 };
+
 // Keep a panel inside the current workspace bounds (so a layout saved when the
-// header/window was a different size never overflows under the ticker tape).
+// header/window was a different size never overflows under the ticker tape) and
+// out of the logo keep-out.
 function clampRect(r: Rect, W: number, H: number): Rect {
-  const w = Math.min(Math.max(280, r.w), W);
-  const h = Math.min(Math.max(180, r.h), H);
-  const x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
-  const y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
+  let w = Math.min(Math.max(280, r.w), W);
+  let h = Math.min(Math.max(180, r.h), H);
+  let x = Math.min(Math.max(0, r.x), Math.max(0, W - w));
+  let y = Math.min(Math.max(0, r.y), Math.max(0, H - h));
+  // push panels out from under the overflowing logo (top-left)
+  if (x < LOGO_KEEPOUT.w && y < LOGO_KEEPOUT.h) {
+    y = LOGO_KEEPOUT.h;
+    h = Math.min(h, Math.max(180, H - y));
+  }
   return { ...r, x, y, w, h };
 }
 type PanelId = "chat" | "stream" | "index";
@@ -197,8 +207,11 @@ export default function Home() {
     const railX = chatW + g * 2;
     const railW = Math.max(280, W - chatW - g * 3);
     const streamH = Math.min(railW * (9 / 16) + 46, H * 0.62);
+    // chat sits in the left column, below the overflowing logo; the stream +
+    // audience take the right rail from the top.
+    const chatY = LOGO_KEEPOUT.h;
     setLayout({
-      chat: { x: g, y: g, w: chatW, h: H - g * 2, z: 3 },
+      chat: { x: g, y: chatY, w: chatW, h: H - chatY - g, z: 3 },
       stream: { x: railX, y: g, w: railW, h: streamH, z: 2 },
       index: { x: railX, y: g + streamH + g, w: railW, h: Math.max(220, H - streamH - g * 3), z: 1 },
     });
