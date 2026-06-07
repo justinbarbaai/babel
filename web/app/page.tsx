@@ -92,6 +92,25 @@ export default function Home() {
     [myLook, serverChannels]
   );
 
+  // Is the show on air? Any host channel reporting live. Until viewers load we
+  // treat it as off air (so we don't flash the live workspace).
+  const isLive =
+    (!!viewers && (viewers.channels || []).some((c) => c.live)) ||
+    !!viewers?.xLive?.live;
+
+  // Off air / on air view. Default follows live status automatically; the viewer
+  // can manually peek the other view. A real live↔offline transition snaps back
+  // to auto, so going live always shows the live room without anyone switching.
+  const [manualView, setManualView] = useState<null | "offair" | "live">(null);
+  const prevLiveRef = useRef(isLive);
+  useEffect(() => {
+    if (prevLiveRef.current !== isLive) {
+      prevLiveRef.current = isLive;
+      setManualView(null);
+    }
+  }, [isLive]);
+  const showLive = manualView ? manualView === "live" : isLive;
+
   // ---- arrangeable workspace (draggable / resizable panels) ----
   const workRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ w: 0, h: 0 });
@@ -132,12 +151,18 @@ export default function Home() {
   useEffect(() => {
     const measure = () => {
       const el = workRef.current;
-      if (el) setBounds({ w: el.clientWidth, h: el.clientHeight });
+      if (el && el.clientWidth) setBounds({ w: el.clientWidth, h: el.clientHeight });
     };
+    // Re-run when the live room becomes visible — the workspace only mounts then,
+    // so measuring on mount alone leaves bounds at 0 and the panels never lay out.
     measure();
+    const raf = requestAnimationFrame(measure);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
+  }, [showLive]);
 
   // Load a saved arrangement, or lay out sensible defaults once we know the size.
   useEffect(() => {
@@ -226,26 +251,6 @@ export default function Home() {
       ? `https://player.twitch.tv/?channel=${encodeURIComponent(selected.channel)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`
       : `https://player.kick.com/${encodeURIComponent(selected.channel)}?muted=true&autoplay=true`;
   }, [selected, parent]);
-
-  // Is the show on air? Any host channel reporting live. Until viewers load we
-  // treat it as off air (so we don't flash the live workspace) — most of the
-  // time the show is offline anyway.
-  const isLive =
-    !!viewers && (viewers.channels || []).some((c) => c.live) ||
-    (!!viewers?.xLive?.live);
-
-  // Off air / on air view. Default follows live status automatically; the viewer
-  // can manually peek the other view. A real live↔offline transition snaps back
-  // to auto, so going live always shows the live room without anyone switching.
-  const [manualView, setManualView] = useState<null | "offair" | "live">(null);
-  const prevLiveRef = useRef(isLive);
-  useEffect(() => {
-    if (prevLiveRef.current !== isLive) {
-      prevLiveRef.current = isLive;
-      setManualView(null);
-    }
-  }, [isLive]);
-  const showLive = manualView ? manualView === "live" : isLive;
 
   // ---- live audience "index" ----
   const total = viewers?.totals.total ?? 0;

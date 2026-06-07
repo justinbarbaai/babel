@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChatFeed } from "../components/ChatFeed";
 import { StyleControls } from "../components/StyleControls";
+import { MBLockup } from "../components/brand";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { SourceLogo } from "../components/logos";
 import { useHub } from "../lib/useHub";
 import {
   DEFAULT_OPTIONS,
@@ -15,47 +18,49 @@ import {
   type OverlayOptions,
 } from "../lib/overlay";
 
-const LOOK_KEY = "babel.overlay.look";
-
+const LOOK_KEY = "mb.overlay.look";
 const DEFAULT_LOOK: LookOptions = pickLook(DEFAULT_OPTIONS);
+const splitList = (s: string) => s.split(",").map((x) => x.trim().replace(/^@/, "")).filter(Boolean);
 
-// Chat overlay studio: build the OBS browser-source link. Channels come from the
-// hub (set on the home page); here you only shape how the overlay looks.
+// Overlay studio: anyone can build a transparent chat overlay for ANY Twitch /
+// Kick channel (theirs or the show's). A read-only overlay just needs the
+// channel name — no account connection required. The overlay is defined entirely
+// by the copied link, so editing here never changes the show's overlay.
 export default function OverlayStudio() {
-  const { messages, serverChannels, hubConnected, pushStyle, hubUrl } = useHub();
+  const { messages, serverChannels, hubConnected, hubUrl } = useHub();
 
   const [look, setLook] = useState<LookOptions>(DEFAULT_LOOK);
+  const [twitch, setTwitch] = useState("");
+  const [kick, setKick] = useState("");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
     setOrigin(window.location.origin);
     setLook(loadLook(LOOK_KEY, DEFAULT_LOOK));
-    document.title = "Babel — Overlay Studio";
+    document.title = "Market Bubble — Overlay Studio";
   }, []);
 
-  // Persist + push to any live overlay so OBS updates without re-copying.
+  // Prefill with the show's channels as a convenient starting point (editable).
   useEffect(() => {
-    saveLook(LOOK_KEY, look);
-    if (hubConnected) pushStyle(look);
-  }, [look, hubConnected, pushStyle]);
+    if (serverChannels && !seeded) {
+      setTwitch(serverChannels.twitch.join(", "));
+      setKick(serverChannels.kick.join(", "));
+      setSeeded(true);
+    }
+  }, [serverChannels, seeded]);
+
+  useEffect(() => saveLook(LOOK_KEY, look), [look]);
 
   const patch = (p: Partial<LookOptions>) => setLook((l) => ({ ...l, ...p }));
 
   const options: OverlayOptions = useMemo(
-    () => ({
-      ...look,
-      twitch: serverChannels?.twitch ?? [],
-      kick: serverChannels?.kick ?? [],
-      xQuery: serverChannels?.xQuery ?? "",
-    }),
-    [look, serverChannels]
+    () => ({ ...look, twitch: splitList(twitch), kick: splitList(kick), xQuery: "" }),
+    [look, twitch, kick]
   );
-
-  const overlayUrl = useMemo(
-    () => `${origin}/overlay?${buildQuery(options)}`,
-    [origin, options]
-  );
+  const overlayUrl = useMemo(() => `${origin}/overlay?${buildQuery(options)}`, [origin, options]);
+  const hasChannel = options.twitch.length > 0 || options.kick.length > 0;
 
   const copy = async () => {
     try {
@@ -75,17 +80,13 @@ export default function OverlayStudio() {
   return (
     <div className="console">
       <header className="topbar">
-        <div className="topbar-left">
-          <Link href="/" className="watch-back" aria-label="Back to home">
-            ‹
-          </Link>
-          <div className="wordmark">babel</div>
-          <span className="watch-sub">overlay studio</span>
-        </div>
+        <Link href="/" className="studio-brand" aria-label="Market Bubble">
+          <MBLockup className="studio-lockup" />
+          <span className="studio-tag">Overlay</span>
+        </Link>
         <div className="topbar-right">
-          <a className="btn btn-ghost" href="/watch">
-            Watch &amp; chat
-          </a>
+          <ThemeToggle className="term-icon" />
+          <a className="btn btn-ghost btn-watch" href="/">View site</a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />
             <span>{hubConnected ? "live" : "offline"}</span>
@@ -93,13 +94,43 @@ export default function OverlayStudio() {
         </div>
       </header>
 
+      <section className="studio-head">
+        <span className="studio-eyebrow">Overlay studio</span>
+        <h1 className="studio-h1">Your chat, on your stream.</h1>
+        <p className="studio-sub">
+          Build a transparent chat overlay for any Twitch or Kick channel — your own or the show's.
+          No account needed; a read-only overlay just needs the channel name.
+        </p>
+      </section>
+
       <div className="grid">
         <section className="card">
-          <h2 className="card-title">Overlay style</h2>
+          <h2 className="card-title">Channels</h2>
           <p className="muted small" style={{ marginTop: 0 }}>
-            Channels are set on the <Link href="/">home page</Link>; this overlay follows them
-            automatically.
+            The channel(s) whose chat the overlay shows. Comma-separate for more than one.
           </p>
+          <div className="fields">
+            <div className="field">
+              <label>
+                <span className="host-field-logo" style={{ color: "#9146FF" }}>
+                  <SourceLogo source="twitch" size={12} />
+                </span>{" "}
+                Twitch channel
+              </label>
+              <input value={twitch} onChange={(e) => setTwitch(e.target.value)} placeholder="your_twitch" spellCheck={false} />
+            </div>
+            <div className="field">
+              <label>
+                <span className="host-field-logo" style={{ color: "#53FC18" }}>
+                  <SourceLogo source="kick" size={12} />
+                </span>{" "}
+                Kick channel
+              </label>
+              <input value={kick} onChange={(e) => setKick(e.target.value)} placeholder="your_kick" spellCheck={false} />
+            </div>
+          </div>
+
+          <h2 className="card-title" style={{ marginTop: 22 }}>Style</h2>
           <StyleControls value={look} onChange={patch} />
         </section>
 
@@ -112,11 +143,7 @@ export default function OverlayStudio() {
             <ChatFeed
               messages={messages}
               options={options}
-              placeholder={
-                <span>
-                  Waiting for chat… set live channels on the <Link href="/">home page</Link>.
-                </span>
-              }
+              placeholder={<span>Enter a channel above — its chat previews here.</span>}
             />
           </div>
         </section>
@@ -125,34 +152,28 @@ export default function OverlayStudio() {
       <section className="card share">
         <h2 className="card-title">Add to your stream (OBS / Streamlabs)</h2>
         <p className="muted">
-          Copy this link and add it as a <b>Browser Source</b>. It has a transparent
-          background, so it overlays cleanly on your scene. The link includes your
-          channels and style — anyone with it sees the same overlay.
+          Copy this link and add it as a <b>Browser Source</b>. It's transparent, so it overlays
+          cleanly on your scene. The link carries your channels + style — anyone with it sees the
+          same overlay.
         </p>
         <div className="urlbox">
-          <input
-            className="urlinput"
-            readOnly
-            value={overlayUrl}
-            suppressHydrationWarning
-            onFocus={(e) => e.currentTarget.select()}
-          />
-          <button className="btn btn-gold" onClick={copy}>
+          <input className="urlinput" readOnly value={hasChannel ? overlayUrl : ""} placeholder="Enter a channel above to get your link" suppressHydrationWarning onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn btn-gold" onClick={copy} disabled={!hasChannel}>
             {copied ? "Copied!" : "Copy link"}
           </button>
-          <a className="btn btn-ghost" href={overlayUrl} target="_blank" rel="noreferrer" suppressHydrationWarning>
+          <a className="btn btn-ghost" href={hasChannel ? overlayUrl : undefined} target="_blank" rel="noreferrer" suppressHydrationWarning>
             Open
           </a>
         </div>
         <ol className="steps">
           <li>OBS → Sources → <b>+</b> → <b>Browser</b>.</li>
           <li>Paste the link as the URL. Set width <b>420</b>, height <b>720</b> (tweak to taste).</li>
-          <li>Tick <b>“Shutdown source when not visible”</b> off so chat keeps flowing.</li>
+          <li>Turn <b>“Shutdown source when not visible”</b> off so chat keeps flowing.</li>
           <li>Streamlabs is identical: Add Source → Browser Source → paste the link.</li>
         </ol>
         <p className="muted small">
-          Tip: the server (<code>{hubUrl}</code>) must be running for the overlay to receive
-          chat. For a deployed setup, point <code>NEXT_PUBLIC_HUB_URL</code> at your hosted hub.
+          The hub (<code>{hubUrl}</code>) must be running for the overlay to receive chat. For a
+          deployed setup, point <code>NEXT_PUBLIC_HUB_URL</code> at your hosted hub.
         </p>
       </section>
     </div>
