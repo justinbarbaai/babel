@@ -71,7 +71,6 @@ export default function Home() {
     sendResult,
     moderateKick,
     sendKick,
-    siteLook,
   } = useHub();
   const { session: kickSession } = useKickSession();
 
@@ -79,15 +78,14 @@ export default function Home() {
   const [selected, setSelected] = useState<Stream | null>(null);
   // Cinema mode: premium rounded-TV overlay (stream / chat / views, scenes).
   const [cinema, setCinema] = useState(false);
-  // Chat appearance is controlled from the Studio (admin) and broadcast to all
-  // visitors via the hub; fall back to the shared default.
-  // Per-viewer chat styling, layered over the show's global look (their device only).
+  // The show ships a fixed default look; each viewer personalizes their own copy
+  // on their device only (no global/Studio override — that's intentionally gone).
   const { prefs: chatPrefs, patch: patchChatPrefs, reset: resetChatPrefs, customized } = useChatPrefs();
   const [editChat, setEditChat] = useState(false);
-  // The viewer's effective look (show default + studio override + their prefs).
+  // The viewer's effective look (ship default + their own prefs).
   const myLook = useMemo<LookOptions>(
-    () => ({ ...SITE_DEFAULT_LOOK, ...(siteLook || {}), ...chatPrefs }),
-    [siteLook, chatPrefs]
+    () => ({ ...SITE_DEFAULT_LOOK, ...chatPrefs }),
+    [chatPrefs]
   );
   const feedOptions = useMemo<OverlayOptions>(
     () => ({ ...myLook, twitch: [], kick: [], xQuery: "" }),

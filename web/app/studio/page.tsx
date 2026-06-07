@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChatFeed } from "../components/ChatFeed";
-import { ChannelList } from "../components/ChannelList";
 import { Connections } from "../components/Connections";
-import { StyleControls } from "../components/StyleControls";
 import { useHub } from "../lib/useHub";
 import {
   SITE_DEFAULT_LOOK,
   buildQuery,
   DEFAULT_OPTIONS,
-  type LookOptions,
   type OverlayOptions,
 } from "../lib/overlay";
 import { SourceLogo, SOURCE_LABELS, type SourceKey } from "../components/logos";
@@ -20,10 +17,9 @@ import { StudioGate } from "../components/StudioGate";
 import { ThemeToggle } from "../components/ThemeToggle";
 
 const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
-type Tab = "hosts" | "appearance" | "connections";
+type Tab = "hosts" | "connections";
 const TABS: [Tab, string][] = [
   ["hosts", "Hosts"],
-  ["appearance", "Appearance"],
   ["connections", "Connections"],
 ];
 
@@ -48,8 +44,6 @@ function ControlPanel() {
     serverChannels,
     applyChannels,
     disconnectKickAccount,
-    siteLook,
-    pushSiteLook,
     hubUrl,
     hubHttpUrl,
   } = useHub();
@@ -57,12 +51,13 @@ function ControlPanel() {
   const [tab, setTab] = useState<Tab>("hosts");
 
   // Per-host handles (the show = Banks on Twitch + Ansem on Kick, both on X).
+  // This is the SINGLE source of truth for the show's channels.
   const [banksTwitch, setBanksTwitch] = useState("fazebanks");
   const [banksX, setBanksX] = useState("Banks");
   const [ansemKick, setAnsemKick] = useState("ansem");
   const [ansemX, setAnsemX] = useState("blknoiz06");
 
-  // Raw / advanced channel config (multi-channel power use).
+  // Derived channel config (built from the host cards on Apply).
   const [twitch, setTwitch] = useState<string[]>([]);
   const [kick, setKick] = useState<string[]>([]);
   const [xQuery, setXQuery] = useState("");
@@ -71,26 +66,7 @@ function ControlPanel() {
   const [seeded, setSeeded] = useState(false);
   const [origin, setOrigin] = useState("");
 
-  // Public chat appearance — edited here, broadcast to every visitor.
-  const [look, setLook] = useState<LookOptions>(SITE_DEFAULT_LOOK);
-  const [lookSeeded, setLookSeeded] = useState(false);
-
   useEffect(() => setOrigin(window.location.origin), []);
-
-  useEffect(() => {
-    if (siteLook && !lookSeeded) {
-      setLook({ ...SITE_DEFAULT_LOOK, ...siteLook } as LookOptions);
-      setLookSeeded(true);
-    }
-  }, [siteLook, lookSeeded]);
-
-  const patchLook = (p: Partial<LookOptions>) => {
-    setLook((l) => {
-      const next = { ...l, ...p };
-      pushSiteLook(next);
-      return next;
-    });
-  };
 
   // Seed inputs from whatever the hub currently follows.
   useEffect(() => {
@@ -112,9 +88,11 @@ function ControlPanel() {
   const cleanTwitch = useMemo(() => twitch.map(clean).filter(Boolean), [twitch]);
   const cleanKick = useMemo(() => kick.map(clean).filter(Boolean), [kick]);
 
+  // The Studio preview always shows the ship default look. Viewers personalize
+  // their own chat from the live room — Studio no longer sets a global look.
   const previewOptions: OverlayOptions = useMemo(
-    () => ({ ...look, twitch: cleanTwitch, kick: cleanKick, xQuery }),
-    [look, cleanTwitch, cleanKick, xQuery]
+    () => ({ ...SITE_DEFAULT_LOOK, twitch: cleanTwitch, kick: cleanKick, xQuery }),
+    [cleanTwitch, cleanKick, xQuery]
   );
 
   const readerUrl = useMemo(
@@ -123,7 +101,7 @@ function ControlPanel() {
   );
   const openReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
 
-  // Apply the show feed from the two host cards.
+  // Apply the show feed from the two host cards — the one place channels live.
   const applyHosts = () => {
     const xHandles = [banksX, ansemX].map(clean).filter(Boolean);
     const xq = xHandles.map((h) => `from:${h}`).join(" OR ");
@@ -137,8 +115,8 @@ function ControlPanel() {
     applyChannels({ twitch: tw, kick: kk, xQuery: xq, xLiveHandle: live }, xToken);
   };
 
-  // Apply the advanced raw channel config.
-  const applyAdvanced = () =>
+  // Save X credentials without disturbing the host channels.
+  const saveXAccess = () =>
     applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery, xLiveHandle }, xToken);
 
   return (
@@ -162,7 +140,10 @@ function ControlPanel() {
       <section className="studio-head">
         <span className="studio-eyebrow">Operator console</span>
         <h1 className="studio-h1">Run the room.</h1>
-        <p className="studio-sub">The show is Banks &amp; Ansem — set their channels, the look, and connections that power the public site.</p>
+        <p className="studio-sub">
+          The show is Banks &amp; Ansem. Set their channels in <b>Hosts</b>, and link the accounts that
+          power posting in <b>Connections</b>. The chat look is each viewer&apos;s own — set from the live room.
+        </p>
       </section>
 
       {/* live source status */}
@@ -200,7 +181,7 @@ function ControlPanel() {
         ))}
       </nav>
 
-      {/* ---- HOSTS ---- */}
+      {/* ---- HOSTS — the single source of truth for the show's channels ---- */}
       {tab === "hosts" && (
         <>
           <div className="host-grid">
@@ -237,7 +218,7 @@ function ControlPanel() {
               <h2 className="card-title">Live chat preview</h2>
               <span className="muted small">{messages.length} msgs</span>
             </div>
-            <div className={`preview-stage bg-${look.bg}`}>
+            <div className={`preview-stage bg-${SITE_DEFAULT_LOOK.bg}`}>
               <ChatFeed
                 messages={messages}
                 options={previewOptions}
@@ -246,32 +227,6 @@ function ControlPanel() {
             </div>
             <p className="muted small">Server: <code>{hubUrl}</code> must be running to receive chat.</p>
           </section>
-        </>
-      )}
-
-      {/* ---- APPEARANCE ---- */}
-      {tab === "appearance" && (
-        <>
-          <div className="grid">
-            <section className="card">
-              <h2 className="card-title">Chat appearance</h2>
-              <p className="muted small" style={{ marginTop: 0 }}>
-                The default look on the public site — applies live to everyone. (Viewers can still
-                restyle their own copy.)
-              </p>
-              <StyleControls value={look} onChange={patchLook} />
-            </section>
-
-            <section className="card preview-card">
-              <div className="preview-head">
-                <h2 className="card-title">Preview</h2>
-                <span className="muted small">{messages.length} msgs</span>
-              </div>
-              <div className={`preview-stage bg-${look.bg}`}>
-                <ChatFeed messages={messages} options={previewOptions} placeholder={<span>Live preview of the show look.</span>} />
-              </div>
-            </section>
-          </div>
 
           <section className="card">
             <h2 className="card-title">Outputs</h2>
@@ -293,7 +248,7 @@ function ControlPanel() {
         </>
       )}
 
-      {/* ---- CONNECTIONS ---- */}
+      {/* ---- CONNECTIONS — account credentials / plumbing only (no channels) ---- */}
       {tab === "connections" && (
         <>
           <Connections
@@ -306,6 +261,9 @@ function ControlPanel() {
 
           <section className="card">
             <h2 className="card-title">X access</h2>
+            <p className="muted small" style={{ marginTop: 0 }}>
+              Credentials only — the X handles themselves are set on the <b>Hosts</b> tab.
+            </p>
             <div className="fields">
               <Field
                 label="X bearer token (enables X)"
@@ -322,20 +280,7 @@ function ControlPanel() {
                 placeholder="e.g. banks"
                 hint="The X account whose live broadcast viewer count shows on the site."
               />
-              <button className="btn btn-gold" onClick={applyAdvanced}>Save X access</button>
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="card-title">Advanced channels</h2>
-            <p className="muted small" style={{ marginTop: 0 }}>
-              Power use — aggregate extra channels beyond the two hosts.
-            </p>
-            <div className="fields">
-              <ChannelList label="Twitch channels" values={twitch} onChange={setTwitch} placeholder="e.g. FaZeBanks" />
-              <ChannelList label="Kick channels" values={kick} onChange={setKick} placeholder="e.g. ansem" />
-              <Field label="X search query" value={xQuery} onChange={setXQuery} placeholder="from:Banks OR from:blknoiz06" />
-              <button className="btn btn-gold" onClick={applyAdvanced}>Apply channels</button>
+              <button className="btn btn-gold" onClick={saveXAccess}>Save X access</button>
             </div>
           </section>
         </>

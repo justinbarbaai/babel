@@ -127,7 +127,7 @@ export function Connections({
           <p className="conn-note">
             {xEnabled
               ? "An X API bearer token is configured on the server."
-              : "Add your X API bearer token in Channels below to enable X."}
+              : "Add your X API bearer token under “X access” below to enable X."}
           </p>
         </div>
 
