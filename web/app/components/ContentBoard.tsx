@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
+import { usePlayer } from "../lib/player";
+import type { Media } from "../lib/media";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
 import { TWEETS, CLIPS, STREAMS, HOSTS, X_PROFILE, type Tweet, type Clip, type Stream } from "../lib/showContent";
@@ -57,6 +59,14 @@ function Section({ title, count }: { title: string; count?: string }) {
 // sectioned Clips / On X / Broadcasts.
 export function ContentBoard() {
   const { hubHttpUrl } = useHub();
+  const { play } = usePlayer();
+  // Click a clip/VOD → play it on-site (modal). Falls back to the link (cmd-click).
+  const open = (m: Media) => (e: React.MouseEvent) => {
+    if (m.url) {
+      e.preventDefault();
+      play(m);
+    }
+  };
   // Live clips + VODs from the hub (Twitch Helix); fall back to curated data.
   const [live, setLive] = useState<{ clips?: Clip[]; streams?: Stream[]; tweets?: Tweet[] } | null>(null);
   useEffect(() => {
@@ -109,12 +119,18 @@ export function ContentBoard() {
 
       {/* lead story */}
       {lead && (
-        <a className="cnt-lead" href={lead.url || X_PROFILE} rel="noreferrer">
+        <a
+          className="cnt-lead"
+          href={lead.url || X_PROFILE}
+          target="_blank"
+          rel="noreferrer"
+          onClick={open({ kind: "clip", title: lead.title, url: lead.url, source: lead.source, thumb: lead.thumb, date: lead.date })}
+        >
           <Thumb src={lead.thumb} ratio="16 / 9" source={lead.source} />
           <div className="cnt-lead-body">
             <span className="cnt-lead-kicker">Latest clip</span>
             <h2 className="cnt-lead-title">{lead.title}</h2>
-            <span className="cnt-lead-meta">{lead.date} · Watch ↗</span>
+            <span className="cnt-lead-meta">{lead.date} · Watch ▶</span>
           </div>
         </a>
       )}
@@ -123,7 +139,14 @@ export function ContentBoard() {
       <Section title="Clips" count={`${allClips.length} media`} />
       <div className="cnt-strip">
         {clips.map((c, i) => (
-          <a key={i} className="cnt-strip-card" href={c.url || "#"} rel="noreferrer">
+          <a
+            key={i}
+            className="cnt-strip-card"
+            href={c.url || "#"}
+            target="_blank"
+            rel="noreferrer"
+            onClick={open({ kind: "clip", title: c.title, url: c.url, source: c.source, thumb: c.thumb, date: c.date, duration: c.duration })}
+          >
             <Thumb src={c.thumb} ratio="16 / 9" duration={c.duration} source={c.source} />
             <span className="cnt-strip-title">{c.title}</span>
             <span className="cnt-strip-date">{c.date}</span>
@@ -163,7 +186,14 @@ export function ContentBoard() {
       <Section title="Recent Broadcasts" count="Twitch" />
       <div className="cnt-strip cnt-strip-streams">
         {allStreams.map((s, i) => (
-          <a key={i} className="cnt-strip-card" href={s.url || "#"} rel="noreferrer">
+          <a
+            key={i}
+            className="cnt-strip-card"
+            href={s.url || "#"}
+            target="_blank"
+            rel="noreferrer"
+            onClick={open({ kind: "vod", title: s.title, url: s.url, source: s.source, thumb: s.thumb, date: s.date, duration: s.duration, views: s.views })}
+          >
             <Thumb src={s.thumb} ratio="16 / 9" duration={s.duration} source={s.source} />
             <span className="cnt-strip-title">{s.title}</span>
             <span className="cnt-strip-date">

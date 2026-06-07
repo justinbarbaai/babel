@@ -10,6 +10,7 @@ import {
 } from "next/font/google";
 import "./globals.css";
 import { SiteFX } from "./components/SiteFX";
+import { PlayerLayer } from "./components/PlayerLayer";
 
 // Chat-overlay font choices, exposed as CSS variables and selectable per overlay.
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
@@ -79,7 +80,7 @@ export default function RootLayout({
       </head>
       <body>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        {children}
+        <PlayerLayer>{children}</PlayerLayer>
         <SiteFX />
       </body>
     </html>
