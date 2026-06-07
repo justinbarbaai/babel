@@ -12,6 +12,7 @@ import { LoginMenu } from "./components/LoginMenu";
 import { ChatCustomizer } from "./components/ChatCustomizer";
 import { useKickSession } from "./lib/kickAuth";
 import { useChatPrefs } from "./lib/chatPrefs";
+import { DEMO_MODE, DEMO_VOD_ID, useDemoFeed } from "./lib/demo";
 import { TermFooter } from "./components/TermFooter";
 import { LiveNumber } from "./components/LiveNumber";
 import { Panel, type Rect } from "./components/Panel";
@@ -59,11 +60,11 @@ function fmtK(n: number): string {
 
 export default function Home() {
   const {
-    messages,
-    totalMessages,
-    serverChannels,
+    messages: _messages,
+    totalMessages: _totalMessages,
+    serverChannels: _serverChannels,
     hubConnected,
-    viewers,
+    viewers: _viewers,
     profiles,
     requestProfile,
     kickConnected,
@@ -73,6 +74,14 @@ export default function Home() {
     sendKick,
   } = useHub();
   const { session: kickSession } = useKickSession();
+
+  // PROMO/DEMO MODE — when on, override the hub feed with a live-looking fake
+  // (fake chat, viewer numbers, channels). Inert when DEMO_MODE is false.
+  const demo = useDemoFeed();
+  const messages = demo?.messages ?? _messages;
+  const viewers = demo?.viewers ?? _viewers;
+  const serverChannels = demo?.channels ?? _serverChannels;
+  const totalMessages = demo ? demo.messages.length : _totalMessages;
 
   const [parent, setParent] = useState("");
   const [selected, setSelected] = useState<Stream | null>(null);
@@ -303,7 +312,12 @@ export default function Home() {
   }, [streams, selected]);
 
   const playerSrc = useMemo(() => {
-    if (!selected || !parent) return "";
+    if (!parent) return "";
+    // PROMO/DEMO: roll a VOD in the live panel as if it were the live feed.
+    if (DEMO_MODE) {
+      return `https://player.twitch.tv/?video=${DEMO_VOD_ID}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`;
+    }
+    if (!selected) return "";
     return selected.source === "twitch"
       ? `https://player.twitch.tv/?channel=${encodeURIComponent(selected.channel)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`
       : `https://player.kick.com/${encodeURIComponent(selected.channel)}?muted=true&autoplay=true`;
