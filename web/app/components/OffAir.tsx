@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useHub } from "../lib/useHub";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
+import { TwitchEmbed } from "./TwitchEmbed";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -69,11 +70,6 @@ export function OffAir() {
 
   const vodId = twitchVodId(selected?.url);
   const parent = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  // Simple in-page player: muted autoplay so it plays on open; viewer unmutes via
-  // the player's own controls. Stable key so re-renders never reload it.
-  const playerSrc = vodId
-    ? `https://player.twitch.tv/?video=${vodId}&parent=${parent}&autoplay=true&muted=true`
-    : null;
 
   const next = useMemo(() => (now ? nextLive(now) : null), [now]);
   const nextLabel = next
@@ -93,17 +89,9 @@ export function OffAir() {
 
       {/* centered replay theater */}
       <div className="oa-stage">
-        {playerSrc ? (
+        {vodId ? (
           <div className="oa-player">
-            <iframe
-              key={playerSrc}
-              className="oa-player-frame"
-              src={playerSrc}
-              title={selected?.title || "Replay"}
-              allowFullScreen
-              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              frameBorder="0"
-            />
+            <TwitchEmbed key={vodId} video={vodId} parent={parent} muted />
           </div>
         ) : (
           <div className="oa-player oa-player-empty">

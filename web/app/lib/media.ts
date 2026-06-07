@@ -17,14 +17,18 @@ export type Media = {
   channel?: string; // for a live stream embed
 };
 
-function twitchClipSlug(url: string): string | null {
+export function twitchClipSlug(url: string): string | null {
   const m =
     url.match(/clips\.twitch\.tv\/(?:embed\?clip=)?([A-Za-z0-9_-]+)/) ||
     url.match(/\/clip\/([A-Za-z0-9_-]+)/);
   return m ? m[1] : null;
 }
-function twitchVideoId(url: string): string | null {
+export function twitchVideoId(url: string): string | null {
   const m = url.match(/videos\/(\d+)/) || url.match(/[?&]video=(\d+)/);
+  return m ? m[1] : null;
+}
+export function tweetId(url: string): string | null {
+  const m = url.match(/status\/(\d+)/);
   return m ? m[1] : null;
 }
 
@@ -55,6 +59,11 @@ export function embedSrc(
     if (media.kind === "stream" && media.channel) {
       return `https://player.kick.com/${encodeURIComponent(media.channel)}?autoplay=${a}&muted=${mu}`;
     }
+  }
+
+  if (media.source === "x") {
+    const id = tweetId(url);
+    if (id) return `https://platform.twitter.com/embed/Tweet.html?id=${id}&theme=dark&dnt=true`;
   }
 
   return null;

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { usePlayer } from "../lib/player";
-import { embedSrc, sourceLabel } from "../lib/media";
+import { sourceLabel } from "../lib/media";
+import { MediaPlayer, mediaEmbeddable } from "./MediaPlayer";
 
 const HUB_HTTP = (process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080").replace(/^ws/, "http");
 
@@ -94,7 +95,7 @@ export function MiniPlayer() {
 
   if (!mini || typeof document === "undefined") return null;
 
-  const src = parent ? embedSrc(mini, { parent, autoplay: true, muted: true }) : null;
+  const embeddable = parent && mediaEmbeddable(mini);
   const label = sourceLabel(mini.source);
 
   return createPortal(
@@ -115,13 +116,8 @@ export function MiniPlayer() {
       </div>
       {!miniCollapsed && (
         <div className="mini-stage">
-          {src ? (
-            <iframe
-              title={mini.title}
-              src={src}
-              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              allowFullScreen
-            />
+          {embeddable ? (
+            <MediaPlayer media={mini} muted />
           ) : (
             <a className="mini-noembed" href={mini.url} target="_blank" rel="noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePlayer } from "../lib/player";
-import { embedSrc, sourceLabel } from "../lib/media";
+import { sourceLabel } from "../lib/media";
+import { MediaPlayer, mediaEmbeddable } from "./MediaPlayer";
 
 // Centered in-site player for a clip / VOD. Plays on the site instead of
 // bouncing to Twitch/Kick; can be minimized into the floating mini-player.
@@ -21,13 +22,14 @@ export function VideoModal() {
 
   if (!modal || typeof document === "undefined") return null;
 
-  const src = parent ? embedSrc(modal, { parent, autoplay: true, muted: false }) : null;
+  const embeddable = mediaEmbeddable(modal);
+  const isX = modal.source === "x";
   const label = sourceLabel(modal.source);
-  const kindLabel = modal.kind === "clip" ? "Clip" : modal.kind === "vod" ? "Stream" : "Live";
+  const kindLabel = isX ? "Post" : modal.kind === "clip" ? "Clip" : modal.kind === "vod" ? "Stream" : "Live";
 
   return createPortal(
     <div className="vm-scrim" onClick={closeModal}>
-      <div className="vm" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div className="vm" data-x={isX ? "1" : undefined} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="vm-head">
           <div className="vm-headl">
             <span className="vm-kicker">
@@ -48,13 +50,8 @@ export function VideoModal() {
 
         <div className="vm-body">
           <div className="vm-stage">
-            {src ? (
-              <iframe
-                title={modal.title}
-                src={src}
-                allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                allowFullScreen
-              />
+            {parent && embeddable ? (
+              <MediaPlayer media={modal} muted={false} />
             ) : (
               <div className="vm-noembed">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -164,6 +164,7 @@ export function ContentBoard() {
             href={t.url || X_PROFILE}
             target="_blank"
             rel="noreferrer"
+            onClick={open({ kind: "clip", source: "x", title: t.text, url: t.url, thumb: t.thumb })}
           >
             {t.thumb && (
               <span className="cnt-xcard-media" style={{ aspectRatio: "16 / 9" }}>
