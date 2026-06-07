@@ -430,6 +430,8 @@ export default function Home() {
         <OffAir />
       ) : (
       <div className="work" ref={workRef}>
+        {/* hard barrier separating the floating header from the panels */}
+        <div className="work-barrier" aria-hidden="true" />
         {layout && (
           <>
             {/* THE ROOM — chat */}

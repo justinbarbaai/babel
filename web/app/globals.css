@@ -3342,6 +3342,22 @@ body.overlay-bare::before {
 .term-room:not(.offair) .term-bar-right {
   pointer-events: auto;
 }
+/* hard barrier line: separates the header zone from the panels at the top edge
+   (panels are clamped below it; see HK_TOP in page.tsx). Sits above the panels
+   but below the header so the logo draws over it. */
+.work-barrier { display: none; }
+.term-room:not(.offair) .work-barrier {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 132px;
+  height: 1px;
+  background: var(--border-2);
+  box-shadow: 0 1px 0 var(--hair);
+  z-index: 5;
+  pointer-events: none;
+}
 /* footer + cinema lockup */
 .term-foot-lockup {
   width: 78px;
