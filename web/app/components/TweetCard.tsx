@@ -47,7 +47,7 @@ const fmt = (n?: number) => {
   return String(n);
 };
 
-function Head({ tweet, url }: { tweet: Tweet; url?: string }) {
+function Head({ tweet }: { tweet: Tweet }) {
   const handle = (tweet.handle || "").replace(/^@/, "");
   const name = tweet.name || handle;
   const avatar = tweet.avatar || (handle ? `https://unavatar.io/twitter/${handle}` : "");
@@ -65,7 +65,6 @@ function Head({ tweet, url }: { tweet: Tweet; url?: string }) {
       <span className="tw-xlogo">
         <XLogo size={20} />
       </span>
-      {url && <span className="sr-only">{url}</span>}
     </div>
   );
 }
@@ -77,7 +76,7 @@ export function TweetCard({ tweet, url }: { tweet: Tweet; url?: string }) {
 
   return (
     <div className="tw-card">
-      <Head tweet={tweet} url={url} />
+      <Head tweet={tweet} />
       {tweet.text && <div className="tw-text">{renderText(tweet.text)}</div>}
 
       {videoSrc && !failed ? (
