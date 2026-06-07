@@ -37,7 +37,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setMini(m);
     setMiniCollapsed(false);
   }, []);
-  const closeMini = useCallback(() => setMini(null), []);
+  const closeMini = useCallback(() => {
+    try {
+      sessionStorage.setItem("mb.miniDismissed", "1");
+    } catch {}
+    setMini(null);
+  }, []);
   const toggleMiniSize = useCallback(() => setMiniCollapsed((v) => !v), []);
 
   return (
