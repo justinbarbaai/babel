@@ -57,11 +57,26 @@ export function TwitchEmbed({
           ...(video ? { video } : { channel }),
         });
         embed.addEventListener(Twitch.Embed.VIDEO_READY, () => {
-          try {
-            const p = embed.getPlayer();
-            p.setMuted(muted);
-            p.play();
-          } catch {}
+          const p = embed.getPlayer();
+          // Force playback — muted so the browser allows autoplay. Retry a few
+          // times in case the first call lands before the player is ready.
+          let tries = 0;
+          const kick = () => {
+            if (cancelled) return;
+            try {
+              p.setMuted(muted);
+              p.play();
+            } catch {}
+            tries += 1;
+            if (tries < 5) {
+              setTimeout(() => {
+                try {
+                  if (!cancelled && p.isPaused && p.isPaused()) kick();
+                } catch {}
+              }, 500);
+            }
+          };
+          kick();
         });
       })
       .catch(() => {});

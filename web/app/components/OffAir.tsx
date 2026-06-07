@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useHub } from "../lib/useHub";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
-import { TwitchEmbed } from "./TwitchEmbed";
+import { MediaPlayer } from "./MediaPlayer";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -89,9 +89,13 @@ export function OffAir() {
 
       {/* centered replay theater */}
       <div className="oa-stage">
-        {vodId ? (
+        {selected && vodId ? (
           <div className="oa-player">
-            <TwitchEmbed key={vodId} video={vodId} parent={parent} muted />
+            {/* same player engine as the mini-player */}
+            <MediaPlayer
+              media={{ kind: "vod", title: selected.title, url: selected.url, source: "twitch" }}
+              muted
+            />
           </div>
         ) : (
           <div className="oa-player oa-player-empty">
