@@ -33,16 +33,6 @@ export const HOST_SOCIALS: Record<string, SocialProfile[]> = {
       verified: true,
     },
     {
-      platform: "instagram",
-      handle: "banks",
-      name: "Ricky Banks",
-      url: "https://instagram.com/banks",
-      avatar: "https://unavatar.io/instagram/banks",
-      followers: "1.4M",
-      posts: "612",
-      bio: "FaZe Banks 🖤",
-    },
-    {
       platform: "twitch",
       handle: "fazebanks",
       name: "FaZeBanks",
