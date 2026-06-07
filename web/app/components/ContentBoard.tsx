@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SourceLogo } from "./logos";
-import { HostSocialCard } from "./HostSocialCard";
+import { HostSocials } from "./HostSocialCard";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
 import { TWEETS, CLIPS, STREAMS, HOSTS, X_PROFILE, type Tweet, type Clip, type Stream } from "../lib/showContent";
@@ -102,10 +102,7 @@ export function ContentBoard() {
               <span className="cnt-host-handle">@{h.handle}</span>
             </span>
             <span className="cnt-host-role">{h.role}</span>
-            <a className="cnt-host-follow" href={h.url} target="_blank" rel="noreferrer">
-              <SourceLogo source="x" size={12} /> Follow ↗
-            </a>
-            <HostSocialCard host={h} />
+            <HostSocials host={h} className="cnt-host-socials" />
           </div>
         ))}
       </div>

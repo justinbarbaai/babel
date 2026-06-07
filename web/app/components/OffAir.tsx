@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useHub } from "../lib/useHub";
-import { SourceLogo, InstagramLogo } from "./logos";
-import { HostSocialCard } from "./HostSocialCard";
+import { SourceLogo } from "./logos";
+import { HostSocials } from "./HostSocialCard";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -176,27 +176,7 @@ export function OffAir() {
                 <span className="oa-host-name">{h.name}</span>
                 <span className="oa-host-role">{h.role}</span>
               </div>
-              <div className="oa-host-links">
-                {h.twitch && (
-                  <a className="oa-chip" data-source="twitch" href={`https://twitch.tv/${h.twitch}`} target="_blank" rel="noreferrer">
-                    <SourceLogo source="twitch" size={12} /> Twitch
-                  </a>
-                )}
-                {h.kick && (
-                  <a className="oa-chip" data-source="kick" href={`https://kick.com/${h.kick}`} target="_blank" rel="noreferrer">
-                    <SourceLogo source="kick" size={12} /> Kick
-                  </a>
-                )}
-                {h.instagram && (
-                  <a className="oa-chip" data-source="instagram" href={`https://instagram.com/${h.instagram}`} target="_blank" rel="noreferrer">
-                    <InstagramLogo size={12} /> Instagram
-                  </a>
-                )}
-                <a className="oa-chip" data-source="x" href={h.url} target="_blank" rel="noreferrer">
-                  <SourceLogo source="x" size={11} /> X
-                </a>
-              </div>
-              <HostSocialCard host={h} />
+              <HostSocials host={h} className="oa-host-links" />
             </div>
           ))}
         </div>

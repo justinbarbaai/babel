@@ -2,57 +2,104 @@
 
 import { SourceLogo, InstagramLogo } from "./logos";
 import type { Host } from "../lib/showContent";
+import { HOST_SOCIALS, type SocialProfile, type SocialPlatform } from "../lib/socials";
 
-type SocialLink = { key: string; label: string; url: string };
+const LABEL: Record<SocialPlatform, string> = {
+  x: "X",
+  instagram: "Instagram",
+  twitch: "Twitch",
+  kick: "Kick",
+};
 
-// Build a host's social links from the data — X, Instagram, Twitch, Kick (only
-// the ones they have).
-export function hostSocials(h: Host): SocialLink[] {
-  const links: SocialLink[] = [];
-  if (h.twitch) links.push({ key: "twitch", label: "Twitch", url: `https://twitch.tv/${h.twitch}` });
-  if (h.kick) links.push({ key: "kick", label: "Kick", url: `https://kick.com/${h.kick}` });
-  if (h.instagram) links.push({ key: "instagram", label: "Instagram", url: `https://instagram.com/${h.instagram}` });
-  links.push({ key: "x", label: "X", url: h.url });
-  return links;
+function PlatformLogo({ p, size }: { p: SocialPlatform; size: number }) {
+  if (p === "instagram") return <InstagramLogo size={size} />;
+  return <SourceLogo source={p} size={size} />;
 }
 
-function Logo({ k, size }: { k: string; size: number }) {
-  if (k === "instagram") return <InstagramLogo size={size} />;
-  return <SourceLogo source={k as "twitch" | "kick" | "x"} size={size} />;
-}
-
-// Hover popup of a host's socials — mirrors the chat profile card. Drop it inside
-// a position:relative host card; CSS reveals it on hover/focus.
-export function HostSocialCard({ host }: { host: Host }) {
-  const links = hostSocials(host);
+function Verified() {
   return (
-    <span className="hsc-pop" role="tooltip">
-      <span className="hsc-head">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="hsc-av" src={host.avatar} alt={host.name} loading="lazy" />
-        <span className="hsc-id">
-          <span className="hsc-name">{host.name}</span>
-          <span className="hsc-handle">{host.role} · @{host.handle}</span>
+    <svg className="sprof-verified" viewBox="0 0 22 22" width="15" height="15" aria-label="Verified">
+      <path
+        fill="currentColor"
+        d="M20.4 11c0-1-.5-1.9-1.3-2.4.3-1 .1-2-.6-2.7-.7-.7-1.7-.9-2.7-.6-.5-.8-1.4-1.3-2.4-1.3s-1.9.5-2.4 1.3c-1-.3-2-.1-2.7.6-.7.7-.9 1.7-.6 2.7-.8.5-1.3 1.4-1.3 2.4s.5 1.9 1.3 2.4c-.3 1-.1 2 .6 2.7.7.7 1.7.9 2.7.6.5.8 1.4 1.3 2.4 1.3s1.9-.5 2.4-1.3c1 .3 2 .1 2.7-.6.7-.7.9-1.7.6-2.7.8-.5 1.3-1.4 1.3-2.4Z"
+      />
+      <path fill="#fff" d="m9.8 13.6-2.3-2.3 1.1-1.1 1.2 1.2 3-3 1.1 1.1-4.1 4.1Z" />
+    </svg>
+  );
+}
+
+// One platform's profile preview — styled to read like that app's hover card.
+function SocialProfileCard({ p }: { p: SocialProfile }) {
+  const at = p.platform === "twitch" || p.platform === "kick" ? "" : "@";
+  return (
+    <span className="sprof" data-platform={p.platform} role="tooltip">
+      <span className="sprof-top">
+        <span className="sprof-avwrap">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="sprof-av"
+            src={p.avatar}
+            alt={p.name}
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+            }}
+          />
+        </span>
+        <a className="sprof-follow" href={p.url} target="_blank" rel="noreferrer">
+          Follow
+        </a>
+      </span>
+      <span className="sprof-id">
+        <span className="sprof-name">
+          {p.name}
+          {p.verified && <Verified />}
+        </span>
+        <span className="sprof-handle">
+          {at}
+          {p.handle}
         </span>
       </span>
-      <span className="hsc-links">
-        {links.map((l) => (
-          <a
-            key={l.key}
-            className="hsc-link"
-            data-source={l.key}
-            href={l.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span className="hsc-link-logo">
-              <Logo k={l.key} size={14} />
-            </span>
-            <span className="hsc-link-label">{l.label}</span>
-            <span className="hsc-link-arrow">↗</span>
-          </a>
-        ))}
+      {p.bio && <span className="sprof-bio">{p.bio}</span>}
+      <span className="sprof-stats">
+        {p.posts && (
+          <span className="sprof-stat">
+            <b>{p.posts}</b> Posts
+          </span>
+        )}
+        <span className="sprof-stat">
+          <b>{p.followers}</b> Followers
+        </span>
+        <span className="sprof-plat">
+          <PlatformLogo p={p.platform} size={12} /> {LABEL[p.platform]}
+        </span>
       </span>
+    </span>
+  );
+}
+
+// A social chip that reveals the platform profile card on hover/focus.
+function SocialChip({ p }: { p: SocialProfile }) {
+  return (
+    <span className="schip-wrap">
+      <a className="schip" data-platform={p.platform} href={p.url} target="_blank" rel="noreferrer" tabIndex={0}>
+        <PlatformLogo p={p.platform} size={12} />
+        <span className="schip-label">{LABEL[p.platform]}</span>
+      </a>
+      <SocialProfileCard p={p} />
+    </span>
+  );
+}
+
+// Row of a host's socials, each with its platform profile hover card.
+export function HostSocials({ host, className = "" }: { host: Host; className?: string }) {
+  const socials = HOST_SOCIALS[host.handle] || [];
+  if (!socials.length) return null;
+  return (
+    <span className={`host-socials ${className}`}>
+      {socials.map((p) => (
+        <SocialChip key={p.platform} p={p} />
+      ))}
     </span>
   );
 }

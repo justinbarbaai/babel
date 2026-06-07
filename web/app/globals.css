@@ -1124,7 +1124,7 @@ a.cf-card-head:hover {
   pointer-events: auto;
 }
 
-/* ---- host social hover card (mirrors the chat profile card) ---- */
+/* ---- host social chips + per-platform profile hover cards ---- */
 .cnt-host,
 .oa-host {
   position: relative;
@@ -1136,79 +1136,121 @@ a.cf-card-head:hover {
 .oa-host:focus-within {
   z-index: 41;
 }
-.cnt-host:focus-visible,
-.oa-host:focus-visible { outline: none; }
-.hsc-pop {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 40;
-  width: 252px;
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-  padding: 13px;
-  border-radius: 14px;
-  text-align: left;
-  color: var(--text);
-  background: var(--bg-2);
-  border: 1px solid var(--border-2);
-  box-shadow: 0 22px 48px -20px rgba(0, 0, 0, 0.7);
-  opacity: 0;
-  transform: translateY(6px) scale(0.97);
-  transform-origin: top left;
-  pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cnt-host:hover .hsc-pop,
-.cnt-host:focus-within .hsc-pop,
-.oa-host:hover .hsc-pop,
-.oa-host:focus-within .hsc-pop {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-.hsc-head { display: flex; align-items: center; gap: 10px; }
-.hsc-av {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--hair);
-  flex: none;
-}
-.hsc-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.hsc-name { font-family: var(--serif); font-weight: 800; font-size: 16px; line-height: 1.1; }
-.hsc-handle {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.hsc-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.hsc-link {
+.host-socials { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.schip-wrap { position: relative; display: inline-flex; }
+.schip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  border-radius: 9px;
-  border: 1px solid var(--border-2);
-  background: var(--row-bg);
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text);
   text-decoration: none;
-  font-size: 12px;
-  font-weight: 600;
-  transition: background 0.14s ease, border-color 0.14s ease;
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  padding: 6px 11px;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
 }
-.hsc-link:hover { background: var(--panel-2); }
-.hsc-link-logo { display: inline-flex; }
-.hsc-link[data-source="twitch"] .hsc-link-logo { color: #9146ff; }
-.hsc-link[data-source="kick"] .hsc-link-logo { color: #53fc18; }
-.hsc-link[data-source="instagram"] .hsc-link-logo { color: #e1306c; }
-.hsc-link[data-source="x"] .hsc-link-logo { color: var(--text); }
-.hsc-link-label { margin-right: auto; }
-.hsc-link-arrow { color: var(--muted); font-size: 10px; }
+.schip:hover { transform: translateY(-1px); background: var(--panel-2); }
+.schip svg { flex: none; }
+.schip[data-platform="twitch"] svg { color: #9146ff; }
+.schip[data-platform="kick"] svg { color: #53fc18; }
+.schip[data-platform="instagram"] svg { color: #e1306c; }
+.schip[data-platform="x"] svg { color: var(--text); }
+
+/* the profile preview — styled like the app's own hover card */
+.sprof {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 60;
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  text-align: left;
+  color: #e7e9ea;
+  background: #16181c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 60px -22px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  transform-origin: bottom left;
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.schip-wrap:hover .sprof,
+.schip-wrap:focus-within .sprof {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.sprof-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.sprof-avwrap { width: 64px; height: 64px; border-radius: 50%; flex: none; }
+.sprof-av {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: #2a2d34;
+}
+.sprof-follow {
+  align-self: flex-start;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  background: #eff3f4;
+  color: #0f1419;
+  transition: opacity 0.14s ease;
+}
+.sprof-follow:hover { opacity: 0.88; }
+.sprof-id { display: flex; flex-direction: column; gap: 1px; }
+.sprof-name { display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 16px; color: #e7e9ea; }
+.sprof-verified { color: #1d9bf0; flex: none; }
+.sprof-handle { font-size: 13px; color: #71767b; }
+.sprof-bio { font-size: 13px; line-height: 1.4; color: #e7e9ea; }
+.sprof-stats { display: flex; gap: 14px; align-items: center; font-size: 13px; color: #71767b; }
+.sprof-stat b { color: #e7e9ea; font-weight: 800; }
+.sprof-plat {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.sprof-plat svg { flex: none; }
+
+/* X (default look above) */
+.sprof[data-platform="x"] .sprof-plat svg { color: #fff; }
+
+/* Twitch */
+.sprof[data-platform="twitch"] { background: #18181b; border-color: rgba(145, 70, 255, 0.5); }
+.sprof[data-platform="twitch"] .sprof-follow { background: #9146ff; color: #fff; }
+.sprof[data-platform="twitch"] .sprof-plat svg { color: #9146ff; }
+
+/* Kick */
+.sprof[data-platform="kick"] { background: #0c0f0c; border-color: rgba(83, 252, 24, 0.5); }
+.sprof[data-platform="kick"] .sprof-follow { background: #53fc18; color: #0a0a0a; }
+.sprof[data-platform="kick"] .sprof-plat svg { color: #53fc18; }
+
+/* Instagram — gradient avatar ring + IG-blue follow */
+.sprof[data-platform="instagram"] { background: #1a1014; border-color: rgba(214, 41, 118, 0.5); }
+.sprof[data-platform="instagram"] .sprof-avwrap {
+  padding: 3px;
+  background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+}
+.sprof[data-platform="instagram"] .sprof-av { border: 2px solid #1a1014; }
+.sprof[data-platform="instagram"] .sprof-follow { background: #0095f6; color: #fff; }
+.sprof[data-platform="instagram"] .sprof-plat svg { color: #e1306c; }
 .cf-text {
   color: var(--text);
   font-weight: 700;
