@@ -418,6 +418,14 @@ function sendConfig(ws) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
+  // Liveness probe for the host's health checks. Cheap, unauthenticated, and
+  // exempt from rate limiting so the platform can poll it freely.
+  if (url.pathname === "/health" || url.pathname === "/healthz") {
+    res.writeHead(200, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
+    res.end("ok");
+    return;
+  }
+
   // Throttle abuse / API-cost burn. OAuth redirects are exempt (low volume,
   // user-driven); everything else shares a generous per-IP bucket.
   if (!url.pathname.startsWith("/auth/kick/") && rateLimited(clientIp(req))) {

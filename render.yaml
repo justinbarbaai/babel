@@ -1,0 +1,50 @@
+# Render blueprint for the Market Bubble hub (the persistent WebSocket server).
+# The web/ Next.js app deploys separately on Vercel — Vercel can't host the hub.
+#
+# Deploy: push this repo to GitHub, then in Render → "New +" → "Blueprint",
+# pick this repo. Render reads this file and creates the service. It will prompt
+# you to fill every env var marked `sync: false` (your secrets stay out of git).
+services:
+  - type: web
+    name: market-bubble-hub
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter # free tier sleeps after 15 min idle; "starter" stays awake
+    healthCheckPath: /health
+    autoDeploy: true
+    # Note: the hub writes a tiny .mb-state.json (global chat look). It's not
+    # persisted across redeploys here — the operator just re-applies the look in
+    # the Studio if it ever resets. (Don't mount a disk at /app; it shadows the
+    # app code. If you want persistence, add a STATE_DIR env + disk elsewhere.)
+    envVars:
+      # --- secrets / per-deploy values: Render prompts you to enter these ---
+      - key: OPERATOR_KEY # generate: openssl rand -hex 24
+        sync: false
+      - key: WEB_ORIGIN # https://your-app.vercel.app
+        sync: false
+      - key: ALLOWED_ORIGINS # https://your-app.vercel.app,https://www.yourdomain.com
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      - key: KICK_CLIENT_ID
+        sync: false
+      - key: KICK_CLIENT_SECRET
+        sync: false
+      - key: KICK_REDIRECT_URI # https://<your-hub>.onrender.com/auth/kick/callback
+        sync: false
+      - key: X_BEARER_TOKEN
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      # --- non-secret defaults ---
+      - key: TWITCH_CHANNEL
+        value: fazebanks
+      - key: KICK_CHANNEL
+        value: ansem
+      - key: X_QUERY
+        value: from:Banks OR from:blknoiz06
+      - key: X_LIVE_HANDLE
+        value: banks
