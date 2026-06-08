@@ -18,12 +18,12 @@ const COMMODITIES = [
   { ticker: "USO", name: "Crude Oil" },
 ];
 const CRYPTO = [
-  { id: "bitcoin", sym: "BTC", name: "Bitcoin" },
-  { id: "ethereum", sym: "ETH", name: "Ethereum" },
-  { id: "solana", sym: "SOL", name: "Solana" },
-  { id: "hyperliquid", sym: "HYPE", name: "Hyperliquid" },
-  { id: "ripple", sym: "XRP", name: "XRP" },
-  { id: "dogecoin", sym: "DOGE", name: "Dogecoin" },
+  { id: "bitcoin", sym: "BTC", name: "Bitcoin", paprika: "btc-bitcoin" },
+  { id: "ethereum", sym: "ETH", name: "Ethereum", paprika: "eth-ethereum" },
+  { id: "solana", sym: "SOL", name: "Solana", paprika: "sol-solana" },
+  { id: "hyperliquid", sym: "HYPE", name: "Hyperliquid", paprika: "hype-hyperliquid" },
+  { id: "ripple", sym: "XRP", name: "XRP", paprika: "xrp-xrp" },
+  { id: "dogecoin", sym: "DOGE", name: "Dogecoin", paprika: "doge-dogecoin" },
 ];
 
 async function finnhubQuote(ticker, key) {
@@ -70,18 +70,51 @@ async function fetchCryptoOnce() {
   return out;
 }
 
-// CoinGecko's free tier rate-limits often; one quick retry smooths transient 429s.
+// CoinPaprika fallback. CoinGecko's keyless API rate-limits/blocks datacenter
+// IPs (so it returns nothing from hosts like Render), whereas CoinPaprika serves
+// cloud IPs fine and still covers every coin we track (incl. HYPE). One request
+// per coin, run in parallel; any that fail are simply skipped.
+async function fetchCryptoPaprika() {
+  const results = await Promise.all(
+    CRYPTO.map(async (c) => {
+      try {
+        const res = await fetch(`https://api.coinpaprika.com/v1/tickers/${c.paprika}`, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return null;
+        const d = await res.json();
+        const usd = d?.quotes?.USD;
+        if (!usd || typeof usd.price !== "number") return null;
+        return {
+          name: c.name,
+          ticker: c.sym,
+          price: usd.price,
+          changePct: usd.percent_change_24h ?? 0,
+        };
+      } catch {
+        return null;
+      }
+    })
+  );
+  return results.filter(Boolean);
+}
+
+// CoinGecko first (one quick retry for transient 429s); if it yields nothing
+// (rate-limited / IP-blocked on the host), fall back to CoinPaprika.
 async function fetchCryptoGroup() {
   try {
-    return await fetchCryptoOnce();
+    const cg = await fetchCryptoOnce();
+    if (cg.length) return cg;
   } catch {
     await new Promise((r) => setTimeout(r, 900));
     try {
-      return await fetchCryptoOnce();
-    } catch {
-      return [];
-    }
+      const cg = await fetchCryptoOnce();
+      if (cg.length) return cg;
+    } catch {}
   }
+  // CoinGecko gave us nothing — try the cloud-friendly source.
+  return await fetchCryptoPaprika();
 }
 
 // Last successful rows per group, so a transient failure in one source (e.g. a
