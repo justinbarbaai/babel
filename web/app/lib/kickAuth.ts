@@ -43,17 +43,20 @@ export function startKickLogin() {
   window.location.href = `${HUB_HTTP}/auth/kick/user/login`;
 }
 
-// Capture ?kick_session / ?kick_user from the OAuth redirect, then clean the URL.
+// Capture the session from the OAuth redirect FRAGMENT (#kick_session=…) — the
+// hub returns it in the fragment so the credential never lands in a server log
+// or Referer header. Falls back to the legacy ?query form. Then strips it.
 function captureFromUrl() {
   if (typeof window === "undefined") return;
-  const p = new URLSearchParams(window.location.search);
-  const id = p.get("kick_session");
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(window.location.search);
+  const id = hash.get("kick_session") || query.get("kick_session");
   if (!id) return;
-  setKickSession(id, p.get("kick_user"));
-  p.delete("kick_session");
-  p.delete("kick_user");
-  const qs = p.toString();
-  const url = window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
+  setKickSession(id, hash.get("kick_user") || query.get("kick_user"));
+  query.delete("kick_session");
+  query.delete("kick_user");
+  const qs = query.toString();
+  const url = window.location.pathname + (qs ? `?${qs}` : "");
   window.history.replaceState(null, "", url);
 }
 

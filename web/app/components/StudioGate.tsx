@@ -3,46 +3,50 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { MBMark } from "./brand";
 
-// Lightweight owner-only gate for the Studio (admin). Not full auth — just a
-// passphrase soft-lock so the page isn't open to anyone with the URL. We compare
-// the SHA-256 of the entered passphrase to a stored hash (the plaintext never
-// lives in the bundle), and remember success per-browser.
-//
-// Default passphrase is "marketbubble". Override by setting
-// NEXT_PUBLIC_STUDIO_PASSHASH to the sha256 hex of your own passphrase.
-const DEFAULT_HASH = "8d241580ea4f2f8bc53787f27c90f282280bb5d4068a02bb83d8f0bf9a9047c9";
-const EXPECTED = process.env.NEXT_PUBLIC_STUDIO_PASSHASH || DEFAULT_HASH;
-const LS_KEY = "mb.studio.key";
-
-async function sha256(s: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+// Operator gate for the Studio. The key is validated SERVER-SIDE by the hub
+// (constant-time compare against OPERATOR_KEY in the hub's env) — unlike a
+// client-only check, this is what actually authorizes the privileged WS actions
+// (reconfigure channels, set the global look, send/moderate as the show). On
+// success the key is stored locally and useHub sends it on the hub connection.
+const HUB_HTTP = (process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080").replace(/^ws/, "http");
+const LS_KEY = "mb.operatorKey";
 
 export function StudioGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [value, setValue] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState("");
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(LS_KEY) === EXPECTED) setAuthed(true);
+      if (localStorage.getItem(LS_KEY)) setAuthed(true);
     } catch {}
     setReady(true);
   }, []);
 
   const submit = async () => {
-    const h = await sha256(value);
-    if (h === EXPECTED) {
-      try {
-        localStorage.setItem(LS_KEY, EXPECTED);
-      } catch {}
-      setAuthed(true);
-      setError(false);
-    } else {
-      setError(true);
+    const key = value.trim();
+    if (!key || checking) return;
+    setChecking(true);
+    setError("");
+    try {
+      const res = await fetch(`${HUB_HTTP}/auth/operator?key=${encodeURIComponent(key)}`);
+      const j = await res.json();
+      if (j?.ok) {
+        try {
+          localStorage.setItem(LS_KEY, key);
+        } catch {}
+        // reload so the hub WebSocket reconnects with operator privileges
+        window.location.reload();
+        return;
+      }
+      setError("Incorrect operator key.");
       setValue("");
+    } catch {
+      setError("Can't reach the hub — is the server running?");
+    } finally {
+      setChecking(false);
     }
   };
 
@@ -54,25 +58,27 @@ export function StudioGate({ children }: { children: ReactNode }) {
       <div className="gate-card">
         <MBMark size={34} />
         <h1 className="gate-title">Market Bubble Studio</h1>
-        <p className="gate-sub">Enter the studio passphrase to continue.</p>
+        <p className="gate-sub">Enter the operator key to continue.</p>
         <div className={`gate-row ${error ? "err" : ""}`}>
           <input
             type="password"
             value={value}
             autoFocus
-            placeholder="Passphrase"
+            placeholder="Operator key"
             onChange={(e) => {
               setValue(e.target.value);
-              setError(false);
+              setError("");
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
             spellCheck={false}
           />
-          <button onClick={submit}>Enter</button>
+          <button onClick={submit} disabled={checking}>
+            {checking ? "…" : "Enter"}
+          </button>
         </div>
-        {error && <p className="gate-err">Incorrect passphrase.</p>}
+        {error && <p className="gate-err">{error}</p>}
       </div>
     </div>
   );

@@ -178,7 +178,7 @@ export default function ReaderPage() {
               </button>
             </>
           ) : clientId ? (
-            <button className="reader-auth-btn" onClick={startLogin}>
+            <button className="reader-auth-btn" onClick={() => startLogin()}>
               Log in with Twitch
             </button>
           ) : showKey ? (

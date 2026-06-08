@@ -1,6 +1,7 @@
 import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { Readable } from "node:stream";
 import { WebSocketServer } from "ws";
 import { TwitchSource } from "./sources/twitch.js";
@@ -72,6 +73,50 @@ const kickCreds = {
 const KICK_REDIRECT_URI =
   process.env.KICK_REDIRECT_URI || `http://localhost:${PORT}/auth/kick/callback`;
 const WEB_ORIGIN = process.env.WEB_ORIGIN || "http://localhost:3000";
+
+// ---- access control ----
+// Browser origins allowed to open a WebSocket to this hub. Defaults to the web
+// origin; set ALLOWED_ORIGINS=https://a.com,https://b.com to allow more.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || WEB_ORIGIN)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+// Secret that grants OPERATOR privileges over the WS (reconfigure channels, set
+// the global chat look, send/moderate as the operator account, set the X token).
+// Set a long random value in .env before deploying. If empty, operator actions
+// are DISABLED entirely (safe default) — the studio just won't be able to push.
+const OPERATOR_KEY = process.env.OPERATOR_KEY || "";
+// Constant-time compare so the key can't be guessed by timing.
+function operatorKeyOk(key) {
+  if (!OPERATOR_KEY || !key) return false;
+  const a = Buffer.from(String(key));
+  const b = Buffer.from(OPERATOR_KEY);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// ---- per-IP HTTP rate limiting (refilling token bucket) ----
+const rateBuckets = new Map();
+function rateLimited(ip, max = 40, refillPerSec = 4) {
+  const now = Date.now();
+  let b = rateBuckets.get(ip);
+  if (!b) {
+    b = { tokens: max, last: now };
+    rateBuckets.set(ip, b);
+  }
+  b.tokens = Math.min(max, b.tokens + ((now - b.last) / 1000) * refillPerSec);
+  b.last = now;
+  if (b.tokens < 1) return true;
+  b.tokens -= 1;
+  return false;
+}
+// Periodically drop idle buckets so the map can't grow unbounded.
+setInterval(() => {
+  const cutoff = Date.now() - 5 * 60 * 1000;
+  for (const [ip, b] of rateBuckets) if (b.last < cutoff) rateBuckets.delete(ip);
+}, 5 * 60 * 1000).unref?.();
+function clientIp(req) {
+  return (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.socket.remoteAddress || "?";
+}
 
 // Shared emote resolver (7TV + BTTV + FFZ) — caches global + per-channel sets.
 const emotes = new EmoteResolver();
@@ -373,6 +418,14 @@ function sendConfig(ws) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
+  // Throttle abuse / API-cost burn. OAuth redirects are exempt (low volume,
+  // user-driven); everything else shares a generous per-IP bucket.
+  if (!url.pathname.startsWith("/auth/kick/") && rateLimited(clientIp(req))) {
+    res.writeHead(429, { "Content-Type": "text/plain", "Access-Control-Allow-Origin": "*" });
+    res.end("rate limited");
+    return;
+  }
+
   // Kick OAuth: start the authorize flow (redirect the browser to Kick).
   if (url.pathname === "/auth/kick/login") {
     if (!kickConfigured(kickCreds)) {
@@ -405,6 +458,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Operator gate: the studio validates its key here before it's trusted for
+  // privileged WS actions. Constant-time compare; never reflects the key.
+  if (url.pathname === "/auth/operator") {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ ok: operatorKeyOk(url.searchParams.get("key")) }));
+    return;
+  }
+
   // Kick OAuth: per-viewer disconnect.
   if (url.pathname === "/auth/kick/session/disconnect") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -421,8 +482,10 @@ const server = http.createServer(async (req, res) => {
       if (!code || !state) throw new Error("missing code/state");
       const result = await handleKickCallback(kickCreds, KICK_REDIRECT_URI, code, state);
       if (result?.sessionId) {
+        // Deliver the session id in the URL FRAGMENT — fragments are never sent
+        // to servers or in the Referer, so the credential can't leak that way.
         const u = result.username ? `&kick_user=${encodeURIComponent(result.username)}` : "";
-        res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick_session=${encodeURIComponent(result.sessionId)}${u}` });
+        res.writeHead(302, { Location: `${WEB_ORIGIN}/#kick_session=${encodeURIComponent(result.sessionId)}${u}` });
       } else {
         broadcast(configPayload());
         res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });
@@ -505,7 +568,9 @@ const server = http.createServer(async (req, res) => {
     try {
       const headers = {};
       if (req.headers.range) headers.Range = req.headers.range;
-      const upstream = await fetch(u, { headers });
+      // No redirect-following (prevents SSRF via an upstream redirect) + a hard
+      // timeout so the proxy can't be held open.
+      const upstream = await fetch(u, { headers, redirect: "error", signal: AbortSignal.timeout(15000) });
       const out = {
         "Content-Type": upstream.headers.get("content-type") || "video/mp4",
         "Accept-Ranges": "bytes",
@@ -535,13 +600,35 @@ const server = http.createServer(async (req, res) => {
   res.end();
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({
+  server,
+  // Reject cross-site WebSocket connections (CSWSH). Same-origin tools (curl,
+  // OBS browser source, native apps) send no Origin and are allowed; browsers
+  // must match the allowlist.
+  verifyClient: ({ origin }) => !origin || ALLOWED_ORIGINS.includes(origin),
+});
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   clients.add(ws);
+  // Operator privilege is granted only with the right key on the connect URL.
+  try {
+    const u = new URL(req.url, `http://localhost:${PORT}`);
+    ws.isOperator = operatorKeyOk(u.searchParams.get("key"));
+  } catch {
+    ws.isOperator = false;
+  }
+  // Simple per-socket flood guard: a refilling token bucket.
+  ws.msgTokens = 60;
+  const refill = setInterval(() => {
+    ws.msgTokens = Math.min(60, ws.msgTokens + 20);
+  }, 1000);
+  ws.on("close", () => clearInterval(refill));
+
   sendConfig(ws);
 
   ws.on("message", (raw) => {
+    // rate-limit: drop messages once the bucket is empty
+    if ((ws.msgTokens -= 1) < 0) return;
     let msg;
     try {
       msg = JSON.parse(raw.toString());
@@ -568,6 +655,7 @@ wss.on("connection", (ws) => {
         if (ws.readyState === ws.OPEN)
           ws.send(JSON.stringify({ type: "modResult", platform: "kick", action: msg.action, ok, error: error || null }));
       };
+      if (!ws.isOperator) return reply(false, "Not authorized.");
       if (!kickConnected()) return reply(false, "Connect Kick first.");
       const slug = String(msg.slug).toLowerCase();
       const ksrc = sources.kick.find((s) => s.slug === slug);
@@ -585,7 +673,9 @@ wss.on("connection", (ws) => {
           ws.send(JSON.stringify({ type: "sendResult", platform: "kick", ok, error: error || null }));
       };
       const session = typeof msg.kickSession === "string" && msg.kickSession ? msg.kickSession : null;
-      if (!session && !kickConnected()) return reply(false, "Sign in to Kick first.");
+      // Viewers send with their own session; only the operator may fall back to
+      // the show's connected Kick account.
+      if (!session && (!ws.isOperator || !kickConnected())) return reply(false, "Sign in to Kick first.");
       const content = msg.content.trim();
       if (!content) return;
       const slug = String(msg.slug).toLowerCase();
@@ -600,11 +690,13 @@ wss.on("connection", (ws) => {
       return;
     }
     if (msg.type === "kickDisconnect") {
+      if (!ws.isOperator) return;
       disconnectKick();
       broadcast(configPayload());
       return;
     }
     if (msg.type === "siteLook" && msg.look && typeof msg.look === "object") {
+      if (!ws.isOperator) return;
       // Admin-controlled chat appearance for the public room; applies to all
       // visitors. Remembered so newly-connected clients get the current look.
       siteLook = msg.look;
@@ -613,6 +705,7 @@ wss.on("connection", (ws) => {
       return;
     }
     if (msg.type === "style" && msg.style && typeof msg.style === "object") {
+      if (!ws.isOperator) return;
       // Live overlay style from the control panel — remember it and relay to
       // overlays so they update without re-copying the link.
       currentStyle = msg.style;
@@ -631,7 +724,8 @@ wss.on("connection", (ws) => {
         setupPrivate(ws, tw, kk);
         return;
       }
-      // Live reconfigure of which channels/handle to follow.
+      // Live reconfigure of the public feed is operator-only.
+      if (!ws.isOperator) return;
       if (Array.isArray(msg.twitchChannels))
         config.twitchChannels = msg.twitchChannels.map((c) => String(c).trim()).filter(Boolean);
       if (Array.isArray(msg.kickChannels))

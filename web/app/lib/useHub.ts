@@ -90,6 +90,18 @@ export interface ViewerSnapshot {
 const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080";
 const MAX_BUFFER = 500;
 
+// Operator key (stored only after the Studio gate validates it server-side).
+// Appended to the WS URL so the hub grants this socket operator privileges.
+// Viewers never have it, so they can only do viewer actions.
+function hubUrlWithKey(): string {
+  if (typeof window === "undefined") return HUB_URL;
+  try {
+    const key = localStorage.getItem("mb.operatorKey");
+    if (key) return `${HUB_URL}${HUB_URL.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}`;
+  } catch {}
+  return HUB_URL;
+}
+
 type UseHubArgs = {
   // If set, the hub is told to follow these channels on every (re)connect.
   // Used by the overlay so the link is self-contained.
@@ -162,7 +174,7 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
 
     let ws: WebSocket;
     try {
-      ws = new WebSocket(HUB_URL);
+      ws = new WebSocket(hubUrlWithKey());
     } catch {
       scheduleReconnect();
       return;

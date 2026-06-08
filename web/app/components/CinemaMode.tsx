@@ -22,7 +22,7 @@ type Props = {
   onClose: () => void;
   messages: ChatMessage[];
   options: OverlayOptions;
-  profiles: Record<string, Profile>;
+  profiles: Record<string, Profile | null>;
   requestProfile: (source: string, login: string) => void;
   viewers: any;
   streams: Stream[];
