@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Inter,
   Montserrat,
@@ -61,6 +61,14 @@ export const metadata: Metadata = {
   title: "Market Bubble — Make Money. Command Attention. Leverage AI.",
   description:
     "Market Bubble — live Thursdays 1PM PST. Watch Banks & Ansem, one unified chat across Twitch, Kick & X, live markets, and news.",
+};
+
+// Without this, phones render the desktop layout at a ~980px layout viewport and
+// shrink it to fit (tiny, zoomed-out) and the responsive @media rules never match.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 // Set the saved theme before paint so there's no light/dark flash on load.

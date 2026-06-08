@@ -7861,3 +7861,83 @@ body.panel-dragging iframe {
 @media (max-width: 760px) {
   .cnt-hosts { grid-template-columns: 1fr; }
 }
+
+/* ============================================================================
+   PHONE PASS (≤600px)
+   The site is built desktop-first with a floating 3-column masthead. On a phone
+   that header runs off-screen, so collapse it into two compact rows and tighten
+   the floating-header offset. Placed last so it wins at small widths.
+   ========================================================================== */
+@media (max-width: 600px) {
+  /* ---- Header: row 1 = logo + controls, row 2 = nav (centered) ---- */
+  .term-bar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "logo controls"
+      "nav  nav";
+    gap: 6px 10px !important;
+    padding: 10px 14px !important;
+    min-height: 0 !important;
+  }
+  .term-logo {
+    grid-area: logo;
+    justify-self: start !important;
+    align-self: center !important;
+  }
+  .term-bar-right {
+    grid-area: controls;
+    justify-self: end !important;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px 12px;
+  }
+  /* keep each control label whole instead of breaking "LIVE ROOM" mid-word */
+  .term-bar-right a,
+  .term-bar-right button { white-space: nowrap; }
+  .term-nav {
+    grid-area: nav;
+    justify-self: center !important;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px !important;
+  }
+  /* shrink the brand lockup across every header variant */
+  .term-lockup,
+  .term-room:not(.offair) .term-lockup,
+  .term-room.offair .term-lockup {
+    width: 92px !important;
+    height: 87px !important;
+  }
+  /* the floating header is much shorter now — pull the content up to match */
+  .term { --term-barrier: 132px !important; }
+
+  /* ---- Off-air home ---- */
+  .oa-masthead { flex-wrap: wrap; gap: 4px 12px; }
+  .oa-mast-note { flex-basis: 100%; }            /* note drops to its own line */
+  .oa-stage-cap { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .oa-stage-meta { max-width: 100%; }
+  .oa-hosts { grid-template-columns: 1fr; }      /* one host per row */
+  .oa-rail { grid-auto-columns: minmax(78vw, 1fr); }  /* one card at a time */
+
+  /* ---- Content page host cards: stack role + socials onto a second row so
+     they stop colliding with the name in a single cramped row ---- */
+  .cnt-host {
+    grid-template-columns: auto 1fr;
+    row-gap: 10px;
+    column-gap: 13px;
+  }
+
+  /* ---- Social profile hover-card: it's a 290px popup that overflows the screen
+     edge, and hover cards don't work on touch anyway. Hide it on phones — the
+     chips themselves are real links to each profile. ---- */
+  .sprof { display: none !important; }
+
+  /* ---- Persistent mini-player: a 360px PiP is nearly full-width on a phone.
+     Shrink it to a proper corner size. ---- */
+  .mini { width: min(248px, calc(100vw - 24px)); }
+  .mini.collapsed { width: 180px; }
+
+  /* nothing should force the page wider than the screen */
+  .term, .oa, .term-page-inner { overflow-x: hidden; }
+}
