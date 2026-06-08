@@ -10,7 +10,9 @@ services:
     runtime: docker
     dockerfilePath: ./server/Dockerfile
     dockerContext: ./server
-    plan: starter # free tier sleeps after 15 min idle; "starter" stays awake
+    plan: free # $0 — naps after 15 min idle, wakes in ~30s on next visit.
+    # Demo deploy. Before a live show: hit the site a few min early to wake it,
+    # or bump this to `starter` ($7/mo) so it never sleeps.
     healthCheckPath: /health
     autoDeploy: true
     # Note: the hub writes a tiny .mb-state.json (global chat look). It's not
