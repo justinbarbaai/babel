@@ -31,61 +31,145 @@ html.cls-mode .grain {
   place-items: center;
   padding: 24px;
   overflow: auto;
-  background:
-    radial-gradient(120% 90% at 50% 8%, #6f5a40 0%, #4a3a28 45%, #281e14 100%);
   font-family: var(--geneva);
+  background:
+    radial-gradient(70% 55% at 80% 16%, rgba(95, 150, 75, 0.16), transparent 62%),
+    radial-gradient(130% 100% at 50% -6%, #836a48 0%, #54402a 44%, #1f160d 100%),
+    repeating-linear-gradient(91deg, rgba(0, 0, 0, 0.05) 0 6px, rgba(255, 255, 255, 0.014) 6px 13px);
+  background-blend-mode: screen, normal, overlay;
+}
+/* room vignette over the whole scene */
+.cls-scene::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(115% 100% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.62));
+}
+
+/* ----------------------------------------- photoreal Macintosh (real image) */
+.mac-photo-wrap {
+  position: relative;
+  z-index: 3;
+  line-height: 0;
+}
+.mac-photo {
+  display: block;
+  height: min(94vh, 900px);
+  width: auto;
+  max-width: 97vw;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+/* the live, interactive CRT — sits exactly over the monitor glass in the photo */
+.photo-screen {
+  position: absolute;
+  left: 29%;
+  top: 11.9%;
+  width: 38.7%;
+  height: 43.4%;
+  overflow: hidden;
+  border-radius: 18px / 13px;
+  background: #0a0d0a;
+  line-height: normal;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+}
+/* glass over the live screen: sheen, corner glare, vignette, scanlines */
+.photo-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(122deg, rgba(255, 255, 255, 0.09) 0%, transparent 26%),
+    radial-gradient(120% 78% at 16% 4%, rgba(255, 255, 255, 0.2), transparent 44%),
+    radial-gradient(135% 125% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.45)),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.045) 0 1px, transparent 1px 3px);
 }
 
 /* ----------------------------------------------------------------- chassis */
 .mac {
   position: relative;
-  width: clamp(380px, 62vw, 660px);
-  padding: 26px 26px 0;
-  border-radius: 28px 28px 22px 22px;
+  z-index: 3;
+  width: clamp(440px, 72vw, 820px);
+  padding: 32px 32px 0;
+  border-radius: 36px 36px 28px 28px;
   background:
-    linear-gradient(180deg, #e4dcc8 0%, var(--beige) 18%, var(--beige-d) 92%, var(--beige-dd) 100%);
+    radial-gradient(150% 130% at 26% -4%, #f1ead8 0%, rgba(241, 234, 216, 0) 52%),
+    linear-gradient(168deg, #e7dec9 0%, #d6c9ad 38%, #c2b18e 78%, #b1a07e 100%);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -10px 22px rgba(120, 100, 70, 0.35),
-    inset 0 0 0 1px rgba(120, 100, 70, 0.25),
-    0 40px 90px -30px rgba(0, 0, 0, 0.8),
-    0 8px 20px rgba(0, 0, 0, 0.35);
+    inset 0 3px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -16px 30px rgba(110, 88, 56, 0.42),
+    inset 0 0 0 1px rgba(110, 90, 60, 0.3),
+    0 64px 110px -34px rgba(0, 0, 0, 0.85),
+    0 26px 50px rgba(0, 0, 0, 0.45);
+}
+/* grounding contact shadow on the desk */
+.mac::before {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  bottom: -26px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.55), transparent 72%);
+  filter: blur(6px);
+  z-index: -1;
+}
+/* fine molded-plastic grain (kills the flat-vector look) */
+.mac::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* recessed screen frame */
 .mac-bezel {
-  border-radius: 16px;
-  padding: 22px 20px 24px;
-  background: linear-gradient(180deg, var(--beige-d), var(--beige-dd));
+  position: relative;
+  border-radius: 20px;
+  padding: 20px 18px 22px;
+  background: linear-gradient(176deg, #c8ba9c 0%, #b6a684 58%, #a89678 100%);
   box-shadow:
-    inset 0 3px 7px rgba(80, 65, 40, 0.55),
-    inset 0 -2px 0 rgba(255, 255, 255, 0.35);
+    inset 0 5px 11px rgba(66, 52, 30, 0.62),
+    inset 0 -2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(70, 55, 32, 0.35);
 }
 
 .mac-screen {
   position: relative;
   aspect-ratio: 4 / 3;
-  border-radius: 14px;
+  border-radius: 26px / 22px;
   overflow: hidden;
-  background: var(--screen);
-  border: 3px solid #15130f;
+  background: radial-gradient(120% 115% at 50% 46%, #20271f 0%, #0c100c 72%, #050705 100%);
+  border: 5px solid #100e0a;
   box-shadow:
-    0 0 0 2px rgba(0, 0, 0, 0.5),
-    inset 0 0 22px rgba(0, 0, 0, 0.28),
-    inset 0 0 70px rgba(60, 70, 50, 0.12);
+    0 0 0 3px rgba(0, 0, 0, 0.65),
+    0 2px 5px rgba(255, 255, 255, 0.25),
+    inset 0 0 34px rgba(0, 0, 0, 0.6),
+    inset 0 0 110px rgba(0, 0, 0, 0.4);
 }
 
-/* subtle CRT glass: corner glare + faint scanlines + curvature vignette */
+/* CRT glass: diagonal sheen + corner glare + vignette + fine scanlines */
 .crt-glass {
   position: absolute;
   inset: 0;
   z-index: 50;
   pointer-events: none;
-  border-radius: 12px;
+  border-radius: inherit;
   background:
-    radial-gradient(140% 100% at 22% 6%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 38%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px);
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.18);
+    linear-gradient(122deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 16%, transparent 30%),
+    radial-gradient(120% 75% at 16% 3%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(135% 125% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.55)),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.3);
 }
 
 /* ----------------------------------------------------------------- chin */

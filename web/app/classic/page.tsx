@@ -76,7 +76,7 @@ export default function ClassicPage() {
   const [boot, setBoot] = useState<BootPhase>("flicker");
   const [vods, setVods] = useState<Stream[]>([]);
   const [selected, setSelected] = useState<Stream | null>(null);
-  const [win, setWin] = useState<Record<WinKey, boolean>>({ show: true, mkt: true, chat: true, news: false, poly: false, trash: false, patterns: false, about: false });
+  const [win, setWin] = useState<Record<WinKey, boolean>>({ show: true, mkt: true, chat: false, news: false, poly: false, trash: false, patterns: false, about: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
   const [pat, setPat] = useState(0);
@@ -210,10 +210,11 @@ export default function ClassicPage() {
 
   return (
     <div className="cls-scene">
-      <div className="mac">
-        <div className="mac-bezel">
-          <div className={`mac-screen ${!powered ? "is-off" : ""}`} ref={screenRef}>
-            <div className="crt-glass" aria-hidden />
+      <div className="mac-photo-wrap">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="mac-photo" src="/mac.png" alt="Macintosh" draggable={false} />
+        <div className={`photo-screen ${!powered ? "is-off" : ""}`} ref={screenRef}>
+          <div className="photo-glass" aria-hidden />
 
             {!powered ? (
               <button className="power-screen" onClick={powerOn}>
@@ -254,7 +255,7 @@ export default function ClassicPage() {
                 </div>
 
                 {win.show && (
-                  <MacWindow title="The Show" initial={{ x: 14, y: 38 }} width={352} bounds={bounds} onClose={() => toggle("show", false)} onShade={shadeSnd}>
+                  <MacWindow title="The Show" initial={{ x: 12, y: 26 }} width={350} bounds={bounds} onClose={() => toggle("show", false)} onShade={shadeSnd}>
                     <div className="show-win">
                       <div className="show-video">{heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Inserting disk…</div>}</div>
                       <div className="show-meta"><span className="show-badge">▶ REPLAY</span><span className="show-title">{heroMedia?.title || "Market Bubble"}</span></div>
@@ -270,13 +271,13 @@ export default function ClassicPage() {
                 )}
 
                 {win.chat && (
-                  <MacWindow title="Chat" initial={{ x: 388, y: 252 }} width={244} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
+                  <MacWindow title="Chat" initial={{ x: 34, y: 50 }} width={236} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
                     <ChatWindow live={messages} onSay={() => snd.click()} />
                   </MacWindow>
                 )}
 
                 {win.mkt && (
-                  <MacWindow title="Markets" initial={{ x: 392, y: 38 }} width={172} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
+                  <MacWindow title="Markets" initial={{ x: 256, y: 222 }} width={166} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
                     <div className="mkt-win">
                       {markets.length === 0 && <div className="mkt-row mkt-empty">Reading tape…</div>}
                       {markets.map((m) => (
@@ -291,13 +292,13 @@ export default function ClassicPage() {
                 )}
 
                 {win.news && (
-                  <MacWindow title="News Wire" initial={{ x: 60, y: 110 }} width={300} height={210} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
+                  <MacWindow title="News Wire" initial={{ x: 28, y: 56 }} width={296} height={200} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
                     <NewsWindow />
                   </MacWindow>
                 )}
 
                 {win.poly && (
-                  <MacWindow title="Polymarket" initial={{ x: 120, y: 150 }} width={300} height={210} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
+                  <MacWindow title="Polymarket" initial={{ x: 56, y: 86 }} width={296} height={200} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
                     <PolymarketWindow />
                   </MacWindow>
                 )}
@@ -317,7 +318,7 @@ export default function ClassicPage() {
                 )}
 
                 {win.trash && (
-                  <MacWindow title="Trash" initial={{ x: 250, y: 300 }} width={186} bounds={bounds} onClose={() => toggle("trash", false)} onShade={shadeSnd}>
+                  <MacWindow title="Trash" initial={{ x: 120, y: 150 }} width={186} bounds={bounds} onClose={() => toggle("trash", false)} onShade={shadeSnd}>
                     <div className="trash-win">
                       <span className="trash-glyph">{GTrash}</span>
                       <div className="trash-msg">The Trash is empty.</div>
@@ -327,7 +328,7 @@ export default function ClassicPage() {
                 )}
 
                 {win.about && (
-                  <MacWindow title="About Market Bubble" initial={{ x: 150, y: 118 }} width={300} bounds={bounds} onClose={() => toggle("about", false)} onShade={shadeSnd}>
+                  <MacWindow title="About Market Bubble" initial={{ x: 46, y: 60 }} width={290} bounds={bounds} onClose={() => toggle("about", false)} onShade={shadeSnd}>
                     <div className="about-win">
                       <div className="about-head">
                         <RainbowApple size={26} />
@@ -347,13 +348,6 @@ export default function ClassicPage() {
                 <Dock items={dockItems} />
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="mac-chin">
-          <div className="mac-brand"><RainbowApple size={15} /><span className="mac-brand-name">Market&nbsp;Bubble</span></div>
-          <div className="mac-floppy" aria-hidden />
-          <div className="mac-vents" aria-hidden />
         </div>
       </div>
     </div>
