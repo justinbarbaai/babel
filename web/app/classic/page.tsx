@@ -2,9 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useHub } from "../lib/useHub";
-import { MediaPlayer } from "../components/MediaPlayer";
-import type { Media } from "../lib/media";
-import type { Stream } from "../lib/showContent";
 import { HOSTS } from "../lib/showContent";
 import { MacWindow } from "./MacWindow";
 import { ChatWindow } from "./ChatWindow";
@@ -12,11 +9,6 @@ import { NewsWindow } from "./NewsWindow";
 import { PolymarketWindow } from "./PolymarketWindow";
 import { Dock, type DockItem } from "./Dock";
 import { useChime } from "./useChime";
-
-function twitchVodId(url?: string): string | null {
-  const m = (url || "").match(/videos\/(\d+)/);
-  return m ? m[1] : null;
-}
 
 function RainbowApple({ size = 16 }: { size?: number }) {
   const stripes = ["#5fb44a", "#f5e003", "#f08a1d", "#e23b35", "#8a3f97", "#3b8ed0"];
@@ -84,8 +76,6 @@ export default function ClassicPage() {
   const [boot, setBoot] = useState<BootPhase>("done");
   const [theater, setTheater] = useState(false);
   const [inverted, setInverted] = useState(false);
-  const [vods, setVods] = useState<Stream[]>([]);
-  const [selected, setSelected] = useState<Stream | null>(null);
   const [win, setWin] = useState<Record<WinKey, boolean>>({ mkt: false, chat: false, news: false, poly: false, trash: false, patterns: false, about: false, banks: false, ansem: false, bomb: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
@@ -157,21 +147,6 @@ export default function ClassicPage() {
   useEffect(() => {
     if (!hubHttpUrl) return;
     let alive = true;
-    fetch(`${hubHttpUrl}/content`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!alive) return;
-        const tw: Stream[] = (d.streams || []).filter((s: Stream) => (s as { source?: string }).source !== "kick" && twitchVodId(s.url));
-        setVods(tw);
-        setSelected((cur) => cur || tw[0] || null);
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [hubHttpUrl]);
-
-  useEffect(() => {
-    if (!hubHttpUrl) return;
-    let alive = true;
     const load = () =>
       fetch(`${hubHttpUrl}/markets`)
         .then((r) => r.json())
@@ -182,7 +157,6 @@ export default function ClassicPage() {
     return () => { alive = false; clearInterval(id); };
   }, [hubHttpUrl]);
 
-  const heroMedia: Media | null = selected ? { kind: "vod", title: selected.title, url: selected.url, source: "twitch" } : null;
   const shadeSnd = (c: boolean) => (c ? snd.close() : snd.open());
 
   const menus: Record<string, MenuItem[]> = {
@@ -415,23 +389,19 @@ export default function ClassicPage() {
                 </div>
               )}
 
-              {/* big-screen theater */}
+              {/* big-screen theater — the REAL Market Bubble site runs inside the CRT.
+                  Same-origin "/" so it's allowed to frame (production is blocked
+                  cross-origin by X-Frame-Options); link out to the public URL. */}
               {theater && (
                 <div className="theater">
                   <div className="theater-bar">
-                    <span className="theater-live"><span className="theater-dot" /> LIVE · MARKET BUBBLE</span>
-                    <button className="theater-close" onClick={() => { snd.close(); setTheater(false); }} title="Close">✕</button>
-                  </div>
-                  <div className="theater-stage">
-                    {heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Tuning in…</div>}
-                  </div>
-                  {vods.length > 1 && (
-                    <div className="theater-rail">
-                      {vods.slice(0, 7).map((v, i) => (
-                        <button key={i} className={`show-chip ${selected?.url === v.url ? "on" : ""}`} onClick={() => { snd.click(); setSelected(v); }} title={v.title}>{v.title}</button>
-                      ))}
+                    <span className="theater-live"><span className="theater-dot" /> MARKET BUBBLE · LIVE SITE</span>
+                    <div className="theater-actions">
+                      <a className="theater-open" href="https://market-bubble-nine.vercel.app" target="_blank" rel="noreferrer">Open full site ↗</a>
+                      <button className="theater-close" onClick={() => { snd.close(); setTheater(false); }} title="Close">✕</button>
                     </div>
-                  )}
+                  </div>
+                  <iframe className="theater-site" src="/" title="Market Bubble" />
                 </div>
               )}
 
