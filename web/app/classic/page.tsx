@@ -8,6 +8,9 @@ import { ChatWindow } from "./ChatWindow";
 import { NewsWindow } from "./NewsWindow";
 import { PolymarketWindow } from "./PolymarketWindow";
 import { Dock, type DockItem } from "./Dock";
+import { Keyboard } from "./Keyboard";
+import { PlantReal } from "./PlantReal";
+import { Lamp, Mug, Cat, Polaroids, CanvasPainting } from "./DeskProps";
 import { useChime } from "./useChime";
 
 function RainbowApple({ size = 16 }: { size?: number }) {
@@ -78,6 +81,7 @@ export default function ClassicPage() {
   const [boot, setBoot] = useState<BootPhase>("done");
   const [theater, setTheater] = useState(false);
   const [inverted, setInverted] = useState(false);
+  const [lampOn, setLampOn] = useState(true);
   const [win, setWin] = useState<Record<WinKey, boolean>>({ mkt: false, chat: false, news: false, poly: false, trash: false, patterns: false, about: false, banks: false, ansem: false, bomb: false, readme: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
@@ -243,7 +247,7 @@ export default function ClassicPage() {
   ];
 
   return (
-    <div className={`cls-scene view-${view}`}>
+    <div className={`cls-scene view-${view}${lampOn ? "" : " lamp-off"}`}>
       {/* ============================ DESK (zoomed out) ============================ */}
       <div className="desk-cam">
         <div className="desk-3d" ref={parallaxRef}>
@@ -276,12 +280,23 @@ export default function ClassicPage() {
         />
         <button className="desk-floppy" aria-label="Floppy drive" title="insert disk" onClick={() => snd.floppy()} />
         <button className="desk-plant" aria-label="Plant" title="rustle" onClick={() => snd.rustle()} />
+        {/* photoreal plant: real-pixel lean toward the cursor + a breeze flutter.
+            Renders nothing until /plant.png (a Kling cutout) is dropped in. */}
+        <PlantReal />
+        {/* interactive desk props */}
+        <CanvasPainting />
+        <Polaroids />
+        <Lamp onToggle={(on) => { snd.chain(); setLampOn(on); }} />
+        <Mug onSip={() => snd.sip()} />
+        <Cat purr={snd.purr} />
         </div>
       </div>
 
-      {view === "keyboard" && (
+      {/* ============== top-down typable keyboard (zoom into the keys) ============== */}
+      <div className="kbd-layer" aria-hidden={view !== "keyboard"}>
         <button className="kb-back" onClick={() => { snd.close(); setView("desk"); }}>⤺ Back to desk</button>
-      )}
+        {view === "keyboard" && <Keyboard onTap={snd.keyTap} />}
+      </div>
 
       {/* ====================== WATCH (zoomed in, fake desktop) ===================== */}
       <div className="watch-layer" aria-hidden={view !== "watch"}>

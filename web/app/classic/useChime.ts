@@ -103,5 +103,49 @@ export function useChime() {
     },
     // leaf rustle: airy filtered noise
     rustle: () => burst(0.22, 5200, 0.6, 0.09, "highpass"),
+    // coffee sip: a short airy slurp
+    sip: () => {
+      burst(0.16, 1400, 1.4, 0.1);
+      setTimeout(() => burst(0.1, 700, 2, 0.07, "lowpass"), 130);
+    },
+    // lamp pull-chain: two tiny clicks
+    chain: () => {
+      blip(900, 0.02, "square", 0.05);
+      setTimeout(() => blip(620, 0.025, "square", 0.05), 70);
+    },
+    // cat purr: low rumbling loop while petting — returns a stop function
+    purr: (): (() => void) => {
+      const ac = ctx();
+      if (!ac) return () => {};
+      const now = ac.currentTime;
+      const o = ac.createOscillator();
+      o.type = "sawtooth";
+      o.frequency.value = 26; // purr fundamental
+      const sub = ac.createOscillator();
+      sub.type = "sine";
+      sub.frequency.value = 52;
+      const lfo = ac.createOscillator();
+      lfo.frequency.value = 7; // breathy amplitude wobble
+      const lfoGain = ac.createGain();
+      lfoGain.gain.value = 0.35;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.16, now + 0.25);
+      const lp = ac.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 140;
+      lfo.connect(lfoGain).connect(g.gain);
+      o.connect(lp);
+      sub.connect(lp);
+      lp.connect(g).connect(ac.destination);
+      o.start(now); sub.start(now); lfo.start(now);
+      return () => {
+        const t = ac.currentTime;
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+        o.stop(t + 0.45); sub.stop(t + 0.45); lfo.stop(t + 0.45);
+      };
+    },
   };
 }
