@@ -48,11 +48,19 @@ html.cls-mode .grain {
   background: radial-gradient(115% 100% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.62));
 }
 
-/* ----------------------------------------- photoreal Macintosh (real image) */
-.mac-photo-wrap {
+/* =================================================== DESK (zoomed-out scene) */
+.desk-cam {
   position: relative;
   z-index: 3;
   line-height: 0;
+  transform-origin: 49.5% 38.6%; /* the photo's screen center */
+  transition: transform 0.85s cubic-bezier(0.7, 0, 0.25, 1), opacity 0.55s ease 0.1s, filter 0.55s ease;
+}
+.view-watch .desk-cam {
+  transform: scale(3.4);
+  opacity: 0;
+  filter: blur(5px);
+  pointer-events: none;
 }
 .mac-photo {
   display: block;
@@ -62,20 +70,26 @@ html.cls-mode .grain {
   user-select: none;
   -webkit-user-drag: none;
 }
-/* the live, interactive CRT — sits exactly over the monitor glass in the photo */
-.photo-screen {
+/* clickable monitor screen in the photo (the teaser) */
+.desk-screen {
   position: absolute;
-  left: 29%;
-  top: 11.9%;
-  width: 38.7%;
-  height: 43.4%;
+  left: 32.9%;
+  top: 20.4%;
+  width: 33.3%;
+  height: 36.4%;
+  padding: 0;
+  border: 0;
   overflow: hidden;
-  border-radius: 18px / 13px;
-  background: #0a0d0a;
+  cursor: pointer;
+  border-radius: 20px / 16px;
+  background: #07090a;
   line-height: normal;
-  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.6);
 }
-/* glass over the live screen: sheen, corner glare, vignette, scanlines */
+.desk-preview { position: absolute; inset: 0; }
+.desk-thumb { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.82) contrast(1.05) saturate(0.95); }
+.desk-thumb-ph { background: #10130f; }
+.desk-scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.2) 0 1px, transparent 1px 3px); }
 .photo-glass {
   position: absolute;
   inset: 0;
@@ -86,8 +100,89 @@ html.cls-mode .grain {
     linear-gradient(122deg, rgba(255, 255, 255, 0.09) 0%, transparent 26%),
     radial-gradient(120% 78% at 16% 4%, rgba(255, 255, 255, 0.2), transparent 44%),
     radial-gradient(135% 125% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.45)),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.045) 0 1px, transparent 1px 3px);
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 3px);
 }
+.watch-cta {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-family: var(--pixel);
+  color: #eafff2;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(0, 255, 150, 0.45);
+  background: radial-gradient(circle at 50% 50%, rgba(6, 12, 9, 0.2), rgba(6, 12, 9, 0.62));
+  transition: background 0.2s ease;
+}
+.watch-cta > span:nth-child(2) { font-size: clamp(8px, 1vw, 12px); letter-spacing: 0.5px; }
+.watch-dot { width: 8px; height: 8px; border-radius: 50%; background: #3bf09a; box-shadow: 0 0 9px #3bf09a; animation: power-pulse 1.8s ease-in-out infinite; margin-bottom: 5px; }
+.watch-sub { margin-top: 4px; font-size: 7px; color: #8fe9b8; opacity: 0.85; }
+.desk-screen:hover .watch-cta { background: radial-gradient(circle at 50% 50%, rgba(6, 12, 9, 0.06), rgba(6, 12, 9, 0.42)); }
+
+/* ================================================ WATCH (zoomed-in full app) */
+.watch-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  padding: clamp(8px, 2.5vh, 30px);
+  background: radial-gradient(120% 100% at 50% 28%, #1a1410, #0a0806 70%, #050403);
+  opacity: 0;
+  transform: scale(0.93);
+  pointer-events: none;
+  transition: opacity 0.5s ease 0.12s, transform 0.6s cubic-bezier(0.2, 1, 0.3, 1) 0.1s;
+}
+.view-watch .watch-layer { opacity: 1; transform: scale(1); pointer-events: auto; }
+.watch-crt {
+  position: relative;
+  width: min(96vw, 1180px);
+  aspect-ratio: 4 / 3;
+  max-height: 94vh;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #0a0d0a;
+  border: 14px solid;
+  border-image: linear-gradient(160deg, #e7dec9, #c2b18e) 1;
+  box-shadow:
+    inset 0 0 0 3px #100e0a,
+    inset 0 0 70px rgba(0, 0, 0, 0.6),
+    0 50px 110px -34px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.watch-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  background:
+    linear-gradient(122deg, rgba(255, 255, 255, 0.05) 0%, transparent 22%),
+    radial-gradient(120% 80% at 14% 3%, rgba(255, 255, 255, 0.11), transparent 48%),
+    radial-gradient(140% 130% at 50% 50%, transparent 66%, rgba(0, 0, 0, 0.42)),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.04) 0 1px, transparent 1px 3px);
+}
+.dt-eject {
+  height: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--pixel);
+  font-size: 8px;
+  color: #000;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+}
+.dt-eject:hover { background: #000; color: #fff; }
+
+/* dark boot inside the watch CRT */
+.watch-crt .boot { background: radial-gradient(circle, #16201a, #07090a 75%); }
+.watch-crt .boot-welcome { background: transparent; border: 0; box-shadow: none; color: #dfeee8; gap: 14px; }
+.watch-crt .boot-welcome span { color: #cfeede; }
 
 /* ----------------------------------------------------------------- chassis */
 .mac {

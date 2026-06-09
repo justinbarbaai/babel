@@ -37,13 +37,13 @@ function RainbowApple({ size = 16 }: { size?: number }) {
 
 function HappyMac() {
   return (
-    <svg width="48" height="56" viewBox="0 0 24 28" aria-hidden style={{ imageRendering: "pixelated" }}>
-      <rect x="2" y="1" width="20" height="26" fill="none" stroke="#000" strokeWidth="1.4" rx="2" />
-      <rect x="4" y="3" width="16" height="13" fill="#fff" stroke="#000" strokeWidth="1.2" />
-      <rect x="8" y="6" width="1.6" height="2.4" fill="#000" />
-      <rect x="14" y="6" width="1.6" height="2.4" fill="#000" />
-      <path d="M8 11 q4 3 8 0" fill="none" stroke="#000" strokeWidth="1.2" />
-      <rect x="6" y="19" width="12" height="1.6" fill="#000" />
+    <svg width="56" height="64" viewBox="0 0 24 28" aria-hidden style={{ imageRendering: "pixelated" }}>
+      <rect x="2" y="1" width="20" height="26" fill="none" stroke="#dfeee8" strokeWidth="1.4" rx="2" />
+      <rect x="4" y="3" width="16" height="13" fill="none" stroke="#dfeee8" strokeWidth="1.2" />
+      <rect x="8" y="6" width="1.6" height="2.4" fill="#dfeee8" />
+      <rect x="14" y="6" width="1.6" height="2.4" fill="#dfeee8" />
+      <path d="M8 11 q4 3 8 0" fill="none" stroke="#dfeee8" strokeWidth="1.2" />
+      <rect x="6" y="19" width="12" height="1.6" fill="#dfeee8" />
     </svg>
   );
 }
@@ -55,7 +55,8 @@ const GNews = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><rect
 const GPoly = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><circle cx="12" cy="12" r="9" fill="#1652f0" stroke="#fff" strokeWidth="1" /><path d="M12 12 L12 3.2 A9 9 0 0 1 20 14 Z" fill="#5b8bff" /><text x="12" y="15.5" fontSize="7" fill="#fff" textAnchor="middle" fontFamily="monospace">%</text></svg>);
 const GTrash = (<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><path d="M6 8h12l-1 12H7z" fill="#cfcfcf" stroke="#333" strokeWidth="1" /><rect x="5" y="5.5" width="14" height="2.2" rx="1" fill="#9a9a9a" stroke="#333" strokeWidth="0.8" /></svg>);
 
-type BootPhase = "flicker" | "happy" | "welcome" | "done";
+type View = "desk" | "watch";
+type BootPhase = "flicker" | "happy" | "done";
 type MenuItem = { label: string; action?: () => void; disabled?: boolean } | "---";
 type WinKey = "show" | "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about";
 
@@ -72,17 +73,17 @@ export default function ClassicPage() {
   const { hubHttpUrl, messages } = useHub();
   const snd = useChime();
 
-  const [powered, setPowered] = useState(false);
-  const [boot, setBoot] = useState<BootPhase>("flicker");
+  const [view, setView] = useState<View>("desk");
+  const [boot, setBoot] = useState<BootPhase>("done");
   const [vods, setVods] = useState<Stream[]>([]);
   const [selected, setSelected] = useState<Stream | null>(null);
-  const [win, setWin] = useState<Record<WinKey, boolean>>({ show: true, mkt: true, chat: false, news: false, poly: false, trash: false, patterns: false, about: false });
+  const [win, setWin] = useState<Record<WinKey, boolean>>({ show: true, mkt: true, chat: true, news: false, poly: false, trash: false, patterns: false, about: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
   const [pat, setPat] = useState(0);
   const [markets, setMarkets] = useState<{ name: string; ticker: string; price: number; changePct: number }[]>([]);
   const screenRef = useRef<HTMLDivElement>(null);
-  const [bounds, setBounds] = useState({ w: 700, h: 520 });
+  const [bounds, setBounds] = useState({ w: 1000, h: 640 });
 
   const toggle = (k: WinKey, on?: boolean) =>
     setWin((w) => {
@@ -92,16 +93,16 @@ export default function ClassicPage() {
       return { ...w, [k]: next };
     });
 
-  const runBoot = () => {
+  const enterWatch = () => {
+    if (view === "watch") return;
+    setView("watch");
     setBoot("flicker");
     snd.startup();
-    setTimeout(() => setBoot("happy"), 520);
-    setTimeout(() => setBoot("welcome"), 1700);
-    setTimeout(() => setBoot("done"), 3050);
+    setTimeout(() => setBoot("happy"), 480);
+    setTimeout(() => setBoot("done"), 1400);
   };
-  const powerOn = () => { setPowered(true); runBoot(); };
-  const restart = () => { setOpenMenu(null); runBoot(); };
-  const shutDown = () => { setOpenMenu(null); snd.close(); setPowered(false); setBoot("flicker"); };
+  const exitWatch = () => { setOpenMenu(null); snd.close(); setView("desk"); };
+  const restart = () => { setOpenMenu(null); setBoot("flicker"); snd.startup(); setTimeout(() => setBoot("happy"), 420); setTimeout(() => setBoot("done"), 1300); };
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
@@ -127,7 +128,7 @@ export default function ClassicPage() {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [boot, powered]);
+  }, [view, boot]);
 
   useEffect(() => {
     if (!hubHttpUrl) return;
@@ -150,7 +151,7 @@ export default function ClassicPage() {
     const load = () =>
       fetch(`${hubHttpUrl}/markets`)
         .then((r) => r.json())
-        .then((d) => { if (alive) setMarkets([...(d.equities || []), ...(d.crypto || [])].slice(0, 7)); })
+        .then((d) => { if (alive) setMarkets([...(d.equities || []), ...(d.crypto || [])].slice(0, 8)); })
         .catch(() => {});
     load();
     const id = setInterval(load, 60_000);
@@ -174,7 +175,7 @@ export default function ClassicPage() {
       { label: "Empty Trash…", action: () => { setOpenMenu(null); snd.close(); toggle("trash", true); } },
       "---",
       { label: "Restart", action: restart },
-      { label: "Shut Down", action: shutDown },
+      { label: "Back to Desk", action: exitWatch },
     ],
   };
   const appleMenu: MenuItem[] = [
@@ -209,145 +210,161 @@ export default function ClassicPage() {
   ];
 
   return (
-    <div className="cls-scene">
-      <div className="mac-photo-wrap">
+    <div className={`cls-scene view-${view}`}>
+      {/* ============================ DESK (zoomed out) ============================ */}
+      <div className="desk-cam">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="mac-photo" src="/mac.png" alt="Macintosh" draggable={false} />
-        <div className={`photo-screen ${!powered ? "is-off" : ""}`} ref={screenRef}>
-          <div className="photo-glass" aria-hidden />
-
-            {!powered ? (
-              <button className="power-screen" onClick={powerOn}>
-                <span className="power-btn"><span className="power-glyph" /></span>
-                <span className="power-label">Click to power on</span>
-              </button>
-            ) : boot !== "done" ? (
-              <div className="boot">
-                {boot === "flicker" && <span className="crt-on" aria-hidden />}
-                {boot === "happy" && <HappyMac />}
-                {boot === "welcome" && (
-                  <div className="boot-welcome"><HappyMac /><span>Welcome to Market&nbsp;Bubble</span></div>
-                )}
-              </div>
+        <button className="desk-screen" onClick={enterWatch} aria-label="Watch Market Bubble">
+          <div className="desk-preview">
+            {selected?.thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="desk-thumb" src={selected.thumb} alt="" />
             ) : (
-              <div className="dt" style={PATTERNS[pat].style}>
-                {/* menu bar */}
-                <div className="dt-menubar">
-                  <button className={`dt-apple ${openMenu === "apple" ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === "apple" ? null : "apple")); }}>
-                    <RainbowApple size={11} />
-                    {openMenu === "apple" && renderMenu(appleMenu)}
+              <div className="desk-thumb desk-thumb-ph" />
+            )}
+            <div className="desk-scan" aria-hidden />
+          </div>
+          <div className="photo-glass" aria-hidden />
+          <div className="watch-cta">
+            <span className="watch-dot" />
+            <span>Watch Market&nbsp;Bubble</span>
+            <span className="watch-sub">click to enter ▸</span>
+          </div>
+        </button>
+      </div>
+
+      {/* ====================== WATCH (zoomed in, full desktop) ===================== */}
+      <div className="watch-layer" aria-hidden={view !== "watch"}>
+        <div className="watch-crt" ref={screenRef}>
+          {boot !== "done" ? (
+            <div className="boot">
+              {boot === "flicker" && <span className="crt-on" aria-hidden />}
+              {boot === "happy" && (
+                <div className="boot-welcome"><HappyMac /><span>Welcome to Market&nbsp;Bubble</span></div>
+              )}
+            </div>
+          ) : (
+            <div className="dt" style={PATTERNS[pat].style}>
+              {/* menu bar */}
+              <div className="dt-menubar">
+                <button className={`dt-apple ${openMenu === "apple" ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === "apple" ? null : "apple")); }}>
+                  <RainbowApple size={11} />
+                  {openMenu === "apple" && renderMenu(appleMenu)}
+                </button>
+                {Object.keys(menus).map((name) => (
+                  <button key={name} className={`dt-menu ${openMenu === name ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === name ? null : name)); }} onPointerEnter={() => openMenu && openMenu !== name && setOpenMenu(name)}>
+                    {name}
+                    {openMenu === name && renderMenu(menus[name])}
                   </button>
-                  {Object.keys(menus).map((name) => (
-                    <button key={name} className={`dt-menu ${openMenu === name ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === name ? null : name)); }} onPointerEnter={() => openMenu && openMenu !== name && setOpenMenu(name)}>
-                      {name}
-                      {openMenu === name && renderMenu(menus[name])}
-                    </button>
-                  ))}
-                  <span className="dt-menu-spacer" />
-                  <span className="dt-clock">{clock}</span>
-                </div>
+                ))}
+                <span className="dt-menu-spacer" />
+                <button className="dt-eject" onPointerDown={(e) => { e.stopPropagation(); exitWatch(); }} title="Back to desk">⤺ Desk</button>
+                <span className="dt-clock">{clock}</span>
+              </div>
 
-                {/* desktop icons */}
-                <div className="dt-icons">
-                  <button className="dt-icon" onClick={() => toggle("show", true)} title="The Show"><span className="dt-icon-glyph dt-glyph-hd" /><span className="dt-icon-label">Market Bubble</span></button>
-                  <button className="dt-icon" onClick={() => toggle("news", true)} title="News"><span className="dt-icon-glyph dt-glyph-doc" /><span className="dt-icon-label">News Wire</span></button>
-                  <button className="dt-icon dt-trash" onClick={() => { snd.close(); toggle("trash", true); }} title="Trash"><span className="dt-icon-glyph dt-glyph-trash" /><span className="dt-icon-label">Trash</span></button>
-                </div>
+              {/* desktop icons */}
+              <div className="dt-icons">
+                <button className="dt-icon" onClick={() => toggle("show", true)} title="The Show"><span className="dt-icon-glyph dt-glyph-hd" /><span className="dt-icon-label">Market Bubble</span></button>
+                <button className="dt-icon" onClick={() => toggle("news", true)} title="News"><span className="dt-icon-glyph dt-glyph-doc" /><span className="dt-icon-label">News Wire</span></button>
+                <button className="dt-icon dt-trash" onClick={() => { snd.close(); toggle("trash", true); }} title="Trash"><span className="dt-icon-glyph dt-glyph-trash" /><span className="dt-icon-label">Trash</span></button>
+              </div>
 
-                {win.show && (
-                  <MacWindow title="The Show" initial={{ x: 12, y: 26 }} width={350} bounds={bounds} onClose={() => toggle("show", false)} onShade={shadeSnd}>
-                    <div className="show-win">
-                      <div className="show-video">{heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Inserting disk…</div>}</div>
-                      <div className="show-meta"><span className="show-badge">▶ REPLAY</span><span className="show-title">{heroMedia?.title || "Market Bubble"}</span></div>
-                      {vods.length > 1 && (
-                        <div className="show-rail">
-                          {vods.slice(0, 5).map((v, i) => (
-                            <button key={i} className={`show-chip ${selected?.url === v.url ? "on" : ""}`} onClick={() => { snd.click(); setSelected(v); }} title={v.title}>{v.title}</button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </MacWindow>
-                )}
-
-                {win.chat && (
-                  <MacWindow title="Chat" initial={{ x: 34, y: 50 }} width={236} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
-                    <ChatWindow live={messages} onSay={() => snd.click()} />
-                  </MacWindow>
-                )}
-
-                {win.mkt && (
-                  <MacWindow title="Markets" initial={{ x: 256, y: 222 }} width={166} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
-                    <div className="mkt-win">
-                      {markets.length === 0 && <div className="mkt-row mkt-empty">Reading tape…</div>}
-                      {markets.map((m) => (
-                        <div className="mkt-row" key={m.ticker}>
-                          <span className="mkt-tk">{m.ticker}</span>
-                          <span className="mkt-px">{m.price < 10 ? m.price.toFixed(3) : m.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                          <span className={`mkt-ch ${m.changePct >= 0 ? "up" : "down"}`}>{m.changePct >= 0 ? "▲" : "▼"} {Math.abs(m.changePct).toFixed(2)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </MacWindow>
-                )}
-
-                {win.news && (
-                  <MacWindow title="News Wire" initial={{ x: 28, y: 56 }} width={296} height={200} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
-                    <NewsWindow />
-                  </MacWindow>
-                )}
-
-                {win.poly && (
-                  <MacWindow title="Polymarket" initial={{ x: 56, y: 86 }} width={296} height={200} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
-                    <PolymarketWindow />
-                  </MacWindow>
-                )}
-
-                {win.patterns && (
-                  <MacWindow title="Desktop Patterns" initial={{ x: 70, y: 80 }} width={196} bounds={bounds} onClose={() => toggle("patterns", false)} onShade={shadeSnd}>
-                    <div className="pat-win">
-                      <div className="pat-preview" style={PATTERNS[pat].style} />
-                      <div className="pat-grid">
-                        {PATTERNS.map((p, i) => (
-                          <button key={p.key} className={`pat-sw ${i === pat ? "on" : ""}`} style={p.style} title={p.label} onClick={() => { snd.click(); setPat(i); }} />
+              {win.show && (
+                <MacWindow title="The Show" initial={{ x: 44, y: 46 }} width={560} bounds={bounds} onClose={() => toggle("show", false)} onShade={shadeSnd}>
+                  <div className="show-win">
+                    <div className="show-video">{heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Inserting disk…</div>}</div>
+                    <div className="show-meta"><span className="show-badge">▶ REPLAY</span><span className="show-title">{heroMedia?.title || "Market Bubble"}</span></div>
+                    {vods.length > 1 && (
+                      <div className="show-rail">
+                        {vods.slice(0, 6).map((v, i) => (
+                          <button key={i} className={`show-chip ${selected?.url === v.url ? "on" : ""}`} onClick={() => { snd.click(); setSelected(v); }} title={v.title}>{v.title}</button>
                         ))}
                       </div>
-                      <div className="pat-name">{PATTERNS[pat].label}</div>
-                    </div>
-                  </MacWindow>
-                )}
+                    )}
+                  </div>
+                </MacWindow>
+              )}
 
-                {win.trash && (
-                  <MacWindow title="Trash" initial={{ x: 120, y: 150 }} width={186} bounds={bounds} onClose={() => toggle("trash", false)} onShade={shadeSnd}>
-                    <div className="trash-win">
-                      <span className="trash-glyph">{GTrash}</span>
-                      <div className="trash-msg">The Trash is empty.</div>
-                      <div className="trash-sub">0 items · zero K used</div>
-                    </div>
-                  </MacWindow>
-                )}
-
-                {win.about && (
-                  <MacWindow title="About Market Bubble" initial={{ x: 46, y: 60 }} width={290} bounds={bounds} onClose={() => toggle("about", false)} onShade={shadeSnd}>
-                    <div className="about-win">
-                      <div className="about-head">
-                        <RainbowApple size={26} />
-                        <div><div className="about-title">Market&nbsp;Bubble</div><div className="about-sub">System Software 6.0.8</div></div>
+              {win.mkt && (
+                <MacWindow title="Markets" initial={{ x: 640, y: 46 }} width={250} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
+                  <div className="mkt-win">
+                    {markets.length === 0 && <div className="mkt-row mkt-empty">Reading tape…</div>}
+                    {markets.map((m) => (
+                      <div className="mkt-row" key={m.ticker}>
+                        <span className="mkt-tk">{m.ticker}</span>
+                        <span className="mkt-px">{m.price < 10 ? m.price.toFixed(3) : m.price.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={`mkt-ch ${m.changePct >= 0 ? "up" : "down"}`}>{m.changePct >= 0 ? "▲" : "▼"} {Math.abs(m.changePct).toFixed(2)}%</span>
                       </div>
-                      <div className="about-rows">
-                        <div><span>Built with</span><b>Claude Code</b></div>
-                        <div><span>Total Memory</span><b>4,096K</b></div>
-                        <div><span>Live tickers</span><b>{markets.length}</b></div>
-                        <div><span>Hosts</span><b>Banks · Ansem</b></div>
-                      </div>
-                      <div className="about-foot">Not just a platform. It&rsquo;s what&rsquo;s next.</div>
-                    </div>
-                  </MacWindow>
-                )}
+                    ))}
+                  </div>
+                </MacWindow>
+              )}
 
-                <Dock items={dockItems} />
-              </div>
-            )}
+              {win.chat && (
+                <MacWindow title="Chat" initial={{ x: 640, y: 332 }} width={300} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
+                  <ChatWindow live={messages} onSay={() => snd.click()} />
+                </MacWindow>
+              )}
+
+              {win.news && (
+                <MacWindow title="News Wire" initial={{ x: 96, y: 120 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
+                  <NewsWindow />
+                </MacWindow>
+              )}
+
+              {win.poly && (
+                <MacWindow title="Polymarket" initial={{ x: 150, y: 160 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
+                  <PolymarketWindow />
+                </MacWindow>
+              )}
+
+              {win.patterns && (
+                <MacWindow title="Desktop Patterns" initial={{ x: 130, y: 120 }} width={210} bounds={bounds} onClose={() => toggle("patterns", false)} onShade={shadeSnd}>
+                  <div className="pat-win">
+                    <div className="pat-preview" style={PATTERNS[pat].style} />
+                    <div className="pat-grid">
+                      {PATTERNS.map((p, i) => (
+                        <button key={p.key} className={`pat-sw ${i === pat ? "on" : ""}`} style={p.style} title={p.label} onClick={() => { snd.click(); setPat(i); }} />
+                      ))}
+                    </div>
+                    <div className="pat-name">{PATTERNS[pat].label}</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              {win.trash && (
+                <MacWindow title="Trash" initial={{ x: 320, y: 240 }} width={210} bounds={bounds} onClose={() => toggle("trash", false)} onShade={shadeSnd}>
+                  <div className="trash-win">
+                    <span className="trash-glyph">{GTrash}</span>
+                    <div className="trash-msg">The Trash is empty.</div>
+                    <div className="trash-sub">0 items · zero K used</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              {win.about && (
+                <MacWindow title="About Market Bubble" initial={{ x: 220, y: 150 }} width={320} bounds={bounds} onClose={() => toggle("about", false)} onShade={shadeSnd}>
+                  <div className="about-win">
+                    <div className="about-head">
+                      <RainbowApple size={26} />
+                      <div><div className="about-title">Market&nbsp;Bubble</div><div className="about-sub">System Software 6.0.8</div></div>
+                    </div>
+                    <div className="about-rows">
+                      <div><span>Built with</span><b>Claude Code</b></div>
+                      <div><span>Total Memory</span><b>4,096K</b></div>
+                      <div><span>Live tickers</span><b>{markets.length}</b></div>
+                      <div><span>Hosts</span><b>Banks · Ansem</b></div>
+                    </div>
+                    <div className="about-foot">Not just a platform. It&rsquo;s what&rsquo;s next.</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              <Dock items={dockItems} />
+            </div>
+          )}
+          <div className="watch-glass" aria-hidden />
         </div>
       </div>
     </div>
