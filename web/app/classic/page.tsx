@@ -51,7 +51,7 @@ const GTrash = (<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden><pat
 const GSecret = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M3 6h7l2 2h9v11H3z" fill="#d9b84a" stroke="#7a5a10" strokeWidth="1" /><text x="13" y="18" fontSize="9" fontWeight="700" textAnchor="middle" fill="#9a1414">!</text></svg>);
 const GBomb = (<svg viewBox="0 0 24 24" width="40" height="40" aria-hidden><circle cx="11" cy="15" r="7" fill="#111" /><circle cx="8.5" cy="13" r="2" fill="#fff" opacity="0.45" /><rect x="13.2" y="5.5" width="2.4" height="4" fill="#3a3a3a" transform="rotate(35 14.4 7.5)" /><path d="M16.5 5.5 q3 -2.5 4 0.6" stroke="#f0a020" strokeWidth="1.4" fill="none" /><circle cx="20.6" cy="6.4" r="1.7" fill="#ff5a2c" /></svg>);
 
-type View = "desk" | "watch";
+type View = "desk" | "keyboard" | "watch";
 type BootPhase = "flicker" | "happy" | "done";
 type MenuItem = { label: string; action?: () => void; disabled?: boolean } | "---";
 type WinKey = "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about" | "banks" | "ansem" | "bomb" | "readme";
@@ -84,6 +84,7 @@ export default function ClassicPage() {
   const [pat, setPat] = useState(0);
   const [markets, setMarkets] = useState<{ name: string; ticker: string; price: number; changePct: number }[]>([]);
   const screenRef = useRef<HTMLDivElement>(null);
+  const parallaxRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ w: 1000, h: 640 });
 
   const toggle = (k: WinKey, on?: boolean) =>
@@ -118,6 +119,26 @@ export default function ClassicPage() {
     document.documentElement.classList.add("cls-mode");
     return () => document.documentElement.classList.remove("cls-mode");
   }, []);
+
+  // cursor parallax — the desk tilts toward the pointer (interactive 3D feel).
+  // Only on the desk view; the view-state zoom lives on the outer .desk-cam.
+  useEffect(() => {
+    const el = parallaxRef.current;
+    if (!el) return;
+    if (view !== "desk") { el.style.transform = ""; return; }
+    const set = (nx: number, ny: number) => {
+      el.style.transform = `scale(1.035) rotateX(${(-ny * 3).toFixed(2)}deg) rotateY(${(nx * 4).toFixed(2)}deg) translate3d(${(-nx * 6).toFixed(1)}px, ${(-ny * 4).toFixed(1)}px, 0)`;
+    };
+    const onMove = (e: MouseEvent) => set((e.clientX / window.innerWidth - 0.5) * 2, (e.clientY / window.innerHeight - 0.5) * 2);
+    const reset = () => set(0, 0);
+    set(0, 0);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", reset);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", reset);
+    };
+  }, [view]);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -225,8 +246,12 @@ export default function ClassicPage() {
     <div className={`cls-scene view-${view}`}>
       {/* ============================ DESK (zoomed out) ============================ */}
       <div className="desk-cam">
+        <div className="desk-3d" ref={parallaxRef}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="mac-photo" src="/mac.png" alt="Macintosh" draggable={false} />
+        {/* optional ambient video of the scene — plays over the photo if present
+            (drop a same-framing /mac.mp4 in /public). Silent, looping. */}
+        <video className="mac-video" autoPlay loop muted playsInline src="/mac.mp4" />
         <button className="desk-screen" onClick={enterWatch} aria-label="Open Market Bubble">
           <div className="desk-preview" style={PATTERNS[0].style}>
             <div className="desk-mini-bar"><RainbowApple size={7} /><span /><span /><span /></div>
@@ -243,10 +268,20 @@ export default function ClassicPage() {
           </div>
         </button>
         {/* interactive desk objects (ASMR) */}
-        <button className="desk-kbd" aria-label="Keyboard" title="clicky keyboard" onPointerDown={() => snd.keyTap()} />
+        <button
+          className="desk-kbd"
+          aria-label="Keyboard"
+          title="clicky keyboard"
+          onPointerDown={() => { snd.keyTap(); if (view === "desk") setView("keyboard"); }}
+        />
         <button className="desk-floppy" aria-label="Floppy drive" title="insert disk" onClick={() => snd.floppy()} />
         <button className="desk-plant" aria-label="Plant" title="rustle" onClick={() => snd.rustle()} />
+        </div>
       </div>
+
+      {view === "keyboard" && (
+        <button className="kb-back" onClick={() => { snd.close(); setView("desk"); }}>⤺ Back to desk</button>
+      )}
 
       {/* ====================== WATCH (zoomed in, fake desktop) ===================== */}
       <div className="watch-layer" aria-hidden={view !== "watch"}>

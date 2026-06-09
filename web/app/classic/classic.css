@@ -53,15 +53,51 @@ html.cls-mode .grain {
   position: relative;
   z-index: 3;
   line-height: 0;
+  perspective: 1300px;
   transform-origin: 49.5% 38.6%; /* the photo's screen center */
   transition: transform 0.85s cubic-bezier(0.7, 0, 0.25, 1), opacity 0.55s ease 0.1s, filter 0.55s ease;
 }
-.view-watch .desk-cam {
-  transform: scale(3.4);
-  opacity: 0;
-  filter: blur(5px);
+.view-watch .desk-cam { transform: scale(3.4); opacity: 0; filter: blur(5px); pointer-events: none; }
+.view-keyboard .desk-cam { transform: scale(2.35); transform-origin: 50% 87%; }
+/* parallax layer — tilts toward the cursor (JS sets the transform) */
+.desk-3d {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.22s ease-out;
+  will-change: transform;
+}
+/* ambient video of the scene (plays over the photo when /mac.mp4 exists) */
+.mac-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
   pointer-events: none;
 }
+/* back out of the keyboard zoom */
+.kb-back {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: #f0e9d8;
+  background: rgba(20, 16, 12, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.kb-back:hover { background: rgba(20, 16, 12, 0.88); }
+/* hover hints so the interactive desk zones are discoverable */
+.desk-kbd:hover, .desk-floppy:hover { box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.07); border-radius: 8px; }
+.desk-plant:hover { box-shadow: inset 0 0 70px rgba(120, 220, 130, 0.12); border-radius: 18px; }
 .mac-photo {
   display: block;
   max-height: 88vh;
@@ -80,6 +116,7 @@ html.cls-mode .grain {
   top: 15.7%;
   width: 30.2%;
   height: 39.6%;
+  z-index: 2;
   padding: 0;
   border: 0;
   overflow: hidden;
