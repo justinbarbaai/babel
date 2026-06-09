@@ -54,7 +54,9 @@ const GBomb = (<svg viewBox="0 0 24 24" width="40" height="40" aria-hidden><circ
 type View = "desk" | "watch";
 type BootPhase = "flicker" | "happy" | "done";
 type MenuItem = { label: string; action?: () => void; disabled?: boolean } | "---";
-type WinKey = "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about" | "banks" | "ansem" | "bomb";
+type WinKey = "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about" | "banks" | "ansem" | "bomb" | "readme";
+
+const GDoc = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M6 3h9l3 3v15H6z" fill="#fff" stroke="#333" strokeWidth="1" /><path d="M15 3v3h3" fill="none" stroke="#333" strokeWidth="1" /><rect x="8" y="10" width="8" height="1.3" fill="#888" /><rect x="8" y="13" width="8" height="1.3" fill="#888" /><rect x="8" y="16" width="5" height="1.3" fill="#888" /></svg>);
 
 const PATTERNS: { key: string; label: string; style: React.CSSProperties }[] = [
   { key: "gray", label: "Gray", style: { backgroundColor: "#9c9c9c", backgroundImage: "repeating-conic-gradient(#8f8f8f 0% 25%, #a6a6a6 0% 50%)", backgroundSize: "4px 4px" } },
@@ -76,7 +78,7 @@ export default function ClassicPage() {
   const [boot, setBoot] = useState<BootPhase>("done");
   const [theater, setTheater] = useState(false);
   const [inverted, setInverted] = useState(false);
-  const [win, setWin] = useState<Record<WinKey, boolean>>({ mkt: false, chat: false, news: false, poly: false, trash: false, patterns: false, about: false, banks: false, ansem: false, bomb: false });
+  const [win, setWin] = useState<Record<WinKey, boolean>>({ mkt: false, chat: false, news: false, poly: false, trash: false, patterns: false, about: false, banks: false, ansem: false, bomb: false, readme: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
   const [pat, setPat] = useState(0);
@@ -203,6 +205,7 @@ export default function ClassicPage() {
     { key: "chat", label: "Chat", glyph: <span className="app-tile">{GChat}</span>, onClick: () => toggle("chat", true) },
     { key: "news", label: "News Wire", glyph: <span className="app-tile">{GNews}</span>, onClick: () => toggle("news", true) },
     { key: "poly", label: "Polymarket", glyph: <span className="app-tile">{GPoly}</span>, onClick: () => toggle("poly", true) },
+    { key: "readme", label: "Read Me", glyph: <span className="app-tile">{GDoc}</span>, onClick: () => toggle("readme", true), egg: true },
     { key: "banks", label: "Banks", glyph: <span className="app-av">{banksHost && <img src={banksHost.avatar} alt="" />}</span>, onClick: () => toggle("banks", true), egg: true },
     { key: "ansem", label: "Ansem", glyph: <span className="app-av">{ansemHost && <img src={ansemHost.avatar} alt="" />}</span>, onClick: () => toggle("ansem", true), egg: true },
     { key: "secret", label: "Do Not Open!", glyph: <span className="app-tile">{GSecret}</span>, onClick: () => { snd.click(); toggle("bomb", true); }, egg: true },
@@ -239,6 +242,10 @@ export default function ClassicPage() {
             <span>Double-click to enter</span>
           </div>
         </button>
+        {/* interactive desk objects (ASMR) */}
+        <button className="desk-kbd" aria-label="Keyboard" title="clicky keyboard" onPointerDown={() => snd.keyTap()} />
+        <button className="desk-floppy" aria-label="Floppy drive" title="insert disk" onClick={() => snd.floppy()} />
+        <button className="desk-plant" aria-label="Plant" title="rustle" onClick={() => snd.rustle()} />
       </div>
 
       {/* ====================== WATCH (zoomed in, fake desktop) ===================== */}
@@ -253,6 +260,7 @@ export default function ClassicPage() {
             </div>
           ) : (
             <div className={`dt ${inverted ? "inverted" : ""}`} style={PATTERNS[pat].style}>
+              <div className="dt-wallmark" aria-hidden><span className="mark" /></div>
               {/* menu bar */}
               <div className="dt-menubar">
                 <button className={`dt-apple ${openMenu === "apple" ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === "apple" ? null : "apple")); }}>
@@ -371,6 +379,17 @@ export default function ClassicPage() {
                       <div><span>Hosts</span><b>Banks · Ansem</b></div>
                     </div>
                     <div className="about-foot">Not just a platform. It&rsquo;s what&rsquo;s next.</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              {win.readme && (
+                <MacWindow title="Read Me" initial={{ x: 170, y: 90 }} width={368} bounds={bounds} onClose={() => toggle("readme", false)} onShade={shadeSnd}>
+                  <div className="readme-win">
+                    <p className="readme-h">MARKET&nbsp;BUBBLE — Read Me</p>
+                    <p>Welcome to the bubble. This whole Macintosh, and the site it boots, was built end to end in Claude Code.</p>
+                    <p className="readme-secrets">Secrets:<br />• Konami code: ↑ ↑ ↓ ↓ ← → ← → B A<br />• The keyboard out on the desk is clicky. Go nuts.<br />• Do NOT open the folder marked &ldquo;Do Not Open.&rdquo;</p>
+                    <p className="readme-sig">— The Management</p>
                   </div>
                 </MacWindow>
               )}
