@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useHub } from "../lib/useHub";
 import { MediaPlayer } from "../components/MediaPlayer";
 import type { Media } from "../lib/media";
 import type { Stream } from "../lib/showContent";
+import { HOSTS } from "../lib/showContent";
 import { MacWindow } from "./MacWindow";
 import { ChatWindow } from "./ChatWindow";
 import { NewsWindow } from "./NewsWindow";
@@ -48,17 +49,20 @@ function HappyMac() {
   );
 }
 
-const GTv = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><rect x="2.5" y="5" width="19" height="13" rx="2" fill="#1c1c1c" stroke="#fff" strokeWidth="1.2" /><path d="M10 9.5l5 2.8-5 2.8z" fill="#fff" /></svg>);
-const GChart = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><rect x="3" y="13" width="4" height="7" fill="#2fbf71" /><rect x="10" y="8" width="4" height="12" fill="#3ea6ff" /><rect x="17" y="4" width="4" height="16" fill="#f0a020" /></svg>);
-const GChat = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><path d="M3 5h18v11H9l-4 4v-4H3z" fill="#a970ff" stroke="#fff" strokeWidth="1" /><circle cx="8" cy="10.5" r="1.3" fill="#fff" /><circle cx="12" cy="10.5" r="1.3" fill="#fff" /><circle cx="16" cy="10.5" r="1.3" fill="#fff" /></svg>);
-const GNews = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><rect x="3" y="4" width="18" height="16" rx="1.5" fill="#f4f1e6" stroke="#333" strokeWidth="1" /><rect x="5.5" y="6.5" width="7" height="6" fill="#cfc7b2" /><rect x="14" y="6.5" width="5" height="1.4" fill="#555" /><rect x="14" y="9.5" width="5" height="1.4" fill="#555" /><rect x="5.5" y="14.5" width="13.5" height="1.3" fill="#555" /><rect x="5.5" y="17" width="13.5" height="1.3" fill="#555" /></svg>);
-const GPoly = (<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden><circle cx="12" cy="12" r="9" fill="#1652f0" stroke="#fff" strokeWidth="1" /><path d="M12 12 L12 3.2 A9 9 0 0 1 20 14 Z" fill="#5b8bff" /><text x="12" y="15.5" fontSize="7" fill="#fff" textAnchor="middle" fontFamily="monospace">%</text></svg>);
-const GTrash = (<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden><path d="M6 8h12l-1 12H7z" fill="#cfcfcf" stroke="#333" strokeWidth="1" /><rect x="5" y="5.5" width="14" height="2.2" rx="1" fill="#9a9a9a" stroke="#333" strokeWidth="0.8" /></svg>);
+// ---- icon glyphs ----
+const GTv = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><rect x="2.5" y="5" width="19" height="13" rx="2" fill="#1c1c1c" stroke="#fff" strokeWidth="1.2" /><path d="M10 9.5l5 2.8-5 2.8z" fill="#fff" /></svg>);
+const GChart = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><rect x="3" y="13" width="4" height="7" fill="#2fbf71" /><rect x="10" y="8" width="4" height="12" fill="#3ea6ff" /><rect x="17" y="4" width="4" height="16" fill="#f0a020" /></svg>);
+const GChat = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M3 5h18v11H9l-4 4v-4H3z" fill="#a970ff" stroke="#fff" strokeWidth="1" /><circle cx="8" cy="10.5" r="1.3" fill="#fff" /><circle cx="12" cy="10.5" r="1.3" fill="#fff" /><circle cx="16" cy="10.5" r="1.3" fill="#fff" /></svg>);
+const GNews = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><rect x="3" y="4" width="18" height="16" rx="1.5" fill="#f4f1e6" stroke="#333" strokeWidth="1" /><rect x="5.5" y="6.5" width="7" height="6" fill="#cfc7b2" /><rect x="14" y="6.5" width="5" height="1.4" fill="#555" /><rect x="14" y="9.5" width="5" height="1.4" fill="#555" /><rect x="5.5" y="14.5" width="13.5" height="1.3" fill="#555" /><rect x="5.5" y="17" width="13.5" height="1.3" fill="#555" /></svg>);
+const GPoly = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><circle cx="12" cy="12" r="9" fill="#1652f0" stroke="#fff" strokeWidth="1" /><path d="M12 12 L12 3.2 A9 9 0 0 1 20 14 Z" fill="#5b8bff" /><text x="12" y="15.5" fontSize="7" fill="#fff" textAnchor="middle" fontFamily="monospace">%</text></svg>);
+const GTrash = (<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden><path d="M6 8h12l-1 12H7z" fill="#cfcfcf" stroke="#333" strokeWidth="1" /><rect x="5" y="5.5" width="14" height="2.2" rx="1" fill="#9a9a9a" stroke="#333" strokeWidth="0.8" /></svg>);
+const GSecret = (<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden><path d="M3 6h7l2 2h9v11H3z" fill="#d9b84a" stroke="#7a5a10" strokeWidth="1" /><text x="13" y="18" fontSize="9" fontWeight="700" textAnchor="middle" fill="#9a1414">!</text></svg>);
+const GBomb = (<svg viewBox="0 0 24 24" width="40" height="40" aria-hidden><circle cx="11" cy="15" r="7" fill="#111" /><circle cx="8.5" cy="13" r="2" fill="#fff" opacity="0.45" /><rect x="13.2" y="5.5" width="2.4" height="4" fill="#3a3a3a" transform="rotate(35 14.4 7.5)" /><path d="M16.5 5.5 q3 -2.5 4 0.6" stroke="#f0a020" strokeWidth="1.4" fill="none" /><circle cx="20.6" cy="6.4" r="1.7" fill="#ff5a2c" /></svg>);
 
 type View = "desk" | "watch";
 type BootPhase = "flicker" | "happy" | "done";
 type MenuItem = { label: string; action?: () => void; disabled?: boolean } | "---";
-type WinKey = "show" | "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about";
+type WinKey = "mkt" | "chat" | "news" | "poly" | "trash" | "patterns" | "about" | "banks" | "ansem" | "bomb";
 
 const PATTERNS: { key: string; label: string; style: React.CSSProperties }[] = [
   { key: "gray", label: "Gray", style: { backgroundColor: "#9c9c9c", backgroundImage: "repeating-conic-gradient(#8f8f8f 0% 25%, #a6a6a6 0% 50%)", backgroundSize: "4px 4px" } },
@@ -69,15 +73,20 @@ const PATTERNS: { key: string; label: string; style: React.CSSProperties }[] = [
   { key: "aqua", label: "Aqua", style: { background: "linear-gradient(180deg,#8fc5d6,#3f7f95)" } },
 ];
 
+const banksHost = HOSTS.find((h) => h.handle === "Banks");
+const ansemHost = HOSTS.find((h) => h.handle === "blknoiz06");
+
 export default function ClassicPage() {
   const { hubHttpUrl, messages } = useHub();
   const snd = useChime();
 
   const [view, setView] = useState<View>("desk");
   const [boot, setBoot] = useState<BootPhase>("done");
+  const [theater, setTheater] = useState(false);
+  const [inverted, setInverted] = useState(false);
   const [vods, setVods] = useState<Stream[]>([]);
   const [selected, setSelected] = useState<Stream | null>(null);
-  const [win, setWin] = useState<Record<WinKey, boolean>>({ show: true, mkt: true, chat: true, news: false, poly: false, trash: false, patterns: false, about: false });
+  const [win, setWin] = useState<Record<WinKey, boolean>>({ mkt: false, chat: false, news: false, poly: false, trash: false, patterns: false, about: false, banks: false, ansem: false, bomb: false });
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [clock, setClock] = useState("");
   const [pat, setPat] = useState(0);
@@ -93,6 +102,8 @@ export default function ClassicPage() {
       return { ...w, [k]: next };
     });
 
+  const openShow = () => { snd.open(); setTheater(true); };
+
   const enterWatch = () => {
     if (view === "watch") return;
     setView("watch");
@@ -101,7 +112,7 @@ export default function ClassicPage() {
     setTimeout(() => setBoot("happy"), 480);
     setTimeout(() => setBoot("done"), 1400);
   };
-  const exitWatch = () => { setOpenMenu(null); snd.close(); setView("desk"); };
+  const exitWatch = () => { setOpenMenu(null); setTheater(false); snd.close(); setView("desk"); };
   const restart = () => { setOpenMenu(null); setBoot("flicker"); snd.startup(); setTimeout(() => setBoot("happy"), 420); setTimeout(() => setBoot("done"), 1300); };
 
   useEffect(() => {
@@ -122,6 +133,19 @@ export default function ClassicPage() {
     window.addEventListener("pointerdown", close);
     return () => window.removeEventListener("pointerdown", close);
   }, [openMenu]);
+
+  // easter egg: Konami code → invert the screen
+  useEffect(() => {
+    const seq = ["arrowup", "arrowup", "arrowdown", "arrowdown", "arrowleft", "arrowright", "arrowleft", "arrowright", "b", "a"];
+    let i = 0;
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === seq[i]) { i++; if (i === seq.length) { setInverted((v) => !v); snd.open(); i = 0; } }
+      else i = k === seq[0] ? 1 : 0;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [snd]);
 
   useEffect(() => {
     const measure = () => { const el = screenRef.current; if (el) setBounds({ w: el.clientWidth, h: el.clientHeight }); };
@@ -166,7 +190,7 @@ export default function ClassicPage() {
       { label: "New Finder Window", disabled: true },
       { label: "Open", disabled: true },
       "---",
-      { label: "Close Window", action: () => { setOpenMenu(null); const k = (["trash", "patterns", "about", "poly", "news", "chat", "mkt", "show"] as WinKey[]).find((x) => win[x]); if (k) toggle(k, false); } },
+      { label: "Close Window", action: () => { setOpenMenu(null); const k = (["bomb", "ansem", "banks", "trash", "patterns", "about", "poly", "news", "chat", "mkt"] as WinKey[]).find((x) => win[x]); if (k) toggle(k, false); else if (theater) setTheater(false); } },
     ],
     Edit: [{ label: "Undo", disabled: true }, { label: "Cut", disabled: true }, { label: "Copy", disabled: true }, { label: "Paste", disabled: true }],
     View: [{ label: "by Icon", disabled: true }, { label: "by Name", disabled: true }, { label: "Desktop Patterns…", action: () => { setOpenMenu(null); toggle("patterns", true); } }],
@@ -181,13 +205,11 @@ export default function ClassicPage() {
   const appleMenu: MenuItem[] = [
     { label: "About Market Bubble…", action: () => { setOpenMenu(null); toggle("about", true); } },
     "---",
-    { label: "The Show", action: () => { setOpenMenu(null); toggle("show", true); } },
+    { label: "Market Bubble (Watch)", action: () => { setOpenMenu(null); openShow(); } },
     { label: "Chat", action: () => { setOpenMenu(null); toggle("chat", true); } },
     { label: "Markets", action: () => { setOpenMenu(null); toggle("mkt", true); } },
     { label: "News Wire", action: () => { setOpenMenu(null); toggle("news", true); } },
     { label: "Polymarket", action: () => { setOpenMenu(null); toggle("poly", true); } },
-    "---",
-    { label: "Desktop Patterns…", action: () => { setOpenMenu(null); toggle("patterns", true); } },
   ];
 
   const renderMenu = (items: MenuItem[]) => (
@@ -200,8 +222,21 @@ export default function ClassicPage() {
     </div>
   );
 
+  // desktop apps (icons). Market Bubble launches the big-screen theater.
+  const apps: { key: string; label: string; glyph: ReactNode; onClick: () => void; egg?: boolean }[] = [
+    { key: "mb", label: "Market Bubble", glyph: <span className="app-tile mb">{GTv}</span>, onClick: openShow },
+    { key: "mkt", label: "Markets", glyph: <span className="app-tile">{GChart}</span>, onClick: () => toggle("mkt", true) },
+    { key: "chat", label: "Chat", glyph: <span className="app-tile">{GChat}</span>, onClick: () => toggle("chat", true) },
+    { key: "news", label: "News Wire", glyph: <span className="app-tile">{GNews}</span>, onClick: () => toggle("news", true) },
+    { key: "poly", label: "Polymarket", glyph: <span className="app-tile">{GPoly}</span>, onClick: () => toggle("poly", true) },
+    { key: "banks", label: "Banks", glyph: <span className="app-av">{banksHost && <img src={banksHost.avatar} alt="" />}</span>, onClick: () => toggle("banks", true), egg: true },
+    { key: "ansem", label: "Ansem", glyph: <span className="app-av">{ansemHost && <img src={ansemHost.avatar} alt="" />}</span>, onClick: () => toggle("ansem", true), egg: true },
+    { key: "secret", label: "Do Not Open!", glyph: <span className="app-tile">{GSecret}</span>, onClick: () => { snd.click(); toggle("bomb", true); }, egg: true },
+    { key: "trash", label: "Trash", glyph: <span className="app-tile">{GTrash}</span>, onClick: () => { snd.close(); toggle("trash", true); } },
+  ];
+
   const dockItems: DockItem[] = [
-    { key: "show", label: "The Show", glyph: GTv, open: win.show, onClick: () => toggle("show") },
+    { key: "show", label: "Market Bubble", glyph: GTv, open: theater, onClick: openShow },
     { key: "mkt", label: "Markets", glyph: GChart, open: win.mkt, onClick: () => toggle("mkt") },
     { key: "chat", label: "Chat", glyph: GChat, open: win.chat, onClick: () => toggle("chat") },
     { key: "news", label: "News Wire", glyph: GNews, open: win.news, onClick: () => toggle("news") },
@@ -215,26 +250,24 @@ export default function ClassicPage() {
       <div className="desk-cam">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="mac-photo" src="/mac.png" alt="Macintosh" draggable={false} />
-        <button className="desk-screen" onClick={enterWatch} aria-label="Watch Market Bubble">
-          <div className="desk-preview">
-            {selected?.thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="desk-thumb" src={selected.thumb} alt="" />
-            ) : (
-              <div className="desk-thumb desk-thumb-ph" />
-            )}
+        <button className="desk-screen" onClick={enterWatch} aria-label="Open Market Bubble">
+          <div className="desk-preview" style={PATTERNS[0].style}>
+            <div className="desk-mini-bar"><RainbowApple size={7} /><span /><span /><span /></div>
+            <div className="desk-mini-icons">
+              <span className="dmi">{GTv}</span><span className="dmi">{GChart}</span><span className="dmi">{GChat}</span>
+            </div>
+            <div className="desk-mini-brand"><RainbowApple size={16} /><span>Market&nbsp;Bubble</span></div>
             <div className="desk-scan" aria-hidden />
           </div>
           <div className="photo-glass" aria-hidden />
           <div className="watch-cta">
             <span className="watch-dot" />
-            <span>Watch Market&nbsp;Bubble</span>
-            <span className="watch-sub">click to enter ▸</span>
+            <span>Double-click to enter</span>
           </div>
         </button>
       </div>
 
-      {/* ====================== WATCH (zoomed in, full desktop) ===================== */}
+      {/* ====================== WATCH (zoomed in, fake desktop) ===================== */}
       <div className="watch-layer" aria-hidden={view !== "watch"}>
         <div className="watch-crt" ref={screenRef}>
           {boot !== "done" ? (
@@ -245,7 +278,7 @@ export default function ClassicPage() {
               )}
             </div>
           ) : (
-            <div className="dt" style={PATTERNS[pat].style}>
+            <div className={`dt ${inverted ? "inverted" : ""}`} style={PATTERNS[pat].style}>
               {/* menu bar */}
               <div className="dt-menubar">
                 <button className={`dt-apple ${openMenu === "apple" ? "on" : ""}`} onPointerDown={(e) => { e.stopPropagation(); setOpenMenu((m) => (m === "apple" ? null : "apple")); }}>
@@ -263,31 +296,18 @@ export default function ClassicPage() {
                 <span className="dt-clock">{clock}</span>
               </div>
 
-              {/* desktop icons */}
-              <div className="dt-icons">
-                <button className="dt-icon" onClick={() => toggle("show", true)} title="The Show"><span className="dt-icon-glyph dt-glyph-hd" /><span className="dt-icon-label">Market Bubble</span></button>
-                <button className="dt-icon" onClick={() => toggle("news", true)} title="News"><span className="dt-icon-glyph dt-glyph-doc" /><span className="dt-icon-label">News Wire</span></button>
-                <button className="dt-icon dt-trash" onClick={() => { snd.close(); toggle("trash", true); }} title="Trash"><span className="dt-icon-glyph dt-glyph-trash" /><span className="dt-icon-label">Trash</span></button>
+              {/* desktop app icons */}
+              <div className="dt-apps">
+                {apps.map((a) => (
+                  <button key={a.key} className={`dt-app ${a.egg ? "egg" : ""}`} onDoubleClick={a.onClick} onClick={a.onClick} title={a.label}>
+                    {a.glyph}
+                    <span className="dt-app-label">{a.label}</span>
+                  </button>
+                ))}
               </div>
 
-              {win.show && (
-                <MacWindow title="The Show" initial={{ x: 44, y: 46 }} width={560} bounds={bounds} onClose={() => toggle("show", false)} onShade={shadeSnd}>
-                  <div className="show-win">
-                    <div className="show-video">{heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Inserting disk…</div>}</div>
-                    <div className="show-meta"><span className="show-badge">▶ REPLAY</span><span className="show-title">{heroMedia?.title || "Market Bubble"}</span></div>
-                    {vods.length > 1 && (
-                      <div className="show-rail">
-                        {vods.slice(0, 6).map((v, i) => (
-                          <button key={i} className={`show-chip ${selected?.url === v.url ? "on" : ""}`} onClick={() => { snd.click(); setSelected(v); }} title={v.title}>{v.title}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </MacWindow>
-              )}
-
               {win.mkt && (
-                <MacWindow title="Markets" initial={{ x: 640, y: 46 }} width={250} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
+                <MacWindow title="Markets" initial={{ x: 60, y: 60 }} width={250} bounds={bounds} onClose={() => toggle("mkt", false)} onShade={shadeSnd}>
                   <div className="mkt-win">
                     {markets.length === 0 && <div className="mkt-row mkt-empty">Reading tape…</div>}
                     {markets.map((m) => (
@@ -302,25 +322,25 @@ export default function ClassicPage() {
               )}
 
               {win.chat && (
-                <MacWindow title="Chat" initial={{ x: 640, y: 332 }} width={300} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
+                <MacWindow title="Chat" initial={{ x: 360, y: 90 }} width={300} bounds={bounds} onClose={() => toggle("chat", false)} onShade={shadeSnd}>
                   <ChatWindow live={messages} onSay={() => snd.click()} />
                 </MacWindow>
               )}
 
               {win.news && (
-                <MacWindow title="News Wire" initial={{ x: 96, y: 120 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
+                <MacWindow title="News Wire" initial={{ x: 110, y: 110 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("news", false)} onShade={shadeSnd}>
                   <NewsWindow />
                 </MacWindow>
               )}
 
               {win.poly && (
-                <MacWindow title="Polymarket" initial={{ x: 150, y: 160 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
+                <MacWindow title="Polymarket" initial={{ x: 160, y: 150 }} width={420} height={280} resizable bounds={bounds} onClose={() => toggle("poly", false)} onShade={shadeSnd}>
                   <PolymarketWindow />
                 </MacWindow>
               )}
 
               {win.patterns && (
-                <MacWindow title="Desktop Patterns" initial={{ x: 130, y: 120 }} width={210} bounds={bounds} onClose={() => toggle("patterns", false)} onShade={shadeSnd}>
+                <MacWindow title="Desktop Patterns" initial={{ x: 140, y: 130 }} width={210} bounds={bounds} onClose={() => toggle("patterns", false)} onShade={shadeSnd}>
                   <div className="pat-win">
                     <div className="pat-preview" style={PATTERNS[pat].style} />
                     <div className="pat-grid">
@@ -329,6 +349,26 @@ export default function ClassicPage() {
                       ))}
                     </div>
                     <div className="pat-name">{PATTERNS[pat].label}</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              {win.banks && (
+                <MacWindow title="Banks" initial={{ x: 200, y: 120 }} width={260} bounds={bounds} onClose={() => toggle("banks", false)} onShade={shadeSnd}>
+                  <div className="egg-win">
+                    {banksHost && <img className="egg-av" src={banksHost.avatar} alt="" />}
+                    <div className="egg-name">FaZe Banks</div>
+                    <div className="egg-quote">&ldquo;Invest in yourself. And maybe buy the dip.&rdquo;</div>
+                  </div>
+                </MacWindow>
+              )}
+
+              {win.ansem && (
+                <MacWindow title="Ansem" initial={{ x: 240, y: 150 }} width={260} bounds={bounds} onClose={() => toggle("ansem", false)} onShade={shadeSnd}>
+                  <div className="egg-win">
+                    {ansemHost && <img className="egg-av" src={ansemHost.avatar} alt="" />}
+                    <div className="egg-name">Ansem</div>
+                    <div className="egg-quote">&ldquo;It&rsquo;s still early.&rdquo;</div>
                   </div>
                 </MacWindow>
               )}
@@ -359,6 +399,40 @@ export default function ClassicPage() {
                     <div className="about-foot">Not just a platform. It&rsquo;s what&rsquo;s next.</div>
                   </div>
                 </MacWindow>
+              )}
+
+              {/* easter egg: classic Mac bomb */}
+              {win.bomb && (
+                <div className="bomb-modal">
+                  <div className="bomb-dlg">
+                    <span className="bomb-glyph">{GBomb}</span>
+                    <div className="bomb-text">
+                      <div className="bomb-title">Sorry, a system error occurred.</div>
+                      <div className="bomb-id">told you not to open it 😈 &nbsp; ID = 02</div>
+                    </div>
+                    <button className="bomb-btn" onClick={() => { snd.click(); toggle("bomb", false); }}>Restart</button>
+                  </div>
+                </div>
+              )}
+
+              {/* big-screen theater */}
+              {theater && (
+                <div className="theater">
+                  <div className="theater-bar">
+                    <span className="theater-live"><span className="theater-dot" /> LIVE · MARKET BUBBLE</span>
+                    <button className="theater-close" onClick={() => { snd.close(); setTheater(false); }} title="Close">✕</button>
+                  </div>
+                  <div className="theater-stage">
+                    {heroMedia ? <MediaPlayer media={heroMedia} muted /> : <div className="show-loading">Tuning in…</div>}
+                  </div>
+                  {vods.length > 1 && (
+                    <div className="theater-rail">
+                      {vods.slice(0, 7).map((v, i) => (
+                        <button key={i} className={`show-chip ${selected?.url === v.url ? "on" : ""}`} onClick={() => { snd.click(); setSelected(v); }} title={v.title}>{v.title}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
               <Dock items={dockItems} />
