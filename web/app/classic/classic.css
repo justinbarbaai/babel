@@ -64,9 +64,10 @@ html.cls-mode .grain {
 }
 .mac-photo {
   display: block;
-  height: min(94vh, 900px);
+  max-height: 88vh;
+  max-width: 92vw;
   width: auto;
-  max-width: 97vw;
+  height: auto;
   user-select: none;
   -webkit-user-drag: none;
 }
