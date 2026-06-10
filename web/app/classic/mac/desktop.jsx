@@ -455,7 +455,7 @@ function Desktop({ onEject, soundOn, onToggleSound }) {
         <MacDialog
           icon={MacGlyphs.tv}
           title="Welcome to the bubble."
-          sub='This Macintosh runs the show. Poke everything — the icons, the games, the folder you were told not to open. Read Me holds the secrets. Mail has your lease.'
+          sub='This machine runs the show. Poke everything — the icons, the games, the folder you were told not to open. Read Me holds the secrets. Mail has your lease.'
           button="Take me to the show"
           onClose={() => {
             try { localStorage.setItem("mbmac.welcomed", "1"); } catch (e) {}

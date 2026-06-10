@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Desktop } from "./desktop";
-import { HappyMac, RainbowMark } from "./icons";
+import { RainbowMark } from "./icons";
 import { MacSound } from "./sounds";
 // ============================================================================
 // Market Bubble Macintosh — the room
@@ -360,7 +360,7 @@ function KeyboardView({ onBack }) {
         <span className="kbd-caret"></span>
       </div>
       <div className="kbdp">
-        <img src="/keyboard.png" alt="Macintosh keyboard" draggable={false}></img>
+        <img src="/keyboard.png" alt="The Market Bubble keyboard" draggable={false}></img>
         {/* silkscreened brand on the case plate */}
         <span className="kbdp-badge" aria-hidden="true">Market&nbsp;Bubble</span>
         {KB_LAYOUT.flat().map((c) => {
@@ -489,7 +489,7 @@ function MacApp() {
         {/* ---------- DESK ---------- */}
         <div className="desk-cam">
           <div className="desk-3d" ref={parallaxRef}>
-            <img className="mac-photo" src="/mac.png" alt="A Macintosh on a desk" draggable={false}></img>
+            <img className="mac-photo" src="/mac.png" alt="The Market Bubble machine on its desk" draggable={false}></img>
 
             {/* the screen — click to enter */}
             <button className="desk-screen" onClick={enterWatch} aria-label="Open Market Bubble">
@@ -536,7 +536,7 @@ function MacApp() {
               {boot === "happy" && (
                 <div className="boot dark" style={{ display: "grid", placeItems: "center" }}>
                   <div className="boot-welcome">
-                    <HappyMac />
+                    <RainbowMark size={56} />
                     <span>Welcome to Market&nbsp;Bubble</span>
                   </div>
                 </div>

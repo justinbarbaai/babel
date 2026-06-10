@@ -7,37 +7,7 @@ import React from "react";
 // plus new tiles for the desk accessories. All inline SVG, exported on window.
 // ============================================================================
 
-function RainbowApple({ size = 12 }) {
-  const stripes = ["#5fb44a", "#f5e003", "#f08a1d", "#e23b35", "#8a3f97", "#3b8ed0"];
-  const id = React.useId();
-  return (
-    <svg width={size} height={size * 1.2} viewBox="0 0 40 48" aria-hidden="true" style={{ display: "block" }}>
-      <defs>
-        <clipPath id={id}>
-          <path d="M27 0c0 4-3 7-7 8 0-4 3-7 7-8zM33 16c-2 1-3 3-3 6 0 4 3 7 5 8-2 5-5 9-8 9-2 0-3-1-6-1s-4 1-6 1c-4 0-9-7-9-15 0-7 4-11 8-11 2 0 4 1 6 1s3-1 6-1c2 0 5 1 7 3z" />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#${id})`}>
-        {stripes.map((c, i) => (
-          <rect key={i} x="0" y={(48 / 6) * i} width="40" height={48 / 6} fill={c} />
-        ))}
-      </g>
-    </svg>
-  );
-}
 
-function HappyMac() {
-  return (
-    <svg width="56" height="64" viewBox="0 0 24 28" aria-hidden="true" style={{ imageRendering: "pixelated" }}>
-      <rect x="2" y="1" width="20" height="26" fill="none" stroke="#dfeee8" strokeWidth="1.4" rx="2"></rect>
-      <rect x="4" y="3" width="16" height="13" fill="none" stroke="#dfeee8" strokeWidth="1.2"></rect>
-      <rect x="8" y="6" width="1.6" height="2.4" fill="#dfeee8"></rect>
-      <rect x="14" y="6" width="1.6" height="2.4" fill="#dfeee8"></rect>
-      <path d="M8 11 q4 3 8 0" fill="none" stroke="#dfeee8" strokeWidth="1.2"></path>
-      <rect x="6" y="19" width="12" height="1.6" fill="#dfeee8"></rect>
-    </svg>
-  );
-}
 
 const G = (kids, vb = "0 0 24 24") => (
   <svg className="mg" viewBox={vb} aria-hidden="true">{kids}</svg>
@@ -73,4 +43,4 @@ function RainbowMark({ size = 12 }) {
 }
 
 
-export { HappyMac, MacGlyphs, RainbowMark, RainbowApple };
+export { MacGlyphs, RainbowMark };

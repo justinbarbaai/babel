@@ -2,7 +2,7 @@
 
 import React from "react";
 import { MacData } from "./data";
-import { MacGlyphs, RainbowApple } from "./icons";
+import { MacGlyphs, RainbowMark } from "./icons";
 import { MacSound } from "./sounds";
 // ============================================================================
 // Market Bubble Macintosh — classic app windows
@@ -163,7 +163,7 @@ function AboutApp() {
   return (
     <div className="about-win">
       <div className="about-head">
-        <RainbowApple size={26} />
+        <RainbowMark size={26} />
         <div>
           <div className="about-title">Market&nbsp;Bubble</div>
           <div className="about-sub">System Software 6.0.8</div>
@@ -185,7 +185,7 @@ function ReadMeApp() {
   return (
     <div className="readme-win">
       <p className="readme-h">MARKET&nbsp;BUBBLE — Read Me</p>
-      <p>Welcome to the bubble. This whole Macintosh — and the show it watches — lives at the corner of 1986 and next Thursday.</p>
+      <p>Welcome to the bubble. This whole machine — and the show it watches — lives at the corner of 1986 and next Thursday.</p>
       <p className="readme-secrets">
         Secrets:<br />
         • Konami code: ↑ ↑ ↓ ↓ ← → ← → B A<br />
