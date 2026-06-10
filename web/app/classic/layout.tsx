@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Silkscreen } from "next/font/google";
-import "./classic.css";
 
 // A bitmap pixel face for the System UI (menu bar, window titles, labels).
 const pixel = Silkscreen({
