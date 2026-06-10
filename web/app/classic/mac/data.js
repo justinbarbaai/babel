@@ -4,7 +4,7 @@
 // Market Bubble Macintosh — demo content (chat, news, polymarket, read me)
 // Flavor lifted from the real show content so the machine feels alive.
 // ============================================================================
-MacData = {
+export const MacData = {
   CHAT_SEED: [
     { src: "tw", user: "degenmike", text: "this candle is actually unreal" },
     { src: "kk", user: "ansemfan", text: "gm everyone, we are SO back", role: "MOD" },
