@@ -40,7 +40,10 @@ export function clearKickSession() {
 }
 
 export function startKickLogin() {
-  window.location.href = `${HUB_HTTP}/auth/kick/user/login`;
+  // When the site is embedded same-origin (the /classic theater), break out to
+  // the top window — Kick's OAuth pages refuse to render inside iframes.
+  const nav = (() => { try { return window.top ?? window; } catch { return window; } })();
+  nav.location.href = `${HUB_HTTP}/auth/kick/user/login`;
 }
 
 // Capture the session from the OAuth redirect FRAGMENT (#kick_session=…) — the

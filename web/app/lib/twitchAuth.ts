@@ -56,7 +56,10 @@ export function startLogin(returnPath = "/") {
     `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirect)}` +
     `&response_type=token&scope=${encodeURIComponent(SCOPES)}`;
-  window.location.href = url;
+  // Break out of a same-origin embed (the /classic theater) — Twitch's OAuth
+  // page refuses to render inside iframes.
+  const nav = (() => { try { return window.top ?? window; } catch { return window; } })();
+  nav.location.href = url;
 }
 
 // On reader load: if Twitch redirected back with a token in the URL fragment,
