@@ -6894,6 +6894,19 @@ body.panel-dragging iframe {
   font-variant-numeric: tabular-nums;
 }
 .cin-handle.open { color: var(--cin-ink); }
+/* rail layout: chat + views share the rail, so their handles stack together
+   on the rail edge (overlay keeps the views pill bottom-left, by its card) */
+.cin-stage[data-layout="rail"] .cin-handle-views {
+  left: auto;
+  bottom: auto;
+  top: calc(50% + 46px);
+  right: 10px;
+  transform: translateY(-50%);
+}
+.cin-stage[data-layout="rail"][data-chat="1"] .cin-handle-views,
+.cin-stage[data-layout="rail"][data-views="1"] .cin-handle-views {
+  right: calc(clamp(300px, 26vw, 400px) + 10px);
+}
 
 /* the controls melt away when the cursor rests — pure cinema */
 .cin.idle { cursor: none; }
