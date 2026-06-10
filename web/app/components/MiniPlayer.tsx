@@ -19,6 +19,7 @@ export function AutoMini() {
     if (mini || !path) return;
     if (
       path === "/" ||
+      path.startsWith("/classic") || // the Macintosh room is its own world
       path.startsWith("/overlay") ||
       path.startsWith("/reader") ||
       path.startsWith("/studio") ||
@@ -60,6 +61,7 @@ export function AutoMini() {
 // across page navigations and keeps playing (muted). Drag by the header.
 export function MiniPlayer() {
   const { mini, miniCollapsed, closeMini, toggleMiniSize, play } = usePlayer();
+  const path = usePathname();
   const [parent, setParent] = useState("");
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
@@ -93,7 +95,8 @@ export function MiniPlayer() {
     window.addEventListener("pointerup", up);
   };
 
-  if (!mini || typeof document === "undefined") return null;
+  // the Macintosh room is its own world — no floating player over the desk
+  if (!mini || typeof document === "undefined" || path?.startsWith("/classic")) return null;
 
   const embeddable = parent && mediaEmbeddable(mini);
   const label = sourceLabel(mini.source);
