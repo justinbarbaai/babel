@@ -4,9 +4,10 @@
 
 export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot" | "none";
 export type BgStyle = "glass" | "box" | "none";
-// Overall chat skin: "default" (platform colors) or "paper" (Market Bubble —
-// handwritten ink names + ink-stamp badges, no neon).
-export type ChatSkin = "default" | "paper";
+// Overall chat skin: "twitch" (compact Twitch-style rows — the site default),
+// "default" (platform colors), or "paper" (Market Bubble — handwritten ink
+// names + ink-stamp badges, no neon).
+export type ChatSkin = "twitch" | "default" | "paper";
 export type FontSize = "sm" | "md" | "lg";
 export type NameColor = "chatter" | "platform" | "white";
 export type AccountColor = "platform" | "white";
@@ -89,15 +90,15 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
 // platform-colored account names) suited to a read-along feed rather than an
 // over-gameplay overlay.
 export const WATCH_DEFAULT_LOOK: LookOptions = {
-  badge: "channel",
-  bg: "box",
-  skin: "default",
+  badge: "logo",
+  bg: "none",
+  skin: "twitch",
   shadow: false,
   size: "md",
   max: 80,
   nameColor: "chatter",
   accountColor: "platform",
-  font: DEFAULT_OPTIONS.font,
+  font: "inter",
   timestamps: false,
 };
 
@@ -110,15 +111,15 @@ export function pickLook(o: OverlayOptions): LookOptions {
 // Default look for the public Market Bubble room chat. The admin (Studio) can
 // override this and broadcast it to every visitor via the hub.
 export const SITE_DEFAULT_LOOK: LookOptions = {
-  badge: "channel",
+  badge: "logo",
   bg: "none",
-  skin: "default",
+  skin: "twitch",
   shadow: false,
   size: "md",
   max: 120,
   nameColor: "chatter",
   accountColor: "platform",
-  font: "montserrat",
+  font: "inter",
   timestamps: true,
 };
 
@@ -154,7 +155,7 @@ export function parseOptions(params: URLSearchParams): OverlayOptions {
   return {
     badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot", "none"], DEFAULT_OPTIONS.badge),
     bg: pick(params.get("bg"), ["glass", "box", "none"], DEFAULT_OPTIONS.bg),
-    skin: pick(params.get("sk"), ["default", "paper"], DEFAULT_OPTIONS.skin),
+    skin: pick(params.get("sk"), ["twitch", "default", "paper"], DEFAULT_OPTIONS.skin),
     shadow: params.get("shadow") !== "0",
     size: pick(params.get("size"), ["sm", "md", "lg"], DEFAULT_OPTIONS.size),
     max: clampInt(params.get("max"), DEFAULT_OPTIONS.max, 5, 200),

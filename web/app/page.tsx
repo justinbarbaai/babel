@@ -87,6 +87,21 @@ export default function Home() {
   const [selected, setSelected] = useState<Stream | null>(null);
   // Cinema mode: premium rounded-TV overlay (stream / chat / views, scenes).
   const [cinema, setCinema] = useState(false);
+  // the workspace player's rect at the moment cinema opens — the stage FLIPs
+  // out of (and back into) this exact spot
+  const cinemaFrom = useRef<DOMRect | null>(null);
+  const playerRect = () =>
+    (document.querySelector(".sp") ?? document.querySelector(".oa-player") ?? document.querySelector(".term-room-stage"))
+      ?.getBoundingClientRect() ?? null;
+  const toggleCinema = () => {
+    cinemaFrom.current = playerRect();
+    setCinema((c) => !c);
+  };
+  // house lights: the page behind recedes while cinema is up
+  useEffect(() => {
+    document.documentElement.classList.toggle("cinema-on", cinema);
+    return () => document.documentElement.classList.remove("cinema-on");
+  }, [cinema]);
   // The show ships a fixed default look; each viewer personalizes their own copy
   // on their device only (no global/Studio override — that's intentionally gone).
   const { prefs: chatPrefs, patch: patchChatPrefs, reset: resetChatPrefs, customized } = useChatPrefs();
@@ -455,7 +470,7 @@ export default function Home() {
           <ThemeToggle className="term-icon" />
           <button
             className={`term-cine ${cinema ? "on" : ""}`}
-            onClick={() => setCinema((c) => !c)}
+            onClick={toggleCinema}
             aria-pressed={cinema}
             title="Cinema mode — fullscreen TV view"
           >
@@ -725,6 +740,8 @@ export default function Home() {
       <CinemaMode
         open={cinema}
         onClose={() => setCinema(false)}
+        fromRect={cinemaFrom.current}
+        getReturnRect={playerRect}
         messages={messages}
         options={feedOptions}
         profiles={profiles}

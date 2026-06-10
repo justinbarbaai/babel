@@ -27,9 +27,14 @@ export function StyleControls({
           serif, but never touches your Name color — pick that yourself below. */}
       <Segmented<ChatSkin>
         label="Chat style"
-        value={value.skin ?? "default"}
-        onChange={(skin) => onChange(skin === "paper" ? { skin, font: "mb" } : { skin })}
+        value={value.skin ?? "twitch"}
+        onChange={(skin) =>
+          onChange(
+            skin === "paper" ? { skin, font: "mb" } : skin === "twitch" ? { skin, font: "inter" } : { skin }
+          )
+        }
         options={[
+          ["twitch", "Twitch"],
           ["default", "Standard"],
           ["paper", "Market Bubble"],
         ]}
