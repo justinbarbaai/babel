@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatFeed } from "./ChatFeed";
 import { MBLockup } from "./brand";
 import { SourceLogo, type SourceKey } from "./logos";
@@ -18,6 +18,8 @@ type Props = {
   fromRect?: DOMRect | null;
   /** re-measured on close so the stage can FLIP back home */
   getReturnRect?: () => DOMRect | null;
+  /** the page's chat composer — same node as the workspace panel */
+  composer?: ReactNode;
   messages: ChatMessage[];
   options: OverlayOptions;
   profiles: Record<string, Profile | null>;
@@ -34,6 +36,7 @@ export function CinemaMode({
   onClose,
   fromRect,
   getReturnRect,
+  composer,
   messages,
   options,
   profiles,
@@ -190,6 +193,7 @@ export function CinemaMode({
             onHoverUser={requestProfile}
             placeholder={<span>chat will appear here…</span>}
           />
+          {composer && <div className="cin-composer">{composer}</div>}
         </div>
 
         <div className={`cin-views cin-el ${viewsOpen ? "show" : ""}`}>

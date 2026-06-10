@@ -443,6 +443,48 @@ export default function Home() {
     onBan: (m) => moderate(m),
   };
 
+  // the chat composer — one node, rendered in the workspace chat panel AND the
+  // cinema chat rail so the two can never drift
+  const composerNode = canChat ? (
+    <div className="term-composer">
+      <div className="term-pushrow">
+        {canTwitch && (
+          <button
+            type="button"
+            className={`watch-pushpill ${targets.twitch ? "on" : ""}`}
+            data-source="twitch"
+            onClick={() => setTargets((t) => ({ ...t, twitch: !t.twitch }))}
+          >
+            <SourceLogo source="twitch" size={12} /> Twitch
+          </button>
+        )}
+        {canKick && (
+          <button
+            type="button"
+            className={`watch-pushpill ${targets.kick ? "on" : ""}`}
+            data-source="kick"
+            onClick={() => setTargets((t) => ({ ...t, kick: !t.kick }))}
+          >
+            <SourceLogo source="kick" size={12} /> Kick
+          </button>
+        )}
+      </div>
+      <div className="reader-composer">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder={!sendTwitch && !sendKickTarget ? "Pick a platform…" : "Say something to the room…"}
+        />
+        <button onClick={submit} disabled={!sendTwitch && !sendKickTarget}>Send</button>
+      </div>
+    </div>
+  ) : (
+    <div className="term-composer-hint">
+      Log in with Twitch or connect Kick in the <Link href="/studio">studio</Link> to talk.
+    </div>
+  );
+
   return (
     <div className={`term term-room${!showLive ? " offair" : ""}${showLive && focusMode ? " focus" : ""}`}>
       <div className="term-room-stage">
@@ -544,45 +586,7 @@ export default function Home() {
                     placeholder={<span>Waiting for the show to go live…</span>}
                   />
                 </div>
-                {canChat ? (
-                  <div className="term-composer">
-                    <div className="term-pushrow">
-                      {canTwitch && (
-                        <button
-                          type="button"
-                          className={`watch-pushpill ${targets.twitch ? "on" : ""}`}
-                          data-source="twitch"
-                          onClick={() => setTargets((t) => ({ ...t, twitch: !t.twitch }))}
-                        >
-                          <SourceLogo source="twitch" size={12} /> Twitch
-                        </button>
-                      )}
-                      {canKick && (
-                        <button
-                          type="button"
-                          className={`watch-pushpill ${targets.kick ? "on" : ""}`}
-                          data-source="kick"
-                          onClick={() => setTargets((t) => ({ ...t, kick: !t.kick }))}
-                        >
-                          <SourceLogo source="kick" size={12} /> Kick
-                        </button>
-                      )}
-                    </div>
-                    <div className="reader-composer">
-                      <input
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submit()}
-                        placeholder={!sendTwitch && !sendKickTarget ? "Pick a platform…" : "Say something to the room…"}
-                      />
-                      <button onClick={submit} disabled={!sendTwitch && !sendKickTarget}>Send</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="term-composer-hint">
-                    Log in with Twitch or connect Kick in the <Link href="/studio">studio</Link> to talk.
-                  </div>
-                )}
+                {composerNode}
               </div>
             </Panel>
 
@@ -742,6 +746,7 @@ export default function Home() {
         onClose={() => setCinema(false)}
         fromRect={cinemaFrom.current}
         getReturnRect={playerRect}
+        composer={composerNode}
         messages={messages}
         options={feedOptions}
         profiles={profiles}

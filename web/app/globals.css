@@ -6659,10 +6659,24 @@ body.panel-dragging iframe {
   justify-content: flex-end;
   transform: translateX(12px);
   background: linear-gradient(to left, rgba(12, 11, 9, 0.86), rgba(12, 11, 9, 0.5) 62%, transparent);
-  -webkit-mask-image: linear-gradient(transparent, #000 7%, #000 90%, transparent);
-  mask-image: linear-gradient(transparent, #000 7%, #000 90%, transparent);
 }
 .cin-chat.show { transform: none; }
+/* fade the FEED edges only — the composer below stays solid */
+.cin-chat .cf-root {
+  -webkit-mask-image: linear-gradient(transparent, #000 9%, #000 97%, transparent);
+  mask-image: linear-gradient(transparent, #000 9%, #000 97%, transparent);
+}
+/* the composer inside cinema: compact, glassy, no panel chrome */
+.cin-composer { margin-top: 8px; }
+.cin-composer .term-pushrow { margin-bottom: 6px; }
+.cin-composer .reader-composer input {
+  background: rgba(26, 25, 23, 0.85);
+  border: 1px solid rgba(244, 239, 228, 0.16);
+  color: #f4efe4;
+}
+.cin-composer .reader-composer input::placeholder { color: rgba(244, 239, 228, 0.4); }
+.cin-composer .term-composer-hint,
+.cin-composer + .term-composer-hint { color: rgba(244, 239, 228, 0.55); }
 .cin-chat .cf-feed { padding-left: 0; }
 .cin-chat .cf-user,
 .cin-chat .cf-text {
