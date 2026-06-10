@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Desktop } from "./desktop";
-import { PlantReal } from "../PlantReal";
 import { HappyMac, RainbowMark } from "./icons";
 import { MacSound } from "./sounds";
 // ============================================================================
@@ -491,8 +490,6 @@ function MacApp() {
         <div className="desk-cam">
           <div className="desk-3d" ref={parallaxRef}>
             <img className="mac-photo" src="/mac.png" alt="A Macintosh on a desk" draggable={false}></img>
-            {/* the plant you can run your hand through — stands behind the desk */}
-            <PlantReal />
 
             {/* the screen — click to enter */}
             <button className="desk-screen" onClick={enterWatch} aria-label="Open Market Bubble">
