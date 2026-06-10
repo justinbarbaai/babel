@@ -1096,16 +1096,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .saver-sprite { position: absolute; will-change: transform; }
 .saver-sprite .mb-mark-fly {
   display: block; width: 100%; aspect-ratio: 564/443;
-  /* retro six-stripe rainbow — the era's Apple logo treatment, on the MB mark */
-  background: linear-gradient(
-    to bottom,
-    #61bb46 0% 16.66%,
-    #fdb827 16.66% 33.33%,
-    #f5821f 33.33% 50%,
-    #e03a3e 50% 66.66%,
-    #963d97 66.66% 83.33%,
-    #009ddc 83.33% 100%
-  );
+  /* clean white marks drifting in the dark */
+  background: #f4efe4;
   -webkit-mask: var(--mb-mark-mask) center / contain no-repeat; mask: var(--mb-mark-mask) center / contain no-repeat;
 }
 .saver-cap { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); font-family: var(--pixel); font-size: 8px; color: #5a5345; letter-spacing: 1px; }
