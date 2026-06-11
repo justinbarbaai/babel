@@ -1581,20 +1581,18 @@ a.cf-card-head:hover {
 
 /* ---- per-route transition: a gentle slide-in + fade (incoming page eases
    from the right). Transform/opacity only — smooth, never choppy. ---- */
+/* from-only: animates to the natural state and HOLDS NOTHING after, so the
+   stage doesn't keep a stacking context that would trap the video players
+   below the site grain (z 9998) — the grain must never film over video. */
 @keyframes pageIn {
   from {
     opacity: 0;
     transform: translateX(28px);
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 .term-room-stage,
 .term-page-inner {
-  animation: pageIn 0.5s cubic-bezier(0.33, 0, 0.2, 1) both;
-  will-change: transform, opacity;
+  animation: pageIn 0.5s cubic-bezier(0.33, 0, 0.2, 1) backwards;
 }
 
 /* respect users who prefer less motion */
@@ -4149,6 +4147,45 @@ body.overlay-bare::before {
 }
 
 .oa-stage { max-width: 1120px; margin: 0 auto; }
+/* replay theater + the room's chat side by side — chat stays open off air */
+.oa-stage-split {
+  max-width: 1380px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 360px);
+  gap: 20px;
+  align-items: stretch;
+}
+.oa-stage-split .oa-stage-main { min-width: 0; }
+.oa-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 var(--hair);
+  padding: 12px 14px 14px;
+}
+.oa-chat-head {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-2);
+}
+.oa-chat-feed {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 900px) {
+  .oa-stage-split { grid-template-columns: 1fr; }
+  .oa-chat { height: 420px; }
+}
 .oa-player {
   position: relative;
   /* sit above the site grain (z 9998) so the VOD renders crisp — the grain's
@@ -6307,6 +6344,8 @@ body.panel-dragging iframe {
   inset: 0;
   overflow: hidden;
   background: #000;
+  /* above the site grain (z 9998) — grain never films over live video */
+  z-index: 9999;
 }
 .sp-frame {
   position: absolute;
@@ -6694,6 +6733,28 @@ body.panel-dragging iframe {
   transform: translate(-50%, 12px);
 }
 .cin-views.show { transform: translate(-50%, 0); }
+/* replay tag on the cinema's off-air VOD */
+.cin-replay-tag {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 4;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(10, 10, 9, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 .cin-strip {
   display: inline-flex;
   align-items: center;

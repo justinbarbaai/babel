@@ -72,6 +72,7 @@ export default function Home() {
     sendResult,
     moderateKick,
     sendKick,
+    hubHttpUrl,
   } = useHub();
   const { session: kickSession } = useKickSession();
 
@@ -85,6 +86,27 @@ export default function Home() {
 
   const [parent, setParent] = useState("");
   const [selected, setSelected] = useState<Stream | null>(null);
+  // Latest broadcast VOD (same source as the lobby's replay theater) — the
+  // cinema plays it whenever nothing is live, and swaps to the live feed the
+  // moment a host goes live (selected fills in automatically).
+  const [vod, setVod] = useState<{ id: string; title: string } | null>(null);
+  useEffect(() => {
+    if (!hubHttpUrl) return;
+    let alive = true;
+    fetch(`${hubHttpUrl}/content`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!alive) return;
+        const s = (d.streams || []).find(
+          (v: { source?: string; url?: string }) => v.source !== "kick" && /videos\/(\d+)/.test(v.url || "")
+        );
+        if (s) setVod({ id: (s.url.match(/videos\/(\d+)/) || [])[1], title: s.title });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [hubHttpUrl]);
   // Cinema mode: premium rounded-TV overlay (stream / chat / views, scenes).
   const [cinema, setCinema] = useState(false);
   // the workspace player's rect at the moment cinema opens — the stage FLIPs
@@ -545,7 +567,13 @@ export default function Home() {
 
       {/* ---- off air: replay theater · on air: arrangeable workspace ---- */}
       {!showLive ? (
-        <OffAir />
+        <OffAir
+          messages={messages}
+          options={feedOptions}
+          profiles={profiles}
+          requestProfile={requestProfile}
+          composer={composerNode}
+        />
       ) : (
       <div className="work" ref={workRef}>
         {layout && (
@@ -755,6 +783,8 @@ export default function Home() {
         streams={streams}
         selected={selected}
         onSelect={setSelected}
+        vod={vod}
+        live={isLive}
         parent={parent}
       />
 

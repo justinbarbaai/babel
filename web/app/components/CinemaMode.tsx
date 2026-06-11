@@ -28,6 +28,11 @@ type Props = {
   streams: Stream[];
   selected: Stream | null;
   onSelect: (s: Stream) => void;
+  /** latest broadcast VOD — plays in the cinema whenever nothing is live */
+  vod?: { id: string; title: string } | null;
+  /** is any host actually live? off air, the cinema rolls the VOD instead of
+      an offline channel embed */
+  live?: boolean;
   parent: string;
 };
 
@@ -45,6 +50,8 @@ export function CinemaMode({
   streams,
   selected,
   onSelect,
+  vod = null,
+  live = false,
   parent,
 }: Props) {
   const [render, setRender] = useState(false);
@@ -179,7 +186,11 @@ export function CinemaMode({
         data-views={viewsOpen ? "1" : "0"}
         style={railStyle}
       >
-        {selected ? (
+        {selected && (live || DEMO_MODE) ? (
+          <CinemaStream key={`${selected.source}:${selected.channel}`} selected={selected} parent={parent} />
+        ) : vod ? (
+          <CinemaVod key={vod.id} vod={vod} parent={parent} />
+        ) : selected ? (
           <CinemaStream key={`${selected.source}:${selected.channel}`} selected={selected} parent={parent} />
         ) : (
           <div className="cin-stream cin-stream-off" />
@@ -284,6 +295,26 @@ function CinemaStream({ selected, parent }: { selected: Stream; parent: string }
       />
       {/* partial shield: stops cursor/click pausing, leaves bottom controls open */}
       <div className="cin-shield" />
+    </div>
+  );
+}
+
+/* off-air programming: the latest broadcast VOD rolls in the cinema until a
+   host goes live (then `selected` fills in and the live feed takes over) */
+function CinemaVod({ vod, parent }: { vod: { id: string; title: string }; parent: string }) {
+  const src = `https://player.twitch.tv/?video=${encodeURIComponent(vod.id)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`;
+  return (
+    <div className="cin-stream">
+      <iframe
+        className="cin-video"
+        src={src}
+        title={vod.title}
+        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+        allowFullScreen
+        frameBorder="0"
+      />
+      <div className="cin-shield" />
+      <span className="cin-replay-tag">Replay · {vod.title}</span>
     </div>
   );
 }
