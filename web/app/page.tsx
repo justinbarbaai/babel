@@ -161,10 +161,14 @@ export default function Home() {
   const [manualView, setManualView] = useState<null | "offair" | "live">(null);
   const prevLiveRef = useRef(isLive);
   useEffect(() => {
-    if (prevLiveRef.current !== isLive) {
+    if (prevLiveRef.current === isLive) return;
+    // Only follow a live-status change that HOLDS — momentary flickers in the
+    // viewer data must not yank someone out of the room they chose.
+    const t = setTimeout(() => {
       prevLiveRef.current = isLive;
       setManualView(null);
-    }
+    }, 15000);
+    return () => clearTimeout(t);
   }, [isLive]);
   const showLive = manualView ? manualView === "live" : isLive;
 

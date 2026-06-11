@@ -190,7 +190,9 @@ export function Panel({
   return (
     <div
       className={`panel ${rounded ? "rounded" : ""} ${live ? "gesturing" : ""} ${settle && !live ? "settling" : ""}`}
-      style={{ left: eff.x, top: eff.y, width: eff.w, height: eff.h, zIndex: eff.z }}
+      // +9998 lifts every panel above the site grain (z 9998) while keeping
+      // the panels' own focus order — video inside a panel must render crisp.
+      style={{ left: eff.x, top: eff.y, width: eff.w, height: eff.h, zIndex: eff.z + 9998 }}
       onPointerDown={onFocus}
     >
       <div className={`panel-body ${pad ? "" : "bare"}`}>{children}</div>
