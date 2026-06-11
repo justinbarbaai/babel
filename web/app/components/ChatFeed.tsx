@@ -189,7 +189,7 @@ export function ChatFeed({
                 key={m.id}
                 m={m}
                 badge={options.badge}
-                channel={m.channel || SOURCE_LABELS[m.source]}
+                channel={m.channel || (m.source === "x" ? m.username : SOURCE_LABELS[m.source])}
                 nameColor={nameColorFor(m, options.nameColor)}
                 accountColor={options.accountColor}
                 timestamps={options.timestamps}

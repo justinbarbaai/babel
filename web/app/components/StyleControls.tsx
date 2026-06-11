@@ -34,7 +34,7 @@ export function StyleControls({
             skin === "paper"
               ? { skin, font: "mb" }
               : skin === "twitch"
-                ? { skin, font: "inter", badge: "channel" }
+                ? { skin, font: "inter", badge: "logo" }
                 : { skin }
           )
         }
