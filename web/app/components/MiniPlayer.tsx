@@ -10,7 +10,7 @@ import { MediaPlayer, mediaEmbeddable } from "./MediaPlayer";
 const HUB_HTTP = (process.env.NEXT_PUBLIC_HUB_URL || "ws://localhost:8080").replace(/^ws/, "http");
 
 // Auto-open the mini-player on load so there's always a stream playing (muted),
-// like the competitor. Skips Home (it has its own theater), Studio, and the bare
+// like Twitch does. Skips Home (it has its own theater), Studio, and the bare
 // overlay/reader routes. Dismissible — closing it keeps it closed for the session.
 export function AutoMini() {
   const { mini, openMini } = usePlayer();
