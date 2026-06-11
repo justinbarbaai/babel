@@ -90,7 +90,7 @@ export const DEFAULT_OPTIONS: OverlayOptions = {
 // platform-colored account names) suited to a read-along feed rather than an
 // over-gameplay overlay.
 export const WATCH_DEFAULT_LOOK: LookOptions = {
-  badge: "logo",
+  badge: "channel",
   bg: "none",
   skin: "twitch",
   shadow: false,
@@ -111,7 +111,7 @@ export function pickLook(o: OverlayOptions): LookOptions {
 // Default look for the public Market Bubble room chat. The admin (Studio) can
 // override this and broadcast it to every visitor via the hub.
 export const SITE_DEFAULT_LOOK: LookOptions = {
-  badge: "logo",
+  badge: "channel",
   bg: "none",
   skin: "twitch",
   shadow: false,
