@@ -23,7 +23,8 @@ BROADCASTERS = {"banks": "Banks", "blknoiz06": "Ansem", "marketbbl": "Market Bub
                 "marketbubble": "Market Bubble"}
 # lines that are NOT chat: the market ticker + the standing disclaimer overlay
 JUNK = re.compile(r"(informational and entertainment|not constitute|financial.*advice|"
-                  r"[+\-]\d+\.\d+\s*%|\$\d|\b\d+\.\d{2}\b.*[+\-])", re.I)
+                  r"[+\-]\d+\.\d+\s*%|\$\d|\b\d+\.\d{2}\b.*[+\-]|sign up for|app store|"
+                  r"copy the best|bubble20|presented by|polymarket)", re.I)
 
 def broadcast_windows():
     """Top-left corner of EVERY Chrome window whose active tab is a broadcast."""
@@ -84,20 +85,25 @@ def broadcaster_of(lines):
     return None
 
 def parse(lines, source):
-    chat = [l for l in lines if l.get("x", 0) > 0.58]    # chat panel = right side
-    chat.sort(key=lambda l: l["y"])
+    chat = sorted([l for l in lines if l.get("x", 0) > 0.58], key=lambda l: l["y"])
     txt = [l["text"] for l in chat]
+    handles = [(HANDLE.search(t).group(1) if HANDLE.search(t) else None) for t in txt]
     msgs, i = [], 0
     while i < len(txt):
-        m = HANDLE.search(txt[i])
-        if not m: i += 1; continue
-        user, body, j = m.group(1), [], i + 1
-        while j < len(txt) and not HANDLE.search(txt[j]):
-            line = txt[j]
-            if not JUNK.search(line): body.append(line)   # drop ticker/disclaimer junk
-            j += 1
-        text = " ".join(body).strip()
-        if text and user.lower() not in BLOCK and not JUNK.search(text):
+        if not handles[i]: i += 1; continue
+        user, body, j = handles[i], [], i + 1
+        while j < len(txt) and not handles[j]:
+            body.append(txt[j]); j += 1
+        # drop a trailing line that's the NEXT chatter's display name (it sits
+        # right before the next @handle and resembles it)
+        if body and j < len(txt) and handles[j]:
+            norm = re.sub(r"[^a-z0-9]", "", body[-1].lower()); nh = handles[j].lower()
+            if norm and (norm in nh or nh.startswith(norm[:4]) or (len(body[-1]) < 14 and " " not in body[-1].strip())):
+                body = body[:-1]
+        clean = [t for t in body if not JUNK.search(t)]
+        text = " ".join(clean).strip()
+        if JUNK.search(text): text = JUNK.split(text)[0].strip()   # cut mid-line junk
+        if text and user.lower() not in BLOCK:
             msgs.append({"username": user, "text": text, "channel": source or user})
         i = j
     return msgs
