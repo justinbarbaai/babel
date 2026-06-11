@@ -70,7 +70,7 @@ export function OffAir() {
   }, [hubHttpUrl]);
 
   // The theater plays the latest broadcast VOD; the Embed API force-plays it
-  // (muted) once the player is ready — same trick the competitor uses.
+  // (muted) once the player is ready — same trick Twitch uses.
   const heroMedia: Media | null = selected
     ? { kind: "vod", title: selected.title, url: selected.url, source: "twitch" }
     : null;
