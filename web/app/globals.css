@@ -6854,59 +6854,50 @@ body.panel-dragging iframe {
 .cin.in .cin-dock { transform: translateX(-50%); }
 .cin-dock-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.16); }
 
-/* slide-out handles: one glassy pull-tab per panel, riding the panel edge */
-.cin-handle {
+/* the panel switch: one glass pill, two faces (chat / live views). It rides
+   the open panel's edge; tapping the active face closes both. */
+.cin-switch {
   position: absolute;
   z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--cin-line);
-  background: var(--cin-panel);
-  color: var(--cin-muted);
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: right 0.45s cubic-bezier(0.22, 1, 0.32, 1), color 0.18s ease, background 0.18s ease, opacity 0.3s ease;
-}
-.cin-handle:hover { color: var(--cin-ink); background: rgba(40, 38, 33, 0.95); }
-.cin-handle-chat {
   top: 50%;
   right: 10px;
   transform: translateY(-50%);
+  display: inline-flex;
   flex-direction: column;
-  padding: 12px 7px;
+  border: 1px solid var(--cin-line);
   border-radius: 999px;
+  background: var(--cin-panel);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: right 0.45s cubic-bezier(0.22, 1, 0.32, 1), opacity 0.3s ease;
 }
-.cin-handle-chat .cin-handle-chev { font-size: 13px; line-height: 1; }
-.cin-stage[data-chat="1"] .cin-handle-chat { right: calc(clamp(280px, 34%, 460px) + 10px); }
-.cin-stage[data-layout="rail"][data-chat="1"] .cin-handle-chat,
-.cin-stage[data-layout="rail"][data-views="1"] .cin-handle-chat { right: calc(clamp(300px, 26vw, 400px) + 10px); }
-.cin-handle-views {
-  left: 18px;
-  bottom: 16px;
-  padding: 8px 13px;
-  border-radius: 999px;
+.cin-seg {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 11px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--cin-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.cin-seg + .cin-seg { border-top: 1px solid var(--cin-line); }
+.cin-seg:hover { color: var(--cin-ink); }
+.cin-seg.on { color: var(--cin-ink); background: rgba(244, 239, 228, 0.12); }
+.cin-seg-count {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
 }
-.cin-handle.open { color: var(--cin-ink); }
-/* rail layout: chat + views share the rail, so their handles stack together
-   on the rail edge (overlay keeps the views pill bottom-left, by its card) */
-.cin-stage[data-layout="rail"] .cin-handle-views {
-  left: auto;
-  bottom: auto;
-  top: calc(50% + 46px);
-  right: 10px;
-  transform: translateY(-50%);
-}
-.cin-stage[data-layout="rail"][data-chat="1"] .cin-handle-views,
-.cin-stage[data-layout="rail"][data-views="1"] .cin-handle-views {
-  right: calc(clamp(300px, 26vw, 400px) + 10px);
-}
+/* ride the open panel's edge */
+.cin-stage[data-chat="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 10px); }
+.cin-stage[data-layout="rail"][data-chat="1"] .cin-switch,
+.cin-stage[data-layout="rail"][data-views="1"] .cin-switch { right: calc(clamp(300px, 26vw, 400px) + 10px); }
 
 /* the controls melt away when the cursor rests — pure cinema */
 .cin.idle { cursor: none; }
@@ -6917,7 +6908,7 @@ body.panel-dragging iframe {
   transition: opacity 0.6s ease;
 }
 /* the panel handles are navigation — they ghost at idle, never vanish */
-.cin.idle .cin-handle {
+.cin.idle .cin-switch {
   opacity: 0.22;
   transition: opacity 0.6s ease;
 }

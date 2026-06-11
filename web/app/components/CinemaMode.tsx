@@ -51,9 +51,10 @@ export function CinemaMode({
   const [vis, setVis] = useState(false);
   const [layout, setLayout] = useState<Layout>("rail");
   const [idle, setIdle] = useState(false);
-  // the two slide-out panels — remembered across opens
-  const [chatOpen, setChatOpen] = useState(true);
-  const [viewsOpen, setViewsOpen] = useState(true);
+  // one slide-out panel at a time: chat, views, or none — remembered
+  const [panel, setPanel] = useState<"chat" | "views" | null>("chat");
+  const chatOpen = panel === "chat";
+  const viewsOpen = panel === "views";
   const stageRef = useRef<HTMLDivElement>(null);
 
   // premium auto-hide: the controls melt away when the cursor rests
@@ -91,19 +92,14 @@ export function CinemaMode({
     try {
       const v = localStorage.getItem("mb.cinLayout");
       if (v === "overlay" || v === "rail") setLayout(v);
-      const p = localStorage.getItem("mb.cinPanels");
-      if (p) {
-        const j = JSON.parse(p);
-        if (typeof j.chat === "boolean") setChatOpen(j.chat);
-        if (typeof j.views === "boolean") setViewsOpen(j.views);
-      }
+      const p = localStorage.getItem("mb.cinPanel");
+      if (p === "chat" || p === "views" || p === "none") setPanel(p === "none" ? null : p);
     } catch {}
   }, []);
   const togglePanel = (which: "chat" | "views") => {
-    const next = { chat: which === "chat" ? !chatOpen : chatOpen, views: which === "views" ? !viewsOpen : viewsOpen };
-    setChatOpen(next.chat);
-    setViewsOpen(next.views);
-    try { localStorage.setItem("mb.cinPanels", JSON.stringify(next)); } catch {}
+    const next = panel === which ? null : which;
+    setPanel(next);
+    try { localStorage.setItem("mb.cinPanel", next ?? "none"); } catch {}
   };
   const chooseLayout = (l: Layout) => {
     setLayout(l);
@@ -154,7 +150,7 @@ export function CinemaMode({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, chatOpen, viewsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, panel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!render) return null;
 
@@ -200,25 +196,27 @@ export function CinemaMode({
           <CinemaViews viewers={viewers} streams={streams} selected={selected} onSelect={onSelect} />
         </div>
 
-        {/* slide-out handles — one pull each, no scenes to cycle */}
-        <button
-          className={`cin-handle cin-handle-chat ${chatOpen ? "open" : ""}`}
-          onClick={() => togglePanel("chat")}
-          aria-pressed={chatOpen}
-          title={chatOpen ? "Hide chat (C)" : "Show chat (C)"}
-        >
-          <ChatGlyph />
-          <span className="cin-handle-chev">{chatOpen ? "›" : "‹"}</span>
-        </button>
-        <button
-          className={`cin-handle cin-handle-views ${viewsOpen ? "open" : ""}`}
-          onClick={() => togglePanel("views")}
-          aria-pressed={viewsOpen}
-          title={viewsOpen ? "Hide live views (V)" : "Show live views (V)"}
-        >
-          <EyeGlyph />
-          <span className="cin-handle-count">{total.toLocaleString()}</span>
-        </button>
+        {/* one switch, two faces: chat or live views (tap the active one to
+            close both) */}
+        <div className={`cin-switch ${panel ? "open" : ""}`} role="group" aria-label="Side panel">
+          <button
+            className={`cin-seg ${chatOpen ? "on" : ""}`}
+            onClick={() => togglePanel("chat")}
+            aria-pressed={chatOpen}
+            title={chatOpen ? "Hide chat (C)" : "Show chat (C)"}
+          >
+            <ChatGlyph />
+          </button>
+          <button
+            className={`cin-seg ${viewsOpen ? "on" : ""}`}
+            onClick={() => togglePanel("views")}
+            aria-pressed={viewsOpen}
+            title={viewsOpen ? "Hide live views (V)" : "Show live views (V)"}
+          >
+            <EyeGlyph />
+            <span className="cin-seg-count">{total.toLocaleString()}</span>
+          </button>
+        </div>
 
         <div className="cin-brand">
           <MBLockup className="cin-brand-lockup" />
