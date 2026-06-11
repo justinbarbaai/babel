@@ -1392,6 +1392,21 @@ a.cf-card-head:hover {
   background: #b14bd8;
 }
 
+/* "Logo + plain": the channel name as bare text beside the logo — no box */
+.cf-badge-plain {
+  margin-right: 6px;
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: color-mix(in srgb, var(--src, currentColor) 80%, var(--text));
+  vertical-align: 0.08em;
+}
+.cf-root[data-skin="twitch"] .cf-badge-plain {
+  font-size: 11px;
+  vertical-align: -1px;
+  margin-right: 5px;
+}
+
 /* first message this session — the Twitch/Kick-style welcome highlight,
    tinted with the chatter's platform color */
 .cf-row.cf-first {
