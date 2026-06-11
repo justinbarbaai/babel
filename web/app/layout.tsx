@@ -72,7 +72,8 @@ export const viewport: Viewport = {
 };
 
 // Set the saved theme before paint so there's no light/dark flash on load.
-const themeScript = `(function(){try{var t=localStorage.getItem('mb-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+// First launch = light (cream paper); dark stays a remembered choice.
+const themeScript = `(function(){try{var t=localStorage.getItem('mb-theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
 export default function RootLayout({
   children,
@@ -80,7 +81,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={fontVars} data-theme="dark">
+    <html lang="en" className={fontVars} data-theme="light">
       <head>
         {/* preload the logo vectors so the boot logo is painted before it animates */}
         <link rel="preload" href="/mb-logotype.svg" as="image" type="image/svg+xml" />
