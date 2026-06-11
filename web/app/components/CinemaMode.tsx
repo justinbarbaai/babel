@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatFeed } from "./ChatFeed";
+import { TwitchEmbed } from "./TwitchEmbed";
 import { MBLockup } from "./brand";
 import { SourceLogo, type SourceKey } from "./logos";
 import { DEMO_MODE, DEMO_VOD_ID } from "../lib/demo";
@@ -293,8 +294,6 @@ function CinemaStream({ selected, parent }: { selected: Stream; parent: string }
         allowFullScreen
         frameBorder="0"
       />
-      {/* partial shield: stops cursor/click pausing, leaves bottom controls open */}
-      <div className="cin-shield" />
     </div>
   );
 }
@@ -302,18 +301,10 @@ function CinemaStream({ selected, parent }: { selected: Stream; parent: string }
 /* off-air programming: the latest broadcast VOD rolls in the cinema until a
    host goes live (then `selected` fills in and the live feed takes over) */
 function CinemaVod({ vod, parent }: { vod: { id: string; title: string }; parent: string }) {
-  const src = `https://player.twitch.tv/?video=${encodeURIComponent(vod.id)}&parent=${encodeURIComponent(parent)}&muted=true&autoplay=true`;
   return (
     <div className="cin-stream">
-      <iframe
-        className="cin-video"
-        src={src}
-        title={vod.title}
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        allowFullScreen
-        frameBorder="0"
-      />
-      <div className="cin-shield" />
+      {/* Embed JS API: force-plays muted + resumes non-user pauses; clickable */}
+      <TwitchEmbed video={vod.id} parent={parent} muted />
       <span className="cin-replay-tag">Replay · {vod.title}</span>
     </div>
   );

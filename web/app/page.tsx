@@ -7,6 +7,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { MBLockup } from "./components/brand";
 import { Ticker } from "./components/Ticker";
 import { CinemaMode } from "./components/CinemaMode";
+import { TwitchEmbed } from "./components/TwitchEmbed";
 import { OffAir } from "./components/OffAir";
 import { LoginMenu } from "./components/LoginMenu";
 import { ChatCustomizer } from "./components/ChatCustomizer";
@@ -664,7 +665,17 @@ export default function Home() {
                 </div>
               }
             >
-              {playerSrc ? (
+              {parent && !DEMO_MODE && !isLive && vod ? (
+                // off air: the room rolls the latest broadcast (autoplays, resumes)
+                <div className="sp">
+                  <TwitchEmbed key={vod.id} video={vod.id} parent={parent} muted />
+                </div>
+              ) : parent && !DEMO_MODE && selected?.source === "twitch" ? (
+                // live twitch: Embed API — reliable autoplay, fully clickable
+                <div className="sp">
+                  <TwitchEmbed key={selected.channel} channel={selected.channel} parent={parent} muted />
+                </div>
+              ) : playerSrc ? (
                 <div className="sp">
                   <iframe
                     className="sp-frame"
@@ -675,9 +686,6 @@ export default function Home() {
                     allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                     frameBorder="0"
                   />
-                  {/* partial shield: blocks stray clicks on the video (no pause)
-                      but leaves Twitch's bottom controls reachable for mute/volume */}
-                  <div className="sp-shield" />
                 </div>
               ) : (
                 <div className="term-pip-empty">
