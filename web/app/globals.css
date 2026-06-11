@@ -6857,6 +6857,14 @@ body.panel-dragging iframe {
   font-variant-numeric: tabular-nums;
 }
 .cin-strip-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.16); }
+.cin-strip-suffix {
+  margin-left: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
 .cin-strip-src {
   display: inline-flex;
   align-items: center;
