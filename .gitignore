@@ -22,3 +22,5 @@ dist/
 # X bridge build artifact + local secrets
 tools/x-bridge/ocr
 tools/x-bridge/winfind
+tools/x-bridge/.ingest-key
+tools/x-bridge/KEY.txt
