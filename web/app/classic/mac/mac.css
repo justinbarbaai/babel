@@ -622,19 +622,19 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 .dt.inverted { filter: invert(1) hue-rotate(180deg); transition: filter 0.3s ease; }
 
 /* ================================== BOOT ================================== */
-.boot { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: #cfcdc4; }
-.boot.dark { background: radial-gradient(circle, #16201a, #07090a 75%); }
+.mboot { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; background: #cfcdc4; }
+.mboot.dark { background: radial-gradient(circle, #16201a, #07090a 75%); }
 .crt-on { position: absolute; inset: 0; background: #dfeee8; animation: crt-on 0.45s ease forwards; }
 @keyframes crt-on {
   0% { transform: scaleY(0.004) scaleX(0.4); opacity: 1; }
   55% { transform: scaleY(0.004) scaleX(1); opacity: 1; }
   100% { transform: none; opacity: 0; }
 }
-.boot-welcome {
+.mboot-welcome {
   display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px 22px;
   background: transparent; border: 0; color: #dfeee8;
 }
-.boot-welcome span { font-family: var(--pixel); font-size: 11px; color: #cfeede; }
+.mboot-welcome span { font-family: var(--pixel); font-size: 11px; color: #cfeede; }
 
 /* ================================= DESKTOP ================================= */
 .dt { position: absolute; inset: 0; z-index: 10; font-family: var(--geneva, Geneva, "Helvetica Neue", sans-serif); }

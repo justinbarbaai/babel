@@ -538,16 +538,16 @@ function MacApp() {
       <div className="watch-layer" aria-hidden={view !== "watch"}>
         <div className="watch-crt">
           {boot !== "done" ? (
-            <div className={`boot${boot === "flicker" ? " dark" : ""}`}>
+            <div className={`mboot${boot === "flicker" ? " dark" : ""}`}>
               {boot === "flicker" && <span className="crt-on" aria-hidden="true"></span>}
               {boot === "ram" && (
-                <div className="boot dark">
+                <div className="mboot dark">
                   <RamCheck />
                 </div>
               )}
               {boot === "happy" && (
-                <div className="boot dark" style={{ display: "grid", placeItems: "center" }}>
-                  <div className="boot-welcome">
+                <div className="mboot dark" style={{ display: "grid", placeItems: "center" }}>
+                  <div className="mboot-welcome">
                     <RainbowMark size={56} />
                     <span>Welcome to Market&nbsp;Bubble</span>
                   </div>
