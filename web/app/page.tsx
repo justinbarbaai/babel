@@ -567,13 +567,7 @@ export default function Home() {
 
       {/* ---- off air: replay theater · on air: arrangeable workspace ---- */}
       {!showLive ? (
-        <OffAir
-          messages={messages}
-          options={feedOptions}
-          profiles={profiles}
-          requestProfile={requestProfile}
-          composer={composerNode}
-        />
+        <OffAir />
       ) : (
       <div className="work" ref={workRef}>
         {layout && (
