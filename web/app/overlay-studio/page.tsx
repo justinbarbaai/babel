@@ -22,19 +22,50 @@ const LOOK_KEY = "mb.overlay.look";
 const DEFAULT_LOOK: LookOptions = pickLook(DEFAULT_OPTIONS);
 const splitList = (s: string) => s.split(",").map((x) => x.trim().replace(/^@/, "")).filter(Boolean);
 
+// Debounce a value — the preview re-follows channels as you type, but only
+// after the typing settles (each re-follow spins real chat sources on the hub).
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
 // Overlay studio: anyone can build a transparent chat overlay for ANY Twitch /
 // Kick channel (theirs or the show's). A read-only overlay just needs the
 // channel name — no account connection required. The overlay is defined entirely
 // by the copied link, so editing here never changes the show's overlay.
 export default function OverlayStudio() {
-  const { messages, serverChannels, hubConnected, hubUrl } = useHub();
-
   const [look, setLook] = useState<LookOptions>(DEFAULT_LOOK);
   const [twitch, setTwitch] = useState("");
   const [kick, setKick] = useState("");
+  // X is bring-your-own-token: streaming X posts costs money per read, so the
+  // overlay owner supplies their own API bearer token and the reads bill THEM.
+  const [xQuery, setXQuery] = useState("");
+  const [xToken, setXToken] = useState("");
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
   const [seeded, setSeeded] = useState(false);
+
+  // The preview follows whatever channels are typed (debounced), on a private
+  // feed — the show's site chat is never touched by any of this.
+  const dTwitch = useDebounced(twitch, 700);
+  const dKick = useDebounced(kick, 700);
+  const dXQuery = useDebounced(xQuery, 700);
+  const dXToken = useDebounced(xToken, 700);
+  const previewChannels = useMemo(() => {
+    const tw = splitList(dTwitch);
+    const kk = splitList(dKick);
+    const xq = dXToken.trim() ? dXQuery.trim() : "";
+    if (!tw.length && !kk.length && !xq) return null;
+    return { twitch: tw, kick: kk, xQuery: xq, ...(dXToken.trim() ? { xToken: dXToken.trim() } : {}) };
+  }, [dTwitch, dKick, dXQuery, dXToken]);
+  const { messages, serverChannels, hubConnected, hubUrl } = useHub({
+    pushChannels: previewChannels,
+    privateScope: !!previewChannels,
+  });
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -56,11 +87,23 @@ export default function OverlayStudio() {
   const patch = (p: Partial<LookOptions>) => setLook((l) => ({ ...l, ...p }));
 
   const options: OverlayOptions = useMemo(
-    () => ({ ...look, twitch: splitList(twitch), kick: splitList(kick), xQuery: "" }),
-    [look, twitch, kick]
+    () => ({
+      ...look,
+      twitch: splitList(twitch),
+      kick: splitList(kick),
+      // X only rides with a token — a query alone can't stream anything.
+      xQuery: xToken.trim() ? xQuery.trim() : "",
+    }),
+    [look, twitch, kick, xQuery, xToken]
   );
-  const overlayUrl = useMemo(() => `${origin}/overlay?${buildQuery(options)}`, [origin, options]);
-  const hasChannel = options.twitch.length > 0 || options.kick.length > 0;
+  const overlayUrl = useMemo(() => {
+    const base = `${origin}/overlay?${buildQuery(options)}`;
+    // The token rides in the #fragment: browsers never send fragments in HTTP
+    // requests, so it can't land in server or proxy logs. The overlay page
+    // hands it to the hub over WSS only.
+    return options.xQuery && xToken.trim() ? `${base}#xt=${encodeURIComponent(xToken.trim())}` : base;
+  }, [origin, options, xToken]);
+  const hasChannel = options.twitch.length > 0 || options.kick.length > 0 || !!options.xQuery;
 
   const copy = async () => {
     try {
@@ -128,6 +171,38 @@ export default function OverlayStudio() {
               </label>
               <input value={kick} onChange={(e) => setKick(e.target.value)} placeholder="your_kick" spellCheck={false} />
             </div>
+            <div className="field">
+              <label>
+                <span className="host-field-logo">
+                  <SourceLogo source="x" size={12} />
+                </span>{" "}
+                X posts (optional)
+              </label>
+              <input
+                value={xQuery}
+                onChange={(e) => setXQuery(e.target.value)}
+                placeholder="from:yourhandle OR $TICKER"
+                spellCheck={false}
+              />
+            </div>
+            {xQuery.trim() && (
+              <div className="field">
+                <label>Your X API bearer token</label>
+                <input
+                  type="password"
+                  value={xToken}
+                  onChange={(e) => setXToken(e.target.value)}
+                  placeholder="AAAAAAAAAA… (developer.x.com)"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <p className="muted small" style={{ margin: "6px 0 0" }}>
+                  X streaming reads are pay-per-use, so the overlay runs on <b>your</b> token and
+                  bills your X developer account — never the show's. It rides after the link's{" "}
+                  <code>#</code>, which browsers never send to servers.
+                </p>
+              </div>
+            )}
           </div>
 
           <h2 className="card-title" style={{ marginTop: 22 }}>Style</h2>

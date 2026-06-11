@@ -52,6 +52,10 @@ export interface Channels {
   // Optional: only the control panel sets it, so overlay/reader pushes don't
   // clobber the server's configured handle.
   xLiveHandle?: string;
+  // Bring-your-own X bearer token (private-scope overlays only): the X stream
+  // for xQuery runs on the OVERLAY OWNER's token, billing their account, never
+  // the show's. Carried in the overlay link's #fragment, sent only over WSS.
+  xToken?: string;
 }
 
 export interface ChannelViewers {
@@ -159,6 +163,24 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
     );
   }, [privateScope]);
 
+  // If the pushed channels change while the socket is open (the overlay studio
+  // edits them live), re-send the follow and restart the feed clean.
+  const pushKey = pushChannels
+    ? JSON.stringify([pushChannels.twitch, pushChannels.kick, pushChannels.xQuery, pushChannels.xToken ?? ""])
+    : "";
+  const pushKeyRef = useRef(pushKey);
+  useEffect(() => {
+    if (pushKeyRef.current === pushKey) return;
+    pushKeyRef.current = pushKey;
+    const push = pushRef.current;
+    const ws = wsRef.current;
+    if (!push || !ws || ws.readyState !== ws.OPEN) return;
+    if (push.twitch.length || push.kick.length || push.xQuery) {
+      setMessages([]);
+      sendChannels(push, push.xToken);
+    }
+  }, [pushKey, sendChannels]);
+
   const connect = useCallback(() => {
     // Tear down any existing socket first so we never run two in parallel —
     // React strict-mode double-mount and reconnect races would otherwise leave
@@ -187,7 +209,7 @@ export function useHub({ pushChannels = null, privateScope = false }: UseHubArgs
       // Self-contained overlay: tell the hub which channels to follow.
       const push = pushRef.current;
       if (push && (push.twitch.length || push.kick.length || push.xQuery)) {
-        sendChannels(push);
+        sendChannels(push, push.xToken);
       }
     };
 

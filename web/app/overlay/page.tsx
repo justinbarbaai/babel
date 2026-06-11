@@ -10,9 +10,14 @@ export default function OverlayPage() {
 
   // Read the link's query params on the client (overlay is client-only so we
   // avoid Suspense boundaries and prerender of dynamic params).
+  const [xToken, setXToken] = useState("");
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setOptions(parseOptions(params));
+    // The owner's X bearer token rides in the #fragment (never sent in HTTP
+    // requests or server logs); it goes to the hub over WSS only.
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    setXToken((hash.get("xt") || "").trim());
   }, []);
 
   // Make the page transparent so OBS/Streamlabs composites it over the scene.
@@ -35,10 +40,18 @@ export default function OverlayPage() {
     if (!options) return null;
     if (!options.twitch.length && !options.kick.length && !options.xQuery)
       return null;
-    return { twitch: options.twitch, kick: options.kick, xQuery: options.xQuery };
-  }, [options]);
+    return {
+      twitch: options.twitch,
+      kick: options.kick,
+      xQuery: options.xQuery,
+      ...(xToken ? { xToken } : {}),
+    };
+  }, [options, xToken]);
 
-  const { messages, liveStyle } = useHub({ pushChannels });
+  // Private scope: the overlay's channels are ITS OWN feed (any channel works,
+  // no operator key) — without it the hub ignores the follow and the overlay
+  // would just mirror the show's chat.
+  const { messages, liveStyle } = useHub({ pushChannels, privateScope: !!pushChannels });
 
   // Live style from the control panel overrides the link's style, so the
   // overlay updates in OBS without re-copying the link. Channels stay from URL.
