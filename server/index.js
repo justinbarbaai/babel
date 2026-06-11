@@ -93,6 +93,20 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || WEB_ORIGIN)
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+// Validate a post-OAuth return target: origin must be allowlisted; a clean
+// path may ride along (no query/fragment). Returns "origin/path" or null.
+function sanitizeReturn(ret) {
+  if (!ret) return null;
+  try {
+    const u = new URL(ret);
+    if (!ALLOWED_ORIGINS.includes(u.origin)) return null;
+    if (u.search || u.hash) return null;
+    return u.origin + (u.pathname === "/" || !u.pathname ? "/" : u.pathname);
+  } catch {
+    return null;
+  }
+}
+
 // Secret that grants OPERATOR privileges over the WS (reconfigure channels, set
 // the global chat look, send/moderate as the operator account, set the X token).
 // Set a long random value in .env before deploying. If empty, operator actions
@@ -477,10 +491,10 @@ const server = http.createServer(async (req, res) => {
       res.end("Kick OAuth is not configured (set KICK_CLIENT_ID/SECRET).");
       return;
     }
-    // Which site to return the viewer to afterwards — allowlisted origins only
-    // (anything else falls back to WEB_ORIGIN, never an open redirect).
-    const ret = url.searchParams.get("return");
-    const returnOrigin = ret && ALLOWED_ORIGINS.includes(ret) ? ret : null;
+    // Which page to return the viewer to afterwards — the ORIGIN must be on
+    // the allowlist (else we fall back to WEB_ORIGIN, never an open redirect);
+    // a path is allowed so embedded experiences (/classic) return to themselves.
+    const returnOrigin = sanitizeReturn(url.searchParams.get("return"));
     res.writeHead(302, { Location: buildKickUserLoginUrl(kickCreds, KICK_REDIRECT_URI, returnOrigin) });
     res.end();
     return;
@@ -520,12 +534,11 @@ const server = http.createServer(async (req, res) => {
       if (result?.sessionId) {
         // Deliver the session id in the URL FRAGMENT — fragments are never sent
         // to servers or in the Referer, so the credential can't leak that way.
-        // Return to the (allowlisted) origin that started the login, so the
+        // Return to the (allowlisted) page that started the login, so the
         // session lands in the right site's storage.
-        const back =
-          result.returnOrigin && ALLOWED_ORIGINS.includes(result.returnOrigin) ? result.returnOrigin : WEB_ORIGIN;
+        const back = sanitizeReturn(result.returnOrigin) || `${WEB_ORIGIN}/`;
         const u = result.username ? `&kick_user=${encodeURIComponent(result.username)}` : "";
-        res.writeHead(302, { Location: `${back}/#kick_session=${encodeURIComponent(result.sessionId)}${u}` });
+        res.writeHead(302, { Location: `${back}#kick_session=${encodeURIComponent(result.sessionId)}${u}` });
       } else {
         broadcast(configPayload());
         res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });

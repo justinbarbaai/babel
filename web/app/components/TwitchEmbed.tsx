@@ -75,31 +75,39 @@ export function TwitchEmbed({
           } catch {}
         };
 
-        embed.addEventListener(Twitch.Embed.VIDEO_READY, () => {
-          forcePlay();
-          // keep nudging until it's actually playing (or we give up)
-          let tries = 0;
-          const iv = setInterval(() => {
-            if (cancelled || tries >= 6) {
-              clearInterval(iv);
-              return;
-            }
-            tries += 1;
-            try {
-              const p = embed.getPlayer();
-              if (p.isPaused && p.isPaused()) forcePlay();
-              else clearInterval(iv);
-            } catch {}
-          }, 500);
-        });
+        // The viewer owns playback once they actually click INTO the player —
+        // iframe clicks don't bubble, but they steal window focus, so a blur
+        // landing on our container means the player was clicked.
+        let userOwnsPlayback = false;
+        const onBlur = () => {
+          if (el.contains(document.activeElement)) userOwnsPlayback = true;
+        };
+        window.addEventListener("blur", onBlur);
+
+        // Watchdog: Twitch's embed pauses itself when scrolled offscreen (and
+        // sometimes never starts under a busy load). Keep the muted ambience
+        // rolling — resume any pause the viewer didn't ask for.
+        const iv = setInterval(() => {
+          if (cancelled || userOwnsPlayback) return;
+          try {
+            const p = embed.getPlayer();
+            if (p.isPaused && p.isPaused()) forcePlay();
+          } catch {}
+        }, 1500);
+
+        embed.addEventListener(Twitch.Embed.VIDEO_READY, () => forcePlay());
 
         // Fallback: the moment the viewer interacts anywhere, start playback.
-        const onGesture = () => forcePlay();
+        const onGesture = () => {
+          if (!userOwnsPlayback) forcePlay();
+        };
         window.addEventListener("pointerdown", onGesture, { once: true });
         window.addEventListener("keydown", onGesture, { once: true });
         cleanupGesture = () => {
+          clearInterval(iv);
           window.removeEventListener("pointerdown", onGesture);
           window.removeEventListener("keydown", onGesture);
+          window.removeEventListener("blur", onBlur);
         };
       })
       .catch(() => {});
