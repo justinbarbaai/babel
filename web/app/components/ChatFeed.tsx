@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useEffect } from "react";
 import type { ChatMessage, ChatBadge, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 import { FONT_STACKS } from "../lib/overlay";
@@ -8,10 +8,52 @@ import { SourceLogo, SOURCE_LABELS } from "./logos";
 import { KICK_BADGES } from "./kickBadges";
 
 function nameColorFor(m: ChatMessage, mode: OverlayOptions["nameColor"]): string {
-  if (mode === "white") return "#ffffff";
+  // "white" = the theme's ink: paper-white on dark, true ink in light mode —
+  // a literal #fff would vanish on cream paper.
+  if (mode === "white") return "var(--text)";
   if (mode === "platform") return m.color;
   // "chatter": the user's real platform color, falling back to platform tint.
   return m.userColor || m.color;
+}
+
+// Twitch-style readable colors: clamp a name color's lightness per theme so a
+// near-white name never vanishes on cream paper and a near-black one never
+// vanishes on dark newsprint. Non-hex values (e.g. var(--text)) pass through.
+function clampForTheme(color: string, light: boolean): string {
+  let m = String(color || "").trim().match(/^#([0-9a-f]{6})$/i);
+  let hex = m?.[1];
+  const m3 = String(color || "").trim().match(/^#([0-9a-f]{3})$/i);
+  if (!hex && m3) hex = m3[1].split("").map((c) => c + c).join("");
+  if (!hex) return color;
+  const n = parseInt(hex, 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  if (light && lum > 0.58) {
+    // too bright for paper — scale toward ink, keeping the hue
+    const f = 0.5 / Math.max(lum, 0.001);
+    r = Math.round(r * f); g = Math.round(g * f); b = Math.round(b * f);
+  } else if (!light && lum < 0.35) {
+    // too dark for newsprint — blend toward paper, keeping the hue
+    const t = (0.55 - lum) / (1 - lum);
+    r = Math.round(r + (255 - r) * t); g = Math.round(g + (255 - g) * t); b = Math.round(b + (255 - b) * t);
+  } else {
+    return color;
+  }
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+// The current theme, kept live so name colors re-clamp the moment it flips.
+function useLightTheme(): boolean {
+  const [light, setLight] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const read = () => setLight(el.getAttribute("data-theme") === "light");
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(el, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
+  return light;
 }
 
 // Short labels for role badges that lack a real image (Kick roles, or Twitch
@@ -166,6 +208,7 @@ export function ChatFeed({
   // firstIds outlives the buffer: a chatter's FIRST message this session gets
   // the Twitch/Kick-style "first message" highlight, and stays the only one
   // even after the buffer evicts older rows.
+  const lightTheme = useLightTheme();
   const firstIdsRef = useRef(new Map<string, string>());
   const stats = useMemo(() => {
     const m = new Map<string, SessionStat>();
@@ -205,7 +248,7 @@ export function ChatFeed({
                 m={m}
                 badge={options.badge}
                 channel={m.channel || (m.source === "x" ? m.username : SOURCE_LABELS[m.source])}
-                nameColor={nameColorFor(m, options.nameColor)}
+                nameColor={clampForTheme(nameColorFor(m, options.nameColor), lightTheme)}
                 accountColor={options.accountColor}
                 timestamps={options.timestamps}
                 profile={profiles?.[key]}
@@ -293,7 +336,7 @@ function Row({
             {badge === "full" && (
               <span
                 className="cf-badge-label"
-                style={accountColor === "white" ? { color: "#ffffff" } : undefined}
+                style={accountColor === "white" ? { color: "var(--text)" } : undefined}
               >
                 {SOURCE_LABELS[m.source]}
               </span>
@@ -301,7 +344,7 @@ function Row({
             {badge === "channel" && (
               <span
                 className="cf-badge-label"
-                style={accountColor === "white" ? { color: "#ffffff" } : undefined}
+                style={accountColor === "white" ? { color: "var(--text)" } : undefined}
               >
                 {channel || SOURCE_LABELS[m.source]}
               </span>
@@ -312,7 +355,7 @@ function Row({
               className="cf-badge-plain"
               style={{
                 ["--src" as any]: m.color,
-                ...(accountColor === "white" ? { color: "#ffffff" } : {}),
+                ...(accountColor === "white" ? { color: "var(--text)" } : {}),
               }}
             >
               {channel || SOURCE_LABELS[m.source]}
