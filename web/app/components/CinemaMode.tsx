@@ -162,9 +162,8 @@ export function CinemaMode({
   const railStyle =
     layout === "rail"
       ? {
-          gridTemplateColumns:
-            chatOpen || viewsOpen ? "minmax(0, 1fr) clamp(300px, 26vw, 400px)" : "minmax(0, 1fr)",
-          gridTemplateRows: "auto minmax(0, 1fr)",
+          gridTemplateColumns: chatOpen ? "minmax(0, 1fr) clamp(300px, 26vw, 400px)" : "minmax(0, 1fr)",
+          gridTemplateRows: "minmax(0, 1fr)",
         }
       : undefined;
 
@@ -198,13 +197,7 @@ export function CinemaMode({
         </div>
 
         <div className={`cin-views cin-el ${viewsOpen ? "show" : ""}`}>
-          <CinemaViews
-            viewers={viewers}
-            streams={streams}
-            selected={selected}
-            onSelect={onSelect}
-            variant={layout === "overlay" ? "strip" : "card"}
-          />
+          <CinemaViews viewers={viewers} streams={streams} selected={selected} onSelect={onSelect} />
         </div>
 
         {/* one switch, two faces: chat and live views — each face toggles its
@@ -300,18 +293,15 @@ function CinemaViews({
   streams,
   selected,
   onSelect,
-  variant = "card",
 }: {
   viewers: any;
   streams: Stream[];
   selected: Stream | null;
   onSelect: (s: Stream) => void;
-  variant?: "card" | "strip";
 }) {
   const t = viewers?.totals ?? { total: 0, twitch: 0, kick: 0 };
   const xv = viewers?.xLive?.live ? viewers.xLive.viewers : 0;
   const total = t.total ?? 0;
-  const denom = Math.max(1, (t.twitch ?? 0) + (t.kick ?? 0) + xv);
   const rows = [
     { label: "Twitch", src: "twitch" as SourceKey, cls: "tw", v: t.twitch ?? 0 },
     { label: "Kick", src: "kick" as SourceKey, cls: "kk", v: t.kick ?? 0 },
@@ -319,60 +309,35 @@ function CinemaViews({
   ];
   const fmt = (n: number) => n.toLocaleString();
 
-  const tabs =
-    streams.length > 1 ? (
-      <div className="cin-tabs">
-        {streams.map((s) => {
-          const on = selected?.source === s.source && selected?.channel === s.channel;
-          return (
-            <button
-              key={`${s.source}:${s.channel}`}
-              className={`cin-tab ${on ? "on" : ""}`}
-              data-source={s.source}
-              onClick={() => onSelect(s)}
-            >
-              <SourceLogo source={s.source} size={11} /> {s.channel}
-            </button>
-          );
-        })}
-      </div>
-    ) : null;
-
-  // overlay: a lower-third broadcast strip, not a widget box
-  if (variant === "strip") {
-    return (
-      <div className="cin-strip">
-        {tabs}
-        <span className="cin-strip-live">
-          <span className="cin-strip-dot" aria-hidden /> Live
-        </span>
-        <span className="cin-strip-total">{fmt(total)}</span>
-        <span className="cin-strip-sep" aria-hidden />
-        {rows.map((r) => (
-          <span className={`cin-strip-src ${r.cls}`} key={r.label} title={`${r.label} viewers`}>
-            <SourceLogo source={r.src} size={12} /> {fmt(r.v)}
-          </span>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="cin-views-card">
-      {tabs}
-      <div className="cin-views-head">Live audience</div>
-      <div className="cin-views-num">{fmt(total)}</div>
-      <div className="cin-views-rows">
-        {rows.map((r) => (
-          <div className="cin-vrow" key={r.label}>
-            <span className={`cin-vrow-name ${r.cls}`}>{r.label}</span>
-            <div className="cin-vrow-track">
-              <span className={`cin-vrow-fill ${r.cls}`} style={{ width: `${Math.max(2, (r.v / denom) * 100)}%` }} />
-            </div>
-            <span className="cin-vrow-val">{fmt(r.v)}</span>
-          </div>
-        ))}
-      </div>
+    <div className="cin-strip">
+      {streams.length > 1 && (
+        <div className="cin-tabs">
+          {streams.map((s) => {
+            const on = selected?.source === s.source && selected?.channel === s.channel;
+            return (
+              <button
+                key={`${s.source}:${s.channel}`}
+                className={`cin-tab ${on ? "on" : ""}`}
+                data-source={s.source}
+                onClick={() => onSelect(s)}
+              >
+                <SourceLogo source={s.source} size={11} /> {s.channel}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <span className="cin-strip-live">
+        <span className="cin-strip-dot" aria-hidden /> Live
+      </span>
+      <span className="cin-strip-total">{fmt(total)}</span>
+      <span className="cin-strip-sep" aria-hidden />
+      {rows.map((r) => (
+        <span className={`cin-strip-src ${r.cls}`} key={r.label} title={`${r.label} viewers`}>
+          <SourceLogo source={r.src} size={12} /> {fmt(r.v)}
+        </span>
+      ))}
     </div>
   );
 }
