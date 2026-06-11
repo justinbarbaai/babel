@@ -77,12 +77,24 @@ export function TwitchEmbed({
 
         // The viewer owns playback once they actually click INTO the player —
         // iframe clicks don't bubble, but they steal window focus, so a blur
-        // landing on our container means the player was clicked.
+        // landing on our container WHILE THE TAB STAYS VISIBLE means a real
+        // click (a tab/app switch hides the document at the same moment — and
+        // the embed grabbing focus on load must not count).
         let userOwnsPlayback = false;
         const onBlur = () => {
-          if (el.contains(document.activeElement)) userOwnsPlayback = true;
+          if (document.visibilityState === "visible" && el.contains(document.activeElement))
+            userOwnsPlayback = true;
         };
         window.addEventListener("blur", onBlur);
+        // Coming back to the tab re-arms the watchdog — the replay should be
+        // rolling again whenever the viewer returns.
+        const onVisible = () => {
+          if (document.visibilityState === "visible") {
+            userOwnsPlayback = false;
+            forcePlay();
+          }
+        };
+        document.addEventListener("visibilitychange", onVisible);
 
         // Watchdog: Twitch's embed pauses itself when scrolled offscreen (and
         // sometimes never starts under a busy load). Keep the muted ambience
@@ -108,6 +120,7 @@ export function TwitchEmbed({
           window.removeEventListener("pointerdown", onGesture);
           window.removeEventListener("keydown", onGesture);
           window.removeEventListener("blur", onBlur);
+          document.removeEventListener("visibilitychange", onVisible);
         };
       })
       .catch(() => {});

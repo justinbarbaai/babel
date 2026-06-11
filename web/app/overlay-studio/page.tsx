@@ -19,6 +19,7 @@ import {
 } from "../lib/overlay";
 
 const LOOK_KEY = "mb.overlay.look";
+const CHANNELS_KEY = "mb.overlay.channels";
 const DEFAULT_LOOK: LookOptions = pickLook(DEFAULT_OPTIONS);
 const splitList = (s: string) => s.split(",").map((x) => x.trim().replace(/^@/, "")).filter(Boolean);
 
@@ -70,10 +71,23 @@ export default function OverlayStudio() {
   useEffect(() => {
     setOrigin(window.location.origin);
     setLook(loadLook(LOOK_KEY, DEFAULT_LOOK));
+    // Restore the channels the user saved — their studio, their channels.
+    try {
+      const raw = localStorage.getItem(CHANNELS_KEY);
+      if (raw) {
+        const c = JSON.parse(raw);
+        setTwitch(c.twitch ?? "");
+        setKick(c.kick ?? "");
+        setXQuery(c.xQuery ?? "");
+        setXToken(c.xToken ?? "");
+        setSeeded(true); // saved channels win — never re-seed the show's
+      }
+    } catch {}
     document.title = "Market Bubble — Overlay Studio";
   }, []);
 
-  // Prefill with the show's channels as a convenient starting point (editable).
+  // First visit only: prefill with the show's channels as a starting point.
+  // Once the user has touched anything, their saved channels stick.
   useEffect(() => {
     if (serverChannels && !seeded) {
       setTwitch(serverChannels.twitch.join(", "));
@@ -81,6 +95,14 @@ export default function OverlayStudio() {
       setSeeded(true);
     }
   }, [serverChannels, seeded]);
+
+  // Persist every edit so the studio reopens exactly how it was left.
+  useEffect(() => {
+    if (!seeded) return;
+    try {
+      localStorage.setItem(CHANNELS_KEY, JSON.stringify({ twitch, kick, xQuery, xToken }));
+    } catch {}
+  }, [seeded, twitch, kick, xQuery, xToken]);
 
   useEffect(() => saveLook(LOOK_KEY, look), [look]);
 

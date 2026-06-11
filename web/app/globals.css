@@ -4592,7 +4592,7 @@ body.panel-dragging iframe {
 /* ---- snap alignment guides (flash while dragging/resizing) ---- */
 .snap-guide {
   position: absolute;
-  z-index: 30;
+  z-index: 10040; /* above the grain-lifted panels */
   pointer-events: none;
   background: rgba(122, 162, 255, 0.95);
   box-shadow: 0 0 10px rgba(122, 162, 255, 0.55);
@@ -4632,7 +4632,7 @@ body.panel-dragging iframe {
 /* ---- drop ghost (where a panel will snap to) ---- */
 .snap-ghost {
   position: absolute;
-  z-index: 25;
+  z-index: 10039;
   pointer-events: none;
   border: 1.5px dashed color-mix(in srgb, var(--text) 32%, transparent);
   border-radius: 14px;
