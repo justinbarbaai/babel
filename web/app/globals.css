@@ -941,6 +941,75 @@ code {
   border-bottom: 0;
 }
 
+/* ================= "Twitch" skin: compact rows, exactly like twitch.tv chat.
+   Tight line-height, name: message inline, filled platform badge chips. */
+.cf-root[data-skin="twitch"] .cf-row {
+  display: block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  line-height: 1.5;
+  font-size: 13.5px;
+  transition: background 0.08s ease;
+}
+.cf-root[data-skin="twitch"] .cf-row:hover {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+.cf-root[data-skin="twitch"] .cf-body { display: inline; }
+/* filled platform chips — the real brand marks on their brand colors */
+.cf-root[data-skin="twitch"] .cf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  vertical-align: -4px;
+  margin-right: 5px;
+  background: var(--src);
+  color: #fff;
+  border: 0;
+  padding: 0;
+}
+.cf-root[data-skin="twitch"] .cf-badge svg { width: 11px; height: 11px; }
+.cf-root[data-skin="twitch"] .cf-badge[data-source="kick"] { color: #0c0e0c; }
+.cf-root[data-skin="twitch"] .cf-badge[data-source="x"] {
+  background: #000;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+/* logo-only chips in this skin — the username carries the identity */
+.cf-root[data-skin="twitch"] .cf-badge-label { display: none; }
+.cf-root[data-skin="twitch"] .cf-time {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text) 46%, transparent);
+  margin-right: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.cf-root[data-skin="twitch"] .cf-user {
+  font-weight: 700;
+  cursor: pointer;
+}
+/* the twitch colon after the name, in body color */
+.cf-root[data-skin="twitch"] .cf-userwrap::after {
+  content: ":";
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  font-weight: 400;
+}
+.cf-root[data-skin="twitch"] .cf-text {
+  color: color-mix(in srgb, var(--text) 92%, transparent);
+  overflow-wrap: anywhere;
+}
+.cf-root[data-skin="twitch"] .cf-rolebadge,
+.cf-root[data-skin="twitch"] .cf-badge-img {
+  height: 16px;
+  vertical-align: -3px;
+  margin-right: 4px;
+}
+.cf-root[data-skin="twitch"] .cf-emote {
+  height: 22px;
+  vertical-align: -6px;
+}
+
 .cf-dot {
   flex-shrink: 0;
   width: 9px;
@@ -6425,9 +6494,27 @@ body.panel-dragging iframe {
 }
 .cin.in {
   opacity: 1;
-  background: rgba(4, 6, 10, 0.84);
+  background: rgba(4, 6, 10, 0.88);
   backdrop-filter: blur(12px) saturate(120%);
   -webkit-backdrop-filter: blur(12px) saturate(120%);
+  /* house lights: content dims first, then the deep theatrical black */
+  animation: cinHouseLights 0.9s ease-out both;
+}
+/* warm after-hours blacks — never cold blue */
+@keyframes cinHouseLights {
+  0% { background: rgba(12, 11, 9, 0); }
+  40% { background: rgba(14, 13, 10, 0.55); }
+  100% { background: rgba(12, 11, 9, 0.88); }
+}
+/* the page recedes behind the cinema like a set going dark */
+.cinema-on .term-room-stage {
+  transform: scale(0.974);
+  opacity: 0.55;
+  filter: saturate(0.8);
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.3, 1), opacity 0.7s ease, filter 0.7s ease;
+}
+.term-room-stage {
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.3, 1), opacity 0.45s ease, filter 0.45s ease;
 }
 
 /* ---- the TV screen ---- */
@@ -6446,7 +6533,9 @@ body.panel-dragging iframe {
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
   transform: scale(0.93) translateY(12px);
   opacity: 0;
-  transition: transform 0.46s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.36s ease;
+  /* the FLIP morph rides this transition: inline start-transform → none */
+  transition: transform 0.62s cubic-bezier(0.22, 1, 0.32, 1), opacity 0.4s ease;
+  will-change: transform;
 }
 .cin.in .cin-stage {
   transform: none;
@@ -6557,23 +6646,37 @@ body.panel-dragging iframe {
 /* default (broadcast / theater): chat = left gradient column over video */
 .cin-chat {
   position: absolute;
-  left: 0;
+  right: 0;
   top: 0;
   bottom: 52px; /* leave Twitch's bottom control bar (mute/volume) reachable */
   z-index: 3;
   width: 34%;
   min-width: 280px;
   max-width: 460px;
-  padding: 18px 16px 20px 24px;
+  padding: 18px 24px 20px 16px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  transform: translateX(-12px);
-  background: linear-gradient(to right, rgba(4, 6, 10, 0.86), rgba(4, 6, 10, 0.5) 62%, transparent);
-  -webkit-mask-image: linear-gradient(transparent, #000 7%, #000 90%, transparent);
-  mask-image: linear-gradient(transparent, #000 7%, #000 90%, transparent);
+  transform: translateX(12px);
+  background: linear-gradient(to left, rgba(12, 11, 9, 0.86), rgba(12, 11, 9, 0.5) 62%, transparent);
 }
 .cin-chat.show { transform: none; }
+/* fade the FEED edges only — the composer below stays solid */
+.cin-chat .cf-root {
+  -webkit-mask-image: linear-gradient(transparent, #000 9%, #000 97%, transparent);
+  mask-image: linear-gradient(transparent, #000 9%, #000 97%, transparent);
+}
+/* the composer inside cinema: compact, glassy, no panel chrome */
+.cin-composer { margin-top: 8px; }
+.cin-composer .term-pushrow { margin-bottom: 6px; }
+.cin-composer .reader-composer input {
+  background: rgba(26, 25, 23, 0.85);
+  border: 1px solid rgba(244, 239, 228, 0.16);
+  color: #f4efe4;
+}
+.cin-composer .reader-composer input::placeholder { color: rgba(244, 239, 228, 0.4); }
+.cin-composer .term-composer-hint,
+.cin-composer + .term-composer-hint { color: rgba(244, 239, 228, 0.55); }
 .cin-chat .cf-feed { padding-left: 0; }
 .cin-chat .cf-user,
 .cin-chat .cf-text {
@@ -6581,49 +6684,71 @@ body.panel-dragging iframe {
 }
 .cin-chat .cf-text { color: rgba(255, 255, 255, 0.95) !important; }
 
+/* overlay layout: live views is a lower-third broadcast strip — one slim bar
+   docked above the player's control bar, reading like a scoreboard */
 .cin-views {
   position: absolute;
-  top: 58px;
-  right: 16px;
+  left: 50%;
+  bottom: 64px;
   z-index: 4;
-  width: 300px;
-  transform: translateY(-10px);
+  transform: translate(-50%, 12px);
 }
-.cin-views.show { transform: none; }
-
-/* audience scene: chat panel + views panel, side by side */
-.cin-stage[data-scene="audience"] .cin-chat {
-  width: auto;
-  max-width: none;
-  right: 372px;
-  padding: 30px 26px 40px;
-  background: linear-gradient(to right, rgba(4, 6, 10, 0.6), transparent 70%);
-  -webkit-mask-image: linear-gradient(transparent, #000 5%, #000 92%, transparent);
-  mask-image: linear-gradient(transparent, #000 5%, #000 92%, transparent);
-}
-.cin-stage[data-scene="audience"] .cin-views {
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 372px;
-  display: flex;
+.cin-views.show { transform: translate(-50%, 0); }
+.cin-strip {
+  display: inline-flex;
   align-items: center;
-  padding: 28px;
-  background: linear-gradient(to left, rgba(255, 255, 255, 0.05), transparent);
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* views card */
-.cin-views-card {
-  width: 100%;
-  padding: 16px 18px;
-  border-radius: 16px;
-  background: rgba(10, 13, 20, 0.66);
+  gap: 14px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(10, 10, 9, 0.74);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  box-shadow: 0 24px 60px -34px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.8);
+  font-family: var(--mono);
+  white-space: nowrap;
 }
+.cin-strip .cin-tabs { margin-bottom: 0; }
+.cin-strip-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+.cin-strip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e0464c;
+  animation: cin-strip-pulse 2s ease-out infinite;
+}
+@keyframes cin-strip-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(224, 70, 76, 0.45); }
+  70% { box-shadow: 0 0 0 7px rgba(224, 70, 76, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(224, 70, 76, 0); }
+}
+.cin-strip-total {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.cin-strip-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.16); }
+.cin-strip-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+
+
 .cin-tabs {
   display: inline-flex;
   gap: 4px;
@@ -6650,51 +6775,6 @@ body.panel-dragging iframe {
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
-.cin-views-head {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-}
-.cin-views-num {
-  font-family: var(--mono);
-  font-weight: 700;
-  font-size: 40px;
-  line-height: 1.05;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  margin: 2px 0 14px;
-}
-.cin-views-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.cin-vrow {
-  display: grid;
-  grid-template-columns: 52px 1fr auto;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--mono);
-  font-size: 11px;
-}
-.cin-vrow-name { font-weight: 600; letter-spacing: 0.5px; }
-.cin-vrow-name.tw { color: var(--twitch); }
-.cin-vrow-name.kk { color: var(--kick); }
-.cin-vrow-name.x { color: #fff; }
-.cin-vrow-track {
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-.cin-vrow-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.6s ease; }
-.cin-vrow-fill.tw { background: var(--twitch); }
-.cin-vrow-fill.kk { background: var(--kick); }
-.cin-vrow-fill.x { background: rgba(255, 255, 255, 0.8); }
-.cin-vrow-val { color: rgba(255, 255, 255, 0.92); font-variant-numeric: tabular-nums; }
-
 /* brand badge */
 .cin-brand {
   position: absolute;
@@ -6717,43 +6797,16 @@ body.panel-dragging iframe {
 .cin-brand .cin-brand-word { font-size: 15px; }
 
 /* ---- floating controls ---- */
-.cin-arrow,
 .cin-exit,
 .cin-dock {
   opacity: 0;
   transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease;
 }
-.cin.in .cin-arrow,
 .cin.in .cin-exit,
 .cin.in .cin-dock {
   opacity: 1;
   transition-delay: 0.12s;
 }
-.cin-arrow {
-  position: fixed;
-  top: 50%;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  background: rgba(20, 24, 32, 0.66);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 210;
-  transform: translateY(-50%) scale(0.9);
-}
-.cin.in .cin-arrow { transform: translateY(-50%) scale(1); }
-.cin-arrow.left { left: clamp(8px, 2vw, 28px); }
-.cin-arrow.right { right: clamp(8px, 2vw, 28px); }
-.cin-arrow:hover { background: rgba(42, 48, 60, 0.92); }
-.cin.in .cin-arrow.left:hover { transform: translateY(-50%) scale(1.09); }
-.cin.in .cin-arrow.right:hover { transform: translateY(-50%) scale(1.09); }
-
 .cin-exit {
   position: fixed;
   top: clamp(14px, 3vh, 30px);
@@ -6795,53 +6848,64 @@ body.panel-dragging iframe {
   transform: translateX(-50%) translateY(10px);
 }
 .cin.in .cin-dock { transform: translateX(-50%); }
-.cin-scene {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: #fff;
-}
-.cin-dots { display: inline-flex; gap: 4px; }
-.cin-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); transition: background 0.2s; }
-.cin-dot.on { background: #fff; }
 .cin-dock-sep { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.16); }
-.cin-chip {
+
+/* the panel switch: one glass pill, two faces (chat / live views). It rides
+   the open panel's edge; tapping the active face closes both. */
+.cin-switch {
+  position: absolute;
+  z-index: 6;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  flex-direction: column;
+  border: 1px solid var(--cin-line);
   border-radius: 999px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.6);
+  background: var(--cin-panel);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: right 0.45s cubic-bezier(0.22, 1, 0.32, 1), opacity 0.3s ease;
+}
+.cin-seg {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 11px 9px;
+  border: 0;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  color: var(--cin-muted);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
 }
-.cin-chip-led {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transition: background 0.18s, box-shadow 0.18s;
+.cin-seg + .cin-seg { border-top: 1px solid var(--cin-line); }
+.cin-seg:hover { color: var(--cin-ink); }
+.cin-seg.on { color: var(--cin-ink); background: rgba(244, 239, 228, 0.12); }
+.cin-seg-count {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;
 }
-.cin-chip.on {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.32);
+/* ride the open panel's edge */
+.cin-stage[data-chat="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 10px); }
+.cin-stage[data-layout="rail"][data-chat="1"] .cin-switch { right: calc(clamp(300px, 26vw, 400px) + 10px); }
+
+/* the controls melt away when the cursor rests — pure cinema */
+.cin.idle { cursor: none; }
+.cin.idle .cin-dock,
+.cin.idle .cin-exit {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
 }
-.cin-chip.on .cin-chip-led {
-  background: var(--up);
-  box-shadow: 0 0 8px var(--up);
+/* the panel handles are navigation — they ghost at idle, never vanish */
+.cin.idle .cin-switch {
+  opacity: 0.22;
+  transition: opacity 0.6s ease;
 }
 
 /* ===== Cinema rework: warm brand theater + rail layout ===== */
@@ -6866,36 +6930,14 @@ body.panel-dragging iframe {
 }
 
 /* rebrand the chrome — ink/cream on warm panels, serif headings */
-.cin-views-card { background: var(--cin-panel); border-color: var(--cin-line); }
-.cin-views-head {
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: 12.5px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--cin-muted);
-}
-.cin-views-num { color: var(--cin-ink); }
-.cin-vrow-val { color: var(--cin-ink); }
 .cin-dock,
-.cin-exit,
-.cin-arrow { background: var(--cin-panel); border-color: var(--cin-line); color: var(--cin-ink); }
-.cin-dock:hover { }
-.cin-exit:hover,
-.cin-arrow:hover { background: rgba(40, 38, 33, 0.95); }
-.cin-scene {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 14px;
+.cin-exit {
+  background: var(--cin-panel);
+  border-color: var(--cin-line);
   color: var(--cin-ink);
 }
-.cin-dot.on { background: var(--cin-ink); }
+.cin-exit:hover { background: rgba(40, 38, 33, 0.95); }
 .cin-dock-sep { background: var(--cin-line); }
-.cin-chip { color: var(--cin-muted); border-color: var(--cin-line); }
-.cin-chip.on { color: var(--cin-ink); background: rgba(244, 239, 228, 0.1); border-color: rgba(244, 239, 228, 0.3); }
 .cin-tab.on { background: rgba(244, 239, 228, 0.16); color: var(--cin-ink); }
 .cin-tabs { background: rgba(244, 239, 228, 0.06); }
 
@@ -6940,9 +6982,8 @@ body.panel-dragging iframe {
   grid-row: 1 / -1;
   background: #000;
 }
-.cin-stage[data-layout="rail"] .cin-el:not(.show) { display: none; }
-.cin-stage[data-layout="rail"] .cin-chat,
-.cin-stage[data-layout="rail"] .cin-views {
+.cin-stage[data-layout="rail"] .cin-chat:not(.show) { display: none; }
+.cin-stage[data-layout="rail"] .cin-chat {
   position: relative;
   inset: auto;
   transform: none;
@@ -6954,26 +6995,15 @@ body.panel-dragging iframe {
   background: var(--cin-panel);
   -webkit-mask: none;
   mask: none;
-}
-.cin-stage[data-layout="rail"] .cin-views {
   grid-column: 2;
-  grid-row: 1;
-  padding: 16px 16px 14px;
-  border-bottom: 1px solid var(--cin-line);
-}
-.cin-stage[data-layout="rail"] .cin-views-card {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  padding: 0;
-}
-.cin-stage[data-layout="rail"] .cin-chat {
-  grid-column: 2;
-  grid-row: 2;
+  grid-row: 1 / -1;
   padding: 12px 14px 14px;
   justify-content: flex-start;
+}
+/* the live-views strip stays a lower-third over the video in rail too —
+   recenter it on the video area when the chat rail is open */
+.cin-stage[data-layout="rail"][data-chat="1"] .cin-views {
+  left: calc((100% - clamp(300px, 26vw, 400px)) / 2);
 }
 .cin-stage[data-layout="rail"] .cin-chat .cf-text { text-shadow: none; }
 
@@ -6984,15 +7014,13 @@ body.panel-dragging iframe {
     height: 92vh;
   }
   .cin-stage[data-layout="rail"] .cin-stream { grid-column: 1; grid-row: 1; }
-  .cin-stage[data-layout="rail"] .cin-views { grid-column: 1; grid-row: 2; border-bottom: 0; }
   .cin-stage[data-layout="rail"] .cin-chat { display: none; }
+  .cin-stage[data-layout="rail"][data-chat="1"] .cin-views { left: 50%; }
 }
 
 @media (max-width: 760px) {
   .cin-stage { aspect-ratio: auto; height: 100%; max-height: none; }
   .cin-chat { width: 70%; }
-  .cin-stage[data-scene="audience"] .cin-views { width: 60%; }
-  .cin-stage[data-scene="audience"] .cin-chat { right: 60%; }
 }
 
 /* center Play button (shown whenever the stream is paused) */

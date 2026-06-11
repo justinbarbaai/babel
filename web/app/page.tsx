@@ -87,6 +87,21 @@ export default function Home() {
   const [selected, setSelected] = useState<Stream | null>(null);
   // Cinema mode: premium rounded-TV overlay (stream / chat / views, scenes).
   const [cinema, setCinema] = useState(false);
+  // the workspace player's rect at the moment cinema opens — the stage FLIPs
+  // out of (and back into) this exact spot
+  const cinemaFrom = useRef<DOMRect | null>(null);
+  const playerRect = () =>
+    (document.querySelector(".sp") ?? document.querySelector(".oa-player") ?? document.querySelector(".term-room-stage"))
+      ?.getBoundingClientRect() ?? null;
+  const toggleCinema = () => {
+    cinemaFrom.current = playerRect();
+    setCinema((c) => !c);
+  };
+  // house lights: the page behind recedes while cinema is up
+  useEffect(() => {
+    document.documentElement.classList.toggle("cinema-on", cinema);
+    return () => document.documentElement.classList.remove("cinema-on");
+  }, [cinema]);
   // The show ships a fixed default look; each viewer personalizes their own copy
   // on their device only (no global/Studio override — that's intentionally gone).
   const { prefs: chatPrefs, patch: patchChatPrefs, reset: resetChatPrefs, customized } = useChatPrefs();
@@ -428,6 +443,48 @@ export default function Home() {
     onBan: (m) => moderate(m),
   };
 
+  // the chat composer — one node, rendered in the workspace chat panel AND the
+  // cinema chat rail so the two can never drift
+  const composerNode = canChat ? (
+    <div className="term-composer">
+      <div className="term-pushrow">
+        {canTwitch && (
+          <button
+            type="button"
+            className={`watch-pushpill ${targets.twitch ? "on" : ""}`}
+            data-source="twitch"
+            onClick={() => setTargets((t) => ({ ...t, twitch: !t.twitch }))}
+          >
+            <SourceLogo source="twitch" size={12} /> Twitch
+          </button>
+        )}
+        {canKick && (
+          <button
+            type="button"
+            className={`watch-pushpill ${targets.kick ? "on" : ""}`}
+            data-source="kick"
+            onClick={() => setTargets((t) => ({ ...t, kick: !t.kick }))}
+          >
+            <SourceLogo source="kick" size={12} /> Kick
+          </button>
+        )}
+      </div>
+      <div className="reader-composer">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder={!sendTwitch && !sendKickTarget ? "Pick a platform…" : "Say something to the room…"}
+        />
+        <button onClick={submit} disabled={!sendTwitch && !sendKickTarget}>Send</button>
+      </div>
+    </div>
+  ) : (
+    <div className="term-composer-hint">
+      Log in with Twitch or connect Kick in the <Link href="/studio">studio</Link> to talk.
+    </div>
+  );
+
   return (
     <div className={`term term-room${!showLive ? " offair" : ""}${showLive && focusMode ? " focus" : ""}`}>
       <div className="term-room-stage">
@@ -455,7 +512,7 @@ export default function Home() {
           <ThemeToggle className="term-icon" />
           <button
             className={`term-cine ${cinema ? "on" : ""}`}
-            onClick={() => setCinema((c) => !c)}
+            onClick={toggleCinema}
             aria-pressed={cinema}
             title="Cinema mode — fullscreen TV view"
           >
@@ -529,45 +586,7 @@ export default function Home() {
                     placeholder={<span>Waiting for the show to go live…</span>}
                   />
                 </div>
-                {canChat ? (
-                  <div className="term-composer">
-                    <div className="term-pushrow">
-                      {canTwitch && (
-                        <button
-                          type="button"
-                          className={`watch-pushpill ${targets.twitch ? "on" : ""}`}
-                          data-source="twitch"
-                          onClick={() => setTargets((t) => ({ ...t, twitch: !t.twitch }))}
-                        >
-                          <SourceLogo source="twitch" size={12} /> Twitch
-                        </button>
-                      )}
-                      {canKick && (
-                        <button
-                          type="button"
-                          className={`watch-pushpill ${targets.kick ? "on" : ""}`}
-                          data-source="kick"
-                          onClick={() => setTargets((t) => ({ ...t, kick: !t.kick }))}
-                        >
-                          <SourceLogo source="kick" size={12} /> Kick
-                        </button>
-                      )}
-                    </div>
-                    <div className="reader-composer">
-                      <input
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && submit()}
-                        placeholder={!sendTwitch && !sendKickTarget ? "Pick a platform…" : "Say something to the room…"}
-                      />
-                      <button onClick={submit} disabled={!sendTwitch && !sendKickTarget}>Send</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="term-composer-hint">
-                    Log in with Twitch or connect Kick in the <Link href="/studio">studio</Link> to talk.
-                  </div>
-                )}
+                {composerNode}
               </div>
             </Panel>
 
@@ -725,6 +744,9 @@ export default function Home() {
       <CinemaMode
         open={cinema}
         onClose={() => setCinema(false)}
+        fromRect={cinemaFrom.current}
+        getReturnRect={playerRect}
+        composer={composerNode}
         messages={messages}
         options={feedOptions}
         profiles={profiles}
