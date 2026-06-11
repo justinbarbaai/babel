@@ -36,12 +36,23 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 /* ============================ DESK (zoomed out) ============================ */
 .desk-cam {
   position: relative; z-index: 3; line-height: 0; perspective: 1300px;
+  /* center the oversized cover photo — on portrait phones the sides crop
+     equally and the Mac stays in the middle of the frame */
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   transform-origin: 49.4% 40.5%;
   transition: transform 0.85s cubic-bezier(0.7, 0, 0.25, 1), opacity 0.55s ease 0.1s, filter 0.55s ease;
 }
 .view-watch .desk-cam { transform: scale(3.4); opacity: 0; filter: blur(5px); pointer-events: none; }
 .view-keyboard .desk-cam { transform: scale(2.35); transform-origin: 50% 87%; opacity: 0; pointer-events: none; }
 .desk-3d {
+  /* center the oversized cover photo: pull back by half the overflow on each
+     axis (grid centering won't move overflowing items) */
+  margin-left: calc((100vw - max(100vw, 100vh * 1344 / 756)) / 2);
+  margin-top: calc((100vh - max(100vh, 100vw * 756 / 1344)) / 2);
   position: relative; display: inline-block; line-height: 0;
   transform-style: preserve-3d; transition: transform 0.22s ease-out; will-change: transform;
 }
@@ -1177,4 +1188,36 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
   45% { opacity: 1; }
   78% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+
+/* ================================ PHONES ================================ */
+@media (max-width: 640px) {
+  /* the tube goes near-fullscreen portrait — usability beats the 4:3 fiction */
+  .watch-crt {
+    width: 96vw;
+    aspect-ratio: auto;
+    height: 86vh;
+    height: 86dvh;
+    border-radius: 16px;
+    border-width: 8px;
+  }
+  /* dialogs and windows always fit inside the tube */
+  .mdlg { max-width: 86vw; max-height: 64dvh; overflow: auto; }
+  .mw { max-height: 70dvh; }
+  .mw .mw-body, .mw [class*="-body"] { overflow: auto; }
+  /* desk hint wraps tidily */
+  .desk-hint { font-size: 6.5px; letter-spacing: 1px; padding: 0 16px; text-align: center; }
+  /* windows can never be wider than the screen, and always open on-screen */
+  .mw { max-width: 94vw !important; left: 3vw !important; }
+  .mw, .mw * { max-height: none; }
+  /* menubar: tighter, no overflow */
+  .dt-menubar { font-size: 8px; }
+  .dt-clock { display: none; }
+  /* desktop icons: two tidy columns worth of width */
+  .dt-apps { gap: 4px; }
+  /* theater bar fits */
+  .theater-bar { font-size: 7px; gap: 6px; }
+  /* dock: scrollable strip instead of overflowing */
+  .dock { max-width: 94vw; overflow-x: auto; }
 }
