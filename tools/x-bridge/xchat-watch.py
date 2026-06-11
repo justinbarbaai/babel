@@ -18,6 +18,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OCR, WINFIND = os.path.join(HERE, "ocr"), os.path.join(HERE, "winfind")
 HANDLE = re.compile(r"@(\w{2,15})")
 BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymarket,marketbbl") ).split(",")}
+# which broadcaster a window belongs to → the label shown as the chat source
+BROADCASTERS = {"banks": "Banks", "blknoiz06": "Ansem", "marketbbl": "Market Bubble",
+                "marketbubble": "Market Bubble"}
+# lines that are NOT chat: the market ticker + the standing disclaimer overlay
+JUNK = re.compile(r"(informational and entertainment|not constitute|financial.*advice|"
+                  r"[+\-]\d+\.\d+\s*%|\$\d|\b\d+\.\d{2}\b.*[+\-])", re.I)
 
 def broadcast_windows():
     """Top-left corner of EVERY Chrome window whose active tab is a broadcast."""
@@ -68,19 +74,31 @@ def ocr(png):
     try: return json.loads(out)
     except Exception: return []
 
-def parse(lines):
-    lines = [l for l in lines if l.get("x", 0) > 0.58]   # chat panel = right side
-    lines.sort(key=lambda l: l["y"])
-    txt = [l["text"] for l in lines]
+def broadcaster_of(lines):
+    """Who owns this broadcast? Their handle appears OUTSIDE the chat (left/center)."""
+    for l in lines:
+        if l.get("x", 1) >= 0.58: continue
+        m = HANDLE.search(l["text"])
+        if m and m.group(1).lower() in BROADCASTERS:
+            return BROADCASTERS[m.group(1).lower()]
+    return None
+
+def parse(lines, source):
+    chat = [l for l in lines if l.get("x", 0) > 0.58]    # chat panel = right side
+    chat.sort(key=lambda l: l["y"])
+    txt = [l["text"] for l in chat]
     msgs, i = [], 0
     while i < len(txt):
         m = HANDLE.search(txt[i])
         if not m: i += 1; continue
         user, body, j = m.group(1), [], i + 1
         while j < len(txt) and not HANDLE.search(txt[j]):
-            body.append(txt[j]); j += 1
+            line = txt[j]
+            if not JUNK.search(line): body.append(line)   # drop ticker/disclaimer junk
+            j += 1
         text = " ".join(body).strip()
-        if text and user.lower() not in BLOCK: msgs.append({"username": user, "text": text})
+        if text and user.lower() not in BLOCK and not JUNK.search(text):
+            msgs.append({"username": user, "text": text, "channel": source or user})
         i = j
     return msgs
 
@@ -107,12 +125,14 @@ def main():
             if not shot:
                 print("capture failed — is this app allowed in Screen Recording?"); continue
             captured += 1
-            for m in parse(ocr(shot)):
+            lines = ocr(shot)
+            source = broadcaster_of(lines)
+            for m in parse(lines, source):
                 k2 = m["username"] + ":" + m["text"]
                 if k2 not in seen: seen.add(k2); fresh.append(m)
         if len(seen) > 6000: seen = set(list(seen)[-3000:])
         n = post(fresh)
-        if n: print(time.strftime("%H:%M:%S"), f"{captured} window(s) +{n}", " · ".join("@"+m["username"] for m in fresh[:4]))
+        if n: print(time.strftime("%H:%M:%S"), f"{captured} window(s) +{n}", " · ".join(f'{m["username"]}→{m["channel"]}' for m in fresh[:3]))
         time.sleep(15)
 
 if __name__ == "__main__": main()

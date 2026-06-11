@@ -344,12 +344,18 @@ function startSources() {
     wireSource(s, "kick");
     return s;
   });
-  sources.x = new XSource(config.xQuery, xOpts);
-  wireSource(sources.x, "x");
+  // X posts/mentions in chat are OFF by default — the live broadcast chat comes
+  // from the bridge instead (no mention spam). Reach number is unaffected.
+  if (process.env.X_CHAT_STREAM === "1") {
+    sources.x = new XSource(config.xQuery, xOpts);
+    wireSource(sources.x, "x");
+  } else {
+    sources.x = null;
+  }
 
   for (const s of sources.twitch) s.start();
   for (const s of sources.kick) s.start();
-  sources.x.start();
+  if (sources.x) sources.x.start();
 
   for (const platform of ["twitch", "kick", "x"]) {
     status[platform] = platformStatus(platform);
@@ -587,7 +593,10 @@ const server = http.createServer(async (req, res) => {
           const username = String(m.username || "x").slice(0, 80).replace(/^@/, "");
           const text = String(m.text || "").slice(0, 500);
           if (!text) continue;
-          broadcast(unifiedMessage("x", username, text, Date.now(), undefined, undefined, username));
+          // channel = which broadcast it came from (Banks / Ansem / Market
+          // Bubble), set by the bridge; falls back to the author's handle.
+          const channel = String(m.channel || username).slice(0, 80).replace(/^@/, "");
+          broadcast(unifiedMessage("x", username, text, Date.now(), undefined, undefined, channel));
           pushed++;
         }
         res.writeHead(200, { ...cors, "Content-Type": "application/json" });
