@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChatFeed } from "./ChatFeed";
 import { MBLockup } from "./brand";
 import { SourceLogo, type SourceKey } from "./logos";
@@ -9,17 +9,17 @@ import type { ChatMessage, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 
 type Stream = { source: Exclude<SourceKey, "x">; channel: string };
-type Els = { stream: boolean; chat: boolean; views: boolean };
 type Layout = "overlay" | "rail";
-const SCENES: { key: string; label: string; els: Els }[] = [
-  { key: "broadcast", label: "Broadcast", els: { stream: true, chat: true, views: true } },
-  { key: "theater", label: "Theater", els: { stream: true, chat: false, views: false } },
-  { key: "spotlight", label: "Spotlight", els: { stream: true, chat: false, views: true } },
-];
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** the workspace player's rect — the stage FLIPs out of this spot */
+  fromRect?: DOMRect | null;
+  /** re-measured on close so the stage can FLIP back home */
+  getReturnRect?: () => DOMRect | null;
+  /** the page's chat composer — same node as the workspace panel */
+  composer?: ReactNode;
   messages: ChatMessage[];
   options: OverlayOptions;
   profiles: Record<string, Profile | null>;
@@ -34,6 +34,9 @@ type Props = {
 export function CinemaMode({
   open,
   onClose,
+  fromRect,
+  getReturnRect,
+  composer,
   messages,
   options,
   profiles,
@@ -44,19 +47,65 @@ export function CinemaMode({
   onSelect,
   parent,
 }: Props) {
-  const [idx, setIdx] = useState(0);
-  const [els, setEls] = useState<Els>(SCENES[0].els);
   const [render, setRender] = useState(false);
   const [vis, setVis] = useState(false);
   const [layout, setLayout] = useState<Layout>("rail");
+  const [idle, setIdle] = useState(false);
+  // each face of the switch toggles its own panel — one, both, or none
+  const [chatOpen, setChatOpen] = useState(true);
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  // remember the layout choice across opens
+  // premium auto-hide: the controls melt away when the cursor rests
+  useEffect(() => {
+    if (!open) return;
+    let t = window.setTimeout(() => setIdle(true), 2600);
+    const wake = () => {
+      setIdle(false);
+      window.clearTimeout(t);
+      t = window.setTimeout(() => setIdle(true), 2600);
+    };
+    window.addEventListener("mousemove", wake);
+    window.addEventListener("keydown", wake);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("mousemove", wake);
+      window.removeEventListener("keydown", wake);
+    };
+  }, [open]);
+
+  // FLIP helper: the transform that maps the stage onto a given rect
+  const flipTo = (target: DOMRect | null) => {
+    const stage = stageRef.current;
+    if (!stage || !target) return false;
+    const s = stage.getBoundingClientRect();
+    if (s.width < 2 || s.height < 2) return false;
+    const tx = target.left + target.width / 2 - (s.left + s.width / 2);
+    const ty = target.top + target.height / 2 - (s.top + s.height / 2);
+    stage.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${(target.width / s.width).toFixed(4)}, ${(target.height / s.height).toFixed(4)})`;
+    return true;
+  };
+
+  // remember the layout + panel choices across opens
   useEffect(() => {
     try {
       const v = localStorage.getItem("mb.cinLayout");
       if (v === "overlay" || v === "rail") setLayout(v);
+      const p = localStorage.getItem("mb.cinPanel");
+      if (p != null) {
+        setChatOpen(p.includes("chat"));
+        setViewsOpen(p.includes("views"));
+      }
     } catch {}
   }, []);
+  const togglePanel = (which: "chat" | "views") => {
+    const nextChat = which === "chat" ? !chatOpen : chatOpen;
+    const nextViews = which === "views" ? !viewsOpen : viewsOpen;
+    setChatOpen(nextChat);
+    setViewsOpen(nextViews);
+    const keys = [nextChat && "chat", nextViews && "views"].filter(Boolean);
+    try { localStorage.setItem("mb.cinPanel", keys.length ? keys.join("+") : "none"); } catch {}
+  };
   const chooseLayout = (l: Layout) => {
     setLayout(l);
     try {
@@ -64,57 +113,79 @@ export function CinemaMode({
     } catch {}
   };
 
-  // mount with an enter animation; on close, play the exit before unmounting
+  // FLIP enter: the stage starts AT the workspace player's rect and expands to
+  // the cinema position; exit reverses, flying home to the (re-measured) slot.
   useEffect(() => {
     if (open) {
       setRender(true);
-      const t = setTimeout(() => setVis(true), 20);
-      return () => clearTimeout(t);
+      let raf2 = 0;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          const flipped = flipTo(fromRect ?? null);
+          if (flipped && stageRef.current) {
+            // pin the start frame, then release it so the transition runs
+            void stageRef.current.getBoundingClientRect();
+            requestAnimationFrame(() => {
+              if (stageRef.current) stageRef.current.style.transform = "";
+              setVis(true);
+            });
+          } else {
+            setVis(true);
+          }
+        });
+      });
+      return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
     }
+    // exit: fly back into the workspace slot while the house lights come up
+    flipTo(getReturnRect?.() ?? fromRect ?? null);
     setVis(false);
-    const t = setTimeout(() => setRender(false), 360);
+    const t = setTimeout(() => {
+      setRender(false);
+      if (stageRef.current) stageRef.current.style.transform = "";
+    }, 500);
     return () => clearTimeout(t);
-  }, [open]);
-
-  const go = (d: number) => {
-    const n = (idx + d + SCENES.length) % SCENES.length;
-    setIdx(n);
-    setEls(SCENES[n].els);
-  };
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") go(1);
-      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "c" || e.key === "C") togglePanel("chat");
+      else if (e.key === "v" || e.key === "V") togglePanel("views");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, chatOpen, viewsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!render) return null;
-  const scene = SCENES[idx];
 
   const railStyle =
     layout === "rail"
       ? {
-          gridTemplateColumns:
-            els.chat || els.views ? "minmax(0, 1fr) clamp(300px, 26vw, 400px)" : "minmax(0, 1fr)",
-          gridTemplateRows: "auto minmax(0, 1fr)",
+          gridTemplateColumns: chatOpen ? "minmax(0, 1fr) clamp(300px, 26vw, 400px)" : "minmax(0, 1fr)",
+          gridTemplateRows: "minmax(0, 1fr)",
         }
       : undefined;
 
+  const total = (viewers?.totals?.total ?? 0) + (viewers?.xLive?.live ? viewers.xLive.viewers : 0);
+
   return (
-    <div className={`cin ${vis ? "in" : ""}`} role="dialog" aria-modal="true">
-      <div className="cin-stage" data-scene={scene.key} data-layout={layout} style={railStyle}>
-        {els.stream && selected ? (
+    <div className={`cin ${vis ? "in" : ""} ${idle ? "idle" : ""}`} role="dialog" aria-modal="true">
+      <div
+        className="cin-stage"
+        ref={stageRef}
+        data-layout={layout}
+        data-chat={chatOpen ? "1" : "0"}
+        data-views={viewsOpen ? "1" : "0"}
+        style={railStyle}
+      >
+        {selected ? (
           <CinemaStream key={`${selected.source}:${selected.channel}`} selected={selected} parent={parent} />
         ) : (
           <div className="cin-stream cin-stream-off" />
         )}
 
-        <div className={`cin-chat cin-el ${els.chat ? "show" : ""}`}>
+        <div className={`cin-chat cin-el ${chatOpen ? "show" : ""}`}>
           <ChatFeed
             messages={messages}
             options={options}
@@ -122,10 +193,33 @@ export function CinemaMode({
             onHoverUser={requestProfile}
             placeholder={<span>chat will appear here…</span>}
           />
+          {composer && <div className="cin-composer">{composer}</div>}
         </div>
 
-        <div className={`cin-views cin-el ${els.views ? "show" : ""}`}>
+        <div className={`cin-views cin-el ${viewsOpen ? "show" : ""}`}>
           <CinemaViews viewers={viewers} streams={streams} selected={selected} onSelect={onSelect} />
+        </div>
+
+        {/* one switch, two faces: chat and live views — each face toggles its
+            own panel, so you can have either or both up */}
+        <div className={`cin-switch ${chatOpen || viewsOpen ? "open" : ""}`} role="group" aria-label="Side panels">
+          <button
+            className={`cin-seg ${chatOpen ? "on" : ""}`}
+            onClick={() => togglePanel("chat")}
+            aria-pressed={chatOpen}
+            title={chatOpen ? "Hide chat (C)" : "Show chat (C)"}
+          >
+            <ChatGlyph />
+          </button>
+          <button
+            className={`cin-seg ${viewsOpen ? "on" : ""}`}
+            onClick={() => togglePanel("views")}
+            aria-pressed={viewsOpen}
+            title={viewsOpen ? "Hide live views (V)" : "Show live views (V)"}
+          >
+            <EyeGlyph />
+            <span className="cin-seg-count">{total.toLocaleString()}</span>
+          </button>
         </div>
 
         <div className="cin-brand">
@@ -133,31 +227,12 @@ export function CinemaMode({
         </div>
       </div>
 
-      <button className="cin-arrow left" onClick={() => go(-1)} aria-label="Previous scene">
-        <Chevron dir="left" />
-      </button>
-      <button className="cin-arrow right" onClick={() => go(1)} aria-label="Next scene">
-        <Chevron dir="right" />
-      </button>
-
       <button className="cin-exit" onClick={onClose} aria-label="Exit cinema mode">
         <CollapseIcon /> <span>Exit</span>
       </button>
 
+      {/* the whole dock: two words */}
       <div className="cin-dock">
-        <span className="cin-scene">
-          {scene.label}
-          <span className="cin-dots">
-            {SCENES.map((_, i) => (
-              <span key={i} className={`cin-dot ${i === idx ? "on" : ""}`} />
-            ))}
-          </span>
-        </span>
-        <span className="cin-dock-sep" />
-        <Chip on={els.stream} onClick={() => setEls((e) => ({ ...e, stream: !e.stream }))}>Stream</Chip>
-        <Chip on={els.chat} onClick={() => setEls((e) => ({ ...e, chat: !e.chat }))}>Chat</Chip>
-        <Chip on={els.views} onClick={() => setEls((e) => ({ ...e, views: !e.views }))}>Views</Chip>
-        <span className="cin-dock-sep" />
         <div className="cin-layouts" role="group" aria-label="Layout">
           <button className={`cin-lbtn ${layout === "overlay" ? "on" : ""}`} onClick={() => chooseLayout("overlay")}>
             Overlay
@@ -171,12 +246,19 @@ export function CinemaMode({
   );
 }
 
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+function ChatGlyph() {
   return (
-    <button className={`cin-chip ${on ? "on" : ""}`} onClick={onClick} aria-pressed={on}>
-      <span className="cin-chip-led" />
-      {children}
-    </button>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+function EyeGlyph() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
 
@@ -220,16 +302,15 @@ function CinemaViews({
   const t = viewers?.totals ?? { total: 0, twitch: 0, kick: 0 };
   const xv = viewers?.xLive?.live ? viewers.xLive.viewers : 0;
   const total = t.total ?? 0;
-  const denom = Math.max(1, (t.twitch ?? 0) + (t.kick ?? 0) + xv);
   const rows = [
-    { label: "Twitch", cls: "tw", v: t.twitch ?? 0 },
-    { label: "Kick", cls: "kk", v: t.kick ?? 0 },
-    { label: "X", cls: "x", v: xv },
+    { label: "Twitch", src: "twitch" as SourceKey, cls: "tw", v: t.twitch ?? 0 },
+    { label: "Kick", src: "kick" as SourceKey, cls: "kk", v: t.kick ?? 0 },
+    { label: "X", src: "x" as SourceKey, cls: "x", v: xv },
   ];
   const fmt = (n: number) => n.toLocaleString();
 
   return (
-    <div className="cin-views-card">
+    <div className="cin-strip">
       {streams.length > 1 && (
         <div className="cin-tabs">
           {streams.map((s) => {
@@ -247,47 +328,25 @@ function CinemaViews({
           })}
         </div>
       )}
-      <div className="cin-views-head">Live audience</div>
-      <div className="cin-views-num">{fmt(total)}</div>
-      <div className="cin-views-rows">
-        {rows.map((r) => (
-          <div className="cin-vrow" key={r.label}>
-            <span className={`cin-vrow-name ${r.cls}`}>{r.label}</span>
-            <div className="cin-vrow-track">
-              <span className={`cin-vrow-fill ${r.cls}`} style={{ width: `${Math.max(2, (r.v / denom) * 100)}%` }} />
-            </div>
-            <span className="cin-vrow-val">{fmt(r.v)}</span>
-          </div>
-        ))}
-      </div>
+      <span className="cin-strip-live">
+        <span className="cin-strip-dot" aria-hidden /> Live
+      </span>
+      <span className="cin-strip-total">{fmt(total)}</span>
+      <span className="cin-strip-sep" aria-hidden />
+      {rows.map((r) => (
+        <span className={`cin-strip-src ${r.cls}`} key={r.label} title={`${r.label} viewers`}>
+          <SourceLogo source={r.src} size={12} /> {fmt(r.v)}
+        </span>
+      ))}
     </div>
   );
 }
 
 /* ---- icons ---- */
-function Chevron({ dir }: { dir: "left" | "right" }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {dir === "left" ? <path d="M15 6l-6 6 6 6" /> : <path d="M9 6l6 6-6 6" />}
-    </svg>
-  );
-}
 function CollapseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M9 3v3a2 2 0 0 1-2 2H4M20 8h-3a2 2 0 0 1-2-2V3M15 21v-3a2 2 0 0 1 2-2h3M4 16h3a2 2 0 0 1 2 2v3" />
     </svg>
   );
-}
-function PlayIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>;
-}
-function PauseIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>;
-}
-function MuteIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4zm13.5 3 2.7-2.7-1.4-1.4L16 10.6 13.3 7.9 11.9 9.3 14.6 12l-2.7 2.7 1.4 1.4L16 13.4l2.7 2.7 1.4-1.4z" /></svg>;
-}
-function VolIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 9v6h4l5 5V4L8 9H4zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z" /></svg>;
 }
