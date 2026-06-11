@@ -23,14 +23,19 @@ export function StyleControls({
 }) {
   return (
     <>
-      {/* "Market Bubble" is a preset: it also switches the font to the brand
-          serif, but never touches your Name color — pick that yourself below. */}
+      {/* Each style is a PRESET, not a lock: clicking one seeds its recommended
+          settings once (Twitch → Inter + the logo+channel badge, Market Bubble →
+          the brand serif) and every control below stays fully yours to change. */}
       <Segmented<ChatSkin>
         label="Chat style"
         value={value.skin ?? "twitch"}
         onChange={(skin) =>
           onChange(
-            skin === "paper" ? { skin, font: "mb" } : skin === "twitch" ? { skin, font: "inter" } : { skin }
+            skin === "paper"
+              ? { skin, font: "mb" }
+              : skin === "twitch"
+                ? { skin, font: "inter", badge: "channel" }
+                : { skin }
           )
         }
         options={[
