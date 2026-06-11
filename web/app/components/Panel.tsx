@@ -192,7 +192,9 @@ export function Panel({
       className={`panel ${rounded ? "rounded" : ""} ${live ? "gesturing" : ""} ${settle && !live ? "settling" : ""}`}
       // +9998 lifts every panel above the site grain (z 9998) while keeping
       // the panels' own focus order — video inside a panel must render crisp.
-      style={{ left: eff.x, top: eff.y, width: eff.w, height: eff.h, zIndex: eff.z + 9998 }}
+      // Capped so repeated focus-bumps can never climb into the overlay bands
+      // (header 10150, cinema 10200, modals 10400+).
+      style={{ left: eff.x, top: eff.y, width: eff.w, height: eff.h, zIndex: 9998 + Math.min(eff.z, 80) }}
       onPointerDown={onFocus}
     >
       <div className={`panel-body ${pad ? "" : "bare"}`}>{children}</div>
