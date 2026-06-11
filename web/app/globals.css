@@ -6897,6 +6897,9 @@ body.panel-dragging iframe {
 /* ride the open panel's edge */
 .cin-stage[data-chat="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 10px); }
 .cin-stage[data-views="1"] .cin-switch { right: calc(290px + 18px + 12px); }
+/* both up in overlay: views steps left of the chat column, switch rides views */
+.cin-stage[data-chat="1"][data-views="1"] .cin-views { right: calc(clamp(280px, 34%, 460px) + 14px); }
+.cin-stage[data-chat="1"][data-views="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 14px + 290px + 12px); }
 .cin-stage[data-layout="rail"][data-chat="1"] .cin-switch,
 .cin-stage[data-layout="rail"][data-views="1"] .cin-switch { right: calc(clamp(300px, 26vw, 400px) + 10px); }
 
@@ -7033,6 +7036,12 @@ body.panel-dragging iframe {
   padding: 12px 14px 14px;
   justify-content: flex-start;
 }
+/* both up in rail: share the rail — views on top, chat fills the rest */
+.cin-stage[data-layout="rail"][data-chat="1"][data-views="1"] .cin-views {
+  grid-row: 1;
+  border-bottom: 1px solid var(--cin-line);
+}
+.cin-stage[data-layout="rail"][data-chat="1"][data-views="1"] .cin-chat { grid-row: 2; }
 .cin-stage[data-layout="rail"] .cin-chat .cf-text { text-shadow: none; }
 
 @media (max-width: 820px) {

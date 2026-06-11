@@ -51,10 +51,9 @@ export function CinemaMode({
   const [vis, setVis] = useState(false);
   const [layout, setLayout] = useState<Layout>("rail");
   const [idle, setIdle] = useState(false);
-  // one slide-out panel at a time: chat, views, or none — remembered
-  const [panel, setPanel] = useState<"chat" | "views" | null>("chat");
-  const chatOpen = panel === "chat";
-  const viewsOpen = panel === "views";
+  // each face of the switch toggles its own panel — one, both, or none
+  const [chatOpen, setChatOpen] = useState(true);
+  const [viewsOpen, setViewsOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
 
   // premium auto-hide: the controls melt away when the cursor rests
@@ -93,13 +92,19 @@ export function CinemaMode({
       const v = localStorage.getItem("mb.cinLayout");
       if (v === "overlay" || v === "rail") setLayout(v);
       const p = localStorage.getItem("mb.cinPanel");
-      if (p === "chat" || p === "views" || p === "none") setPanel(p === "none" ? null : p);
+      if (p != null) {
+        setChatOpen(p.includes("chat"));
+        setViewsOpen(p.includes("views"));
+      }
     } catch {}
   }, []);
   const togglePanel = (which: "chat" | "views") => {
-    const next = panel === which ? null : which;
-    setPanel(next);
-    try { localStorage.setItem("mb.cinPanel", next ?? "none"); } catch {}
+    const nextChat = which === "chat" ? !chatOpen : chatOpen;
+    const nextViews = which === "views" ? !viewsOpen : viewsOpen;
+    setChatOpen(nextChat);
+    setViewsOpen(nextViews);
+    const keys = [nextChat && "chat", nextViews && "views"].filter(Boolean);
+    try { localStorage.setItem("mb.cinPanel", keys.length ? keys.join("+") : "none"); } catch {}
   };
   const chooseLayout = (l: Layout) => {
     setLayout(l);
@@ -150,7 +155,7 @@ export function CinemaMode({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, panel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, chatOpen, viewsOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!render) return null;
 
@@ -196,9 +201,9 @@ export function CinemaMode({
           <CinemaViews viewers={viewers} streams={streams} selected={selected} onSelect={onSelect} />
         </div>
 
-        {/* one switch, two faces: chat or live views (tap the active one to
-            close both) */}
-        <div className={`cin-switch ${panel ? "open" : ""}`} role="group" aria-label="Side panel">
+        {/* one switch, two faces: chat and live views — each face toggles its
+            own panel, so you can have either or both up */}
+        <div className={`cin-switch ${chatOpen || viewsOpen ? "open" : ""}`} role="group" aria-label="Side panels">
           <button
             className={`cin-seg ${chatOpen ? "on" : ""}`}
             onClick={() => togglePanel("chat")}
