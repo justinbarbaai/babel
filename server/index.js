@@ -59,6 +59,14 @@ const kickOpts = {
   chatroomId: process.env.KICK_CHATROOM_ID || null,
   userId: process.env.KICK_BROADCASTER_ID || null,
 };
+// The env id overrides belong to the SHOW's kick channel only — any other
+// channel (e.g. a viewer's own merge) must resolve its own ids.
+function kickOptsFor(ch) {
+  const show = (config.kickChannels[0] || "").trim().toLowerCase();
+  return String(ch).trim().toLowerCase() === show
+    ? kickOpts
+    : { ...kickOpts, chatroomId: null, userId: null };
+}
 const xOpts = {
   bearerToken: process.env.X_BEARER_TOKEN || "",
 };
@@ -294,7 +302,7 @@ function startSources() {
     return s;
   });
   sources.kick = config.kickChannels.map((ch) => {
-    const s = new KickSource(ch, { ...kickOpts, emotes });
+    const s = new KickSource(ch, { ...kickOptsFor(ch), emotes });
     wireSource(s, "kick");
     return s;
   });
@@ -342,7 +350,7 @@ function teardownPrivate(ws) {
   ws._sources = [];
 }
 
-function setupPrivate(ws, twitchChannels, kickChannels) {
+function setupPrivate(ws, twitchChannels, kickChannels, xQuery = "", xToken = "") {
   teardownPrivate(ws);
   ws._private = true;
   const send = (obj) => {
@@ -367,8 +375,20 @@ function setupPrivate(ws, twitchChannels, kickChannels) {
     });
   ws._sources = [
     ...build("twitch", twitchChannels, (ch) => new TwitchSource(ch, { emotes, badges: twitchBadges })),
-    ...build("kick", kickChannels, (ch) => new KickSource(ch, { ...kickOpts, emotes })),
+    ...build("kick", kickChannels, (ch) => new KickSource(ch, { ...kickOptsFor(ch), emotes })),
   ];
+  // X rides along ONLY with the viewer's own bearer token — streaming reads
+  // bill to their account, never the show's.
+  if (xQuery && xToken) {
+    const xs = new XSource(xQuery, { bearerToken: xToken });
+    xs._platform = "x";
+    xs.on("message", (msg) => send(msg));
+    xs.on("status", () =>
+      send({ type: "status", source: "x", connected: xs.connected, channel: xQuery })
+    );
+    xs.on("error", () => {});
+    ws._sources.push(xs);
+  }
   for (const s of ws._sources) s.start();
 }
 
@@ -741,7 +761,9 @@ wss.on("connection", (ws, req) => {
         const kk = Array.isArray(msg.kickChannels)
           ? msg.kickChannels.map((c) => String(c).trim()).filter(Boolean)
           : [];
-        setupPrivate(ws, tw, kk);
+        const xq = typeof msg.xQuery === "string" ? msg.xQuery.trim() : "";
+        const xt = typeof msg.xToken === "string" ? msg.xToken.trim() : "";
+        setupPrivate(ws, tw, kk, xq, xt);
         return;
       }
       // Live reconfigure of the public feed is operator-only.
