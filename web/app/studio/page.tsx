@@ -57,6 +57,32 @@ function ControlPanel() {
   const [kick, setKick] = useState<string[]>([]);
   const [xQuery, setXQuery] = useState("");
   const [xLiveHandle, setXLiveHandle] = useState("");
+  // Manual X live-viewer count + ingest key — X walls off every automated
+  // path, so the operator pushes the number they see on x.com straight to the
+  // hub (it broadcasts to every viewer's X bar).
+  const [xLiveOn, setXLiveOn] = useState(false);
+  const [xLiveCount, setXLiveCount] = useState("");
+  const [xLiveKey, setXLiveKey] = useState("");
+  const [xLiveStatus, setXLiveStatus] = useState("");
+  useEffect(() => {
+    try { setXLiveKey(localStorage.getItem("mb.ingestKey") || ""); } catch {}
+  }, []);
+  const pushXLive = async (live: boolean, count: number) => {
+    const key = xLiveKey.trim();
+    if (!key) { setXLiveStatus("Paste your ingest key first."); return; }
+    try { localStorage.setItem("mb.ingestKey", key); } catch {}
+    try {
+      const res = await fetch(`${hubHttpUrl}/ingest/xlive`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-ingest-key": key },
+        body: JSON.stringify({ live, viewers: count }),
+      });
+      const j = await res.json();
+      setXLiveStatus(j?.ok ? (live ? `Pushed — ${count.toLocaleString()} live` : "X set offline") : (j?.error || "failed"));
+    } catch {
+      setXLiveStatus("Can't reach the hub.");
+    }
+  };
   const [xToken, setXToken] = useState("");
   const [seeded, setSeeded] = useState(false);
 
@@ -307,6 +333,46 @@ function ControlPanel() {
             hint="The X account whose live broadcast viewer count shows on the site."
           />
           <button className="btn btn-gold" onClick={saveXAccess}>Save X access</button>
+        </div>
+
+        <h2 className="card-title" style={{ marginTop: 22 }}>X live viewers (manual)</h2>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          X removed every public way to read a live broadcast&apos;s viewer count, so set it here:
+          type the number you see on x.com and push it — it shows on everyone&apos;s X bar instantly.
+        </p>
+        <div className="fields">
+          <Field
+            label="Ingest key"
+            value={xLiveKey}
+            onChange={setXLiveKey}
+            type="password"
+            placeholder="paste the ingest key"
+            hint="Separate from the operator key. Stored on this device."
+          />
+          <Field
+            label="Live viewer count"
+            value={xLiveCount}
+            onChange={setXLiveCount}
+            placeholder="e.g. 4368"
+          />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              className="btn btn-gold"
+              onClick={() => { const n = parseInt(xLiveCount.replace(/[^\d]/g, ""), 10) || 0; setXLiveOn(true); pushXLive(true, n); }}
+            >
+              Push live count
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => { setXLiveOn(false); pushXLive(false, 0); }}
+            >
+              Set offline
+            </button>
+            {xLiveStatus && <span className="muted small">{xLiveStatus}</span>}
+          </div>
+          <p className="muted small" style={{ margin: 0 }}>
+            The pushed number stays live for 90s, so re-push every minute or so during the show.
+          </p>
         </div>
       </section>
 

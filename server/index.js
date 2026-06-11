@@ -7,7 +7,7 @@ import { WebSocketServer } from "ws";
 import { TwitchSource } from "./sources/twitch.js";
 import { KickSource } from "./sources/kick.js";
 import { XSource } from "./sources/x.js";
-import { SOURCE_COLORS } from "./sources/constants.js";
+import { SOURCE_COLORS, unifiedMessage } from "./sources/constants.js";
 import { EmoteResolver } from "./sources/emoteResolver.js";
 import { TwitchBadgeResolver } from "./sources/twitchBadges.js";
 import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.js";
@@ -112,6 +112,21 @@ function sanitizeReturn(ret) {
 // Set a long random value in .env before deploying. If empty, operator actions
 // are DISABLED entirely (safe default) — the studio just won't be able to push.
 const OPERATOR_KEY = process.env.OPERATOR_KEY || "";
+// A SEPARATE, limited secret for the X bookmarklet to push live numbers + X
+// broadcast chat. If it leaks, the worst case is spoofed X data — never
+// control of the show (that needs OPERATOR_KEY).
+const INGEST_KEY = process.env.INGEST_KEY || "";
+function ingestKeyOk(key) {
+  if (!INGEST_KEY || !key) return false;
+  const a = Buffer.from(String(key));
+  const b = Buffer.from(INGEST_KEY);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+// Manual X live-viewer count pushed by the bookmarklet (X killed the public
+// endpoints, so this is the only accurate source). Used while fresh.
+let xLiveOverride = null; // { live, viewers, ts }
+// Dedupe ids for pushed X broadcast-chat messages.
+const xChatSeen = new Set();
 // Constant-time compare so the key can't be guessed by timing.
 function operatorKeyOk(key) {
   if (!OPERATOR_KEY || !key) return false;
@@ -227,8 +242,18 @@ async function pollViewers() {
   }
   viewersTick++;
 
-  // X live concurrent viewers (free guest-auth path) — poll every tick.
-  if (config.xLiveHandle) {
+  // X live concurrent viewers. X removed every public endpoint, so the only
+  // accurate source is the bookmarklet's pushed count — prefer it while fresh
+  // (< 90s). Fall back to the (now mostly-dead) guest path otherwise.
+  if (xLiveOverride && Date.now() - xLiveOverride.ts < 90000) {
+    lastXLive = {
+      handle: config.xLiveHandle || "banks",
+      live: !!xLiveOverride.live,
+      viewers: Number(xLiveOverride.viewers) || 0,
+      views: 0,
+      updatedAt: xLiveOverride.ts,
+    };
+  } else if (config.xLiveHandle) {
     try {
       lastXLive = await fetchXLive(config.xLiveHandle);
     } catch (err) {
@@ -242,9 +267,8 @@ async function pollViewers() {
     const snap = await fetchViewerSnapshot(config, twitchCreds);
     snap.x = lastXViews;
     snap.xLive = lastXLive;
-    // X live viewers are genuine concurrent viewers, so fold them into the
-    // combined total alongside Twitch/Kick.
-    if (lastXLive?.live) snap.totals.total += lastXLive.viewers;
+    // X numbers live on their own bar (reach OR live count) — never merged
+    // into the Twitch+Kick concurrent total.
     lastViewers = snap;
     broadcast({ type: "viewers", viewers: lastViewers });
   } catch (err) {
@@ -513,6 +537,66 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === "/auth/operator") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify({ ok: operatorKeyOk(url.searchParams.get("key")) }));
+    return;
+  }
+
+  // ---- X bookmarklet ingest (CORS-open so it can POST from x.com) ----
+  if (url.pathname.startsWith("/ingest/")) {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type, x-ingest-key",
+    };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+    const key = req.headers["x-ingest-key"] || url.searchParams.get("key");
+    if (!ingestKeyOk(key)) {
+      res.writeHead(401, { ...cors, "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "bad ingest key" }));
+      return;
+    }
+    let body = "";
+    req.on("data", (c) => { body += c; if (body.length > 1e6) req.destroy(); });
+    req.on("end", () => {
+      let j = {};
+      try { j = JSON.parse(body || "{}"); } catch {}
+      if (url.pathname === "/ingest/xlive") {
+        xLiveOverride = { live: !!j.live, viewers: Number(j.viewers) || 0, ts: Date.now() };
+        // reflect immediately into the latest snapshot + rebroadcast
+        if (lastViewers) {
+          lastViewers.xLive = {
+            handle: config.xLiveHandle || "banks",
+            live: xLiveOverride.live,
+            viewers: xLiveOverride.viewers,
+            views: 0,
+            updatedAt: xLiveOverride.ts,
+          };
+          broadcast({ type: "viewers", viewers: lastViewers });
+        }
+        res.writeHead(200, { ...cors, "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      if (url.pathname === "/ingest/xchat") {
+        const msgs = Array.isArray(j.messages) ? j.messages : [];
+        let pushed = 0;
+        for (const m of msgs) {
+          const id = String(m.id || `${m.username}:${m.text}`).slice(0, 200);
+          if (xChatSeen.has(id)) continue;
+          xChatSeen.add(id);
+          if (xChatSeen.size > 5000) xChatSeen.delete(xChatSeen.values().next().value);
+          const username = String(m.username || "x").slice(0, 80).replace(/^@/, "");
+          const text = String(m.text || "").slice(0, 500);
+          if (!text) continue;
+          broadcast(unifiedMessage("x", username, text, Date.now(), undefined, undefined, username));
+          pushed++;
+        }
+        res.writeHead(200, { ...cors, "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, pushed }));
+        return;
+      }
+      res.writeHead(404, { ...cors, "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "unknown ingest route" }));
+    });
     return;
   }
 
