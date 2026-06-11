@@ -132,7 +132,7 @@ export async function handleKickCallback(creds, redirectUri, code, state) {
     sessions.set(entry.sessionId, tok);
     // bound memory: drop the oldest if we somehow accrue a huge number
     if (sessions.size > 2000) sessions.delete(sessions.keys().next().value);
-    return { sessionId: entry.sessionId, username: tok.username };
+    return { sessionId: entry.sessionId, username: tok.username, returnOrigin: entry.returnOrigin || null };
   }
 
   storeToken(j); // operator connect
@@ -140,11 +140,14 @@ export async function handleKickCallback(creds, redirectUri, code, state) {
 }
 
 // ---- per-viewer (per-user) Kick login ----
-export function buildKickUserLoginUrl(creds, redirectUri) {
+// `returnOrigin` (already validated against the origin allowlist by the
+// caller) rides the state entry so the callback can bounce the viewer back to
+// the site they signed in from.
+export function buildKickUserLoginUrl(creds, redirectUri, returnOrigin = null) {
   const { verifier, challenge } = makePkce();
   const state = base64url(crypto.randomBytes(16));
   const sessionId = base64url(crypto.randomBytes(24));
-  pending.set(state, { verifier, ts: Date.now(), sessionId });
+  pending.set(state, { verifier, ts: Date.now(), sessionId, returnOrigin });
   for (const [k, v] of pending) if (Date.now() - v.ts > 600000) pending.delete(k);
   const p = new URLSearchParams({
     client_id: creds.clientId,
