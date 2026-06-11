@@ -111,14 +111,14 @@ export function pickLook(o: OverlayOptions): LookOptions {
 // Default look for the public Market Bubble room chat. The admin (Studio) can
 // override this and broadcast it to every visitor via the hub.
 export const SITE_DEFAULT_LOOK: LookOptions = {
-  badge: "logo",
+  badge: "logoplain",
   bg: "none",
   skin: "twitch",
   shadow: false,
   size: "md",
   max: 120,
   nameColor: "chatter",
-  accountColor: "platform",
+  accountColor: "white",
   font: "inter",
   timestamps: true,
 };
