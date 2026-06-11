@@ -415,6 +415,12 @@ function RamCheck() {
 
 function MacApp() {
   const [view, setView] = React.useState("desk"); // desk | keyboard | watch
+  // room power-on: the page itself boots before the desk appears
+  const [powerOn, setPowerOn] = React.useState(true);
+  React.useEffect(() => {
+    const t = setTimeout(() => setPowerOn(false), 2100);
+    return () => clearTimeout(t);
+  }, []);
   const [boot, setBoot] = React.useState("off"); // off | flicker | happy | done
   const [lampOn, setLampOn] = React.useState(true);
   const [soundOn, setSoundOn] = React.useState(() => {
@@ -486,6 +492,12 @@ function MacApp() {
   return (
     <div className={`mac-root view-${view}${lampOn ? "" : " lamp-off"}`}>
       <div className="scene">
+        {powerOn && (
+          <button className="power-on" onClick={() => setPowerOn(false)} aria-label="Skip intro">
+            <span className="power-mark" aria-hidden="true"></span>
+            <span className="power-cap">MARKET BUBBLE</span>
+          </button>
+        )}
         {/* ---------- DESK ---------- */}
         <div className="desk-cam">
           <div className="desk-3d" ref={parallaxRef}>

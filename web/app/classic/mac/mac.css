@@ -1130,3 +1130,51 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: 
 @media (prefers-reduced-motion: reduce) {
   .prop-cat img, .mug-steam i, .watch-dot, .theater-dot { animation: none !important; }
 }
+
+/* ====================== PAGE POWER-ON (site loads like a machine) ====================== */
+.power-on {
+  position: fixed; inset: 0; z-index: 4000;
+  display: grid; place-items: center; gap: 0;
+  border: 0; padding: 0; cursor: pointer;
+  background: #060504;
+  animation: power-room 2.1s ease-out forwards;
+}
+.power-on .power-mark {
+  width: clamp(70px, 9vw, 120px); aspect-ratio: 564/443;
+  background: #f4efe4;
+  -webkit-mask: var(--mb-mark-mask) center / contain no-repeat;
+  mask: var(--mb-mark-mask) center / contain no-repeat;
+  animation: power-mark 2.1s ease-out forwards;
+}
+.power-on .power-cap {
+  position: absolute; bottom: 9vh; left: 50%; transform: translateX(-50%);
+  font-family: var(--pixel); font-size: 9px; letter-spacing: 3px; color: rgba(244, 239, 228, 0.4);
+  animation: power-cap 2.1s ease-out forwards;
+}
+/* the room: hold dark, two flickers like a tube warming, then burn clean and lift */
+@keyframes power-room {
+  0% { opacity: 1; background: #060504; }
+  12% { background: #0b0908; }
+  16% { background: #060504; }
+  24% { background: #0d0b09; }
+  28% { background: #060504; }
+  78% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+/* the mark: dead, blinks on with the flicker, blooms, settles */
+@keyframes power-mark {
+  0% { opacity: 0; transform: scale(0.96); filter: brightness(0.6); }
+  12% { opacity: 0.5; }
+  16% { opacity: 0.08; }
+  24% { opacity: 0.8; }
+  30% { opacity: 1; transform: scale(1); filter: brightness(1.9); }
+  48% { filter: brightness(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes power-cap {
+  0%, 30% { opacity: 0; }
+  45% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
