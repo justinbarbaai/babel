@@ -5,6 +5,7 @@ import type { ChatMessage, ChatBadge, Profile } from "../lib/useHub";
 import type { OverlayOptions } from "../lib/overlay";
 import { FONT_STACKS } from "../lib/overlay";
 import { SourceLogo, SOURCE_LABELS } from "./logos";
+import { KICK_BADGES } from "./kickBadges";
 
 function nameColorFor(m: ChatMessage, mode: OverlayOptions["nameColor"]): string {
   if (mode === "white") return "#ffffff";
@@ -42,13 +43,19 @@ function profileUrl(source: string, username: string, profile?: Profile | null):
   return null;
 }
 
-function Badges({ badges }: { badges?: ChatBadge[] | null }) {
+function Badges({ badges, source }: { badges?: ChatBadge[] | null; source?: string }) {
   if (!badges || !badges.length) return null;
   return (
     <>
       {badges.map((b, i) =>
         b.img ? (
+          // real platform art (Twitch badge CDN, Kick per-channel sub badges)
           <img key={i} className="cf-badge-img" src={b.img} alt={b.title} title={b.title} loading="lazy" />
+        ) : source === "kick" && KICK_BADGES[b.type] ? (
+          // Kick role badges ship no image — render the same art kick.com does
+          <span key={i} className="cf-badge-svg" title={b.title}>
+            {KICK_BADGES[b.type](b.title)}
+          </span>
         ) : BADGE_LABELS[b.type] ? (
           <span key={i} className="cf-rolebadge" data-role={b.type} title={b.title}>
             {BADGE_LABELS[b.type]}
@@ -262,7 +269,7 @@ function Row({
 
       <span className="cf-body">
         {timestamps && <span className="cf-time">{fmtTime(m.timestamp)}</span>}
-        <Badges badges={m.badges} />
+        <Badges badges={m.badges} source={m.source} />
         <span
           className="cf-userwrap"
           onMouseEnter={() => onHoverUser?.(m.source, m.username)}
@@ -296,7 +303,7 @@ function Row({
 
             {m.badges && m.badges.length > 0 && (
               <span className="cf-card-badges">
-                <Badges badges={m.badges} />
+                <Badges badges={m.badges} source={m.source} />
               </span>
             )}
 

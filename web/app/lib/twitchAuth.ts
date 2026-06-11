@@ -52,8 +52,15 @@ export function clearAuth() {
 export function startLogin(returnPath = "/") {
   const clientId = getClientId();
   if (!clientId) return;
+  // Embedded same-origin (the /classic theater): after auth, return to the
+  // EMBEDDING page (e.g. /classic), not the site root — the classic site is
+  // its own experience.
+  let ret = returnPath || "/";
   try {
-    localStorage.setItem(LS_RETURN, returnPath || "/");
+    if (window.top && window.top !== window) ret = window.top.location.pathname || ret;
+  } catch {}
+  try {
+    localStorage.setItem(LS_RETURN, ret);
   } catch {}
   const redirect = `${window.location.origin}/`;
   const url =
