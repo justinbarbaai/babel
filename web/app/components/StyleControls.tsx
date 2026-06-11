@@ -91,7 +91,7 @@ export function StyleControls({
       />
 
       <Segmented<AccountColor>
-        label="Account name color (Logo + channel badge)"
+        label="Account name color (badge labels)"
         value={value.accountColor}
         onChange={(accountColor) => onChange({ accountColor })}
         options={[

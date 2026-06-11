@@ -259,7 +259,12 @@ function Row({
           >
             <SourceLogo source={m.source} size={14} />
             {badge === "full" && (
-              <span className="cf-badge-label">{SOURCE_LABELS[m.source]}</span>
+              <span
+                className="cf-badge-label"
+                style={accountColor === "white" ? { color: "#ffffff" } : undefined}
+              >
+                {SOURCE_LABELS[m.source]}
+              </span>
             )}
             {badge === "channel" && (
               <span
@@ -271,7 +276,13 @@ function Row({
             )}
           </span>
           {badge === "logoplain" && (
-            <span className="cf-badge-plain" style={{ ["--src" as any]: m.color }}>
+            <span
+              className="cf-badge-plain"
+              style={{
+                ["--src" as any]: m.color,
+                ...(accountColor === "white" ? { color: "#ffffff" } : {}),
+              }}
+            >
               {channel || SOURCE_LABELS[m.source]}
             </span>
           )}
