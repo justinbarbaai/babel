@@ -6684,17 +6684,17 @@ body.panel-dragging iframe {
 }
 .cin-chat .cf-text { color: rgba(255, 255, 255, 0.95) !important; }
 
-/* overlay layout: the audience card sits seated in the lower-right corner,
-   above the player's control bar — a lower-third, not a floating box */
+/* overlay layout: the audience card slides out from the right edge at
+   mid-height — docked beside the panel switch, same motion as chat */
 .cin-views {
   position: absolute;
-  left: 18px;
-  bottom: 70px;
+  right: 18px;
+  top: 50%;
   z-index: 4;
   width: 290px;
-  transform: translateY(14px);
+  transform: translate(14px, -50%);
 }
-.cin-views.show { transform: none; }
+.cin-views.show { transform: translate(0, -50%); }
 
 
 /* views card */
@@ -6896,6 +6896,7 @@ body.panel-dragging iframe {
 }
 /* ride the open panel's edge */
 .cin-stage[data-chat="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 10px); }
+.cin-stage[data-views="1"] .cin-switch { right: calc(290px + 18px + 12px); }
 .cin-stage[data-layout="rail"][data-chat="1"] .cin-switch,
 .cin-stage[data-layout="rail"][data-views="1"] .cin-switch { right: calc(clamp(300px, 26vw, 400px) + 10px); }
 
@@ -7015,9 +7016,8 @@ body.panel-dragging iframe {
 }
 .cin-stage[data-layout="rail"] .cin-views {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 1 / -1;
   padding: 16px 16px 14px;
-  border-bottom: 1px solid var(--cin-line);
 }
 .cin-stage[data-layout="rail"] .cin-views-card {
   background: transparent;
@@ -7029,7 +7029,7 @@ body.panel-dragging iframe {
 }
 .cin-stage[data-layout="rail"] .cin-chat {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 1 / -1;
   padding: 12px 14px 14px;
   justify-content: flex-start;
 }
