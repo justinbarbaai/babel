@@ -1,40 +1,30 @@
-# Market Bubble — X Bridge (Chrome extension)
+# Market Bubble — X Bridge
 
-X removed every public way to read a live broadcast's viewer count, and its
-site security blocks any script *on* x.com from reaching our hub. The way
-around both: a tiny extension running **on your own computer** that reads the
-live page's text directly and pushes it to the hub from outside that sandbox.
+X walled off every automated path to its live broadcast: the **view count** is in
+the page but only labeled "views", and the **chat** is painted to a `<canvas>`
+(no readable text, no API). Both are solvable by reading what's already on the
+operator's screen. Two tools:
 
-It pushes two things to the hub (via the secure ingest endpoints):
-- **Live viewer count** -> shows on everyone's X bar (live count, never merged
-  into the Twitch+Kick total)
-- **Live broadcast chat** (best-effort) -> merges into the site chat as X
+## 1. xchat-watch — X broadcast chat → the site  (the main one)
+On-screen OCR (Apple Vision, on-device) of the X chat panel → pushes new lines
+to the hub, where they join the unified Twitch/Kick/X feed as X messages.
 
-## Install (takes 1 minute)
-1. Chrome -> `chrome://extensions`
-2. Turn on **Developer mode** (top-right)
-3. Click **Load unpacked** -> pick this `x-bridge` folder
-4. Pin the extension (puzzle icon -> pin "Market Bubble X Bridge")
+**Setup (once):**
+1. System Settings → Privacy & Security → **Screen Recording** → enable **Terminal**.
+2. Open the X live broadcast and make sure the **Chat panel is visible on the right**.
+3. Double-click **`xchat-watch.command`**. Paste the ingest key. Press enter for the
+   default chat region (or pass your own `x,y,w,h` if the panel sits elsewhere).
+It prints `+N user·user` each time it pushes new messages. Leave it running during
+the show. Hand off by copying this folder to any Mac (repeat step 1 there).
 
-## Use (when they go live)
-1. Open the **X live broadcast** in a tab and sign in (any account that can
-   watch it). Leave that tab open.
-2. Click the extension icon -> paste your **ingest key** -> **Start**.
-3. A small "MB X Bridge" badge appears bottom-right on x.com showing the views
-   it's reading and chat it's sent. That's your proof it's working.
-4. Hit **Stop** (or close the tab) when the broadcast ends.
+Tune the region: the default `1095,200,400,700` fits a 1512-wide screen with the
+broadcast maximized. Wrong spot? Pass the chat panel's `x,y,width,height`.
 
-## Handing it to their computer
-Copy this whole `x-bridge` folder over, Load unpacked there, paste the same
-ingest key, Start. Done — no accounts, no build.
+## 2. The Chrome extension — X live view count → the site
+`manifest.json` + `content.js` + `background.js` read the broadcast's "views"
+number from the page and push it to the hub (the page DOM *does* expose that one).
+Load unpacked at `chrome://extensions` (Developer mode → Load unpacked → this
+folder), open the popup, paste the ingest key, Start. The count auto-updates.
 
-## Tuning
-The viewer **count** works out of the box (it anchors on "watching"/"viewers"
-text). The **chat** scraper uses heuristics because X's markup is scrambled;
-the first time there's a real live broadcast, watch the badge's "chat sent"
-number — if it's catching junk or missing rows, that's a 5-minute selector
-fix in `content.js`.
-
-## Security
-The ingest key is limited — it can only push X numbers/chat, never control the
-show. It's stored locally in the extension, never in this repo.
+Both push to the same hub ingest endpoints, guarded by the ingest key (server-side
+secret — never commit it). The X chat is slow, so a 15s loop stays well ahead.

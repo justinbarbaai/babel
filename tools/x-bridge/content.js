@@ -24,7 +24,7 @@ function parseCount(s) {
 // Find the live viewer count. X labels it with "watching"/"viewers"/"viewing",
 // in text and in aria-labels. Take the largest plausible match.
 function findViewerCount() {
-  const re = /([\d.,]+\s*[KkMm]?)\s*(watching|viewers|viewing|watched)/;
+  const re = /([\d.,]+\s*[KkMm]?)\s*(watching|viewers|viewing|watched|views)/;
   let best = null;
   // aria-labels first (most stable)
   for (const el of document.querySelectorAll("[aria-label]")) {
