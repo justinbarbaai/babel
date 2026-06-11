@@ -32,10 +32,10 @@ function ThemeIcon({ icon }: { icon: "sun" | "moon" }) {
 // theme is revealed with a circular wipe expanding from the toggle button (View
 // Transitions API); falls back to an instant swap when the API/motion is off.
 export function ThemeToggle({ className }: { className?: string }) {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
-    const t = (document.documentElement.getAttribute("data-theme") as "dark" | "light") || "dark";
+    const t = (document.documentElement.getAttribute("data-theme") as "dark" | "light") || "light";
     setTheme(t);
   }, []);
 
