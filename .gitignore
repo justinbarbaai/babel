@@ -21,3 +21,4 @@ dist/
 
 # X bridge build artifact + local secrets
 tools/x-bridge/ocr
+tools/x-bridge/winfind

@@ -6,19 +6,24 @@ the page but only labeled "views", and the **chat** is painted to a `<canvas>`
 operator's screen. Two tools:
 
 ## 1. xchat-watch — X broadcast chat → the site  (the main one)
-On-screen OCR (Apple Vision, on-device) of the X chat panel → pushes new lines
-to the hub, where they join the unified Twitch/Kick/X feed as X messages.
+Captures the **Chrome window** showing the X broadcast (its own pixels, by
+window id) and OCRs the chat panel on-device (Apple Vision) → pushes new lines
+to the hub, joining the unified Twitch/Kick/X feed as X messages.
+
+**Window capture means you can keep working:** stack other windows over the
+broadcast, it still captures. The only rules: the broadcast must stay the
+**active tab** in its Chrome window, and that window must stay **open** (browsers
+freeze background tabs, so don't switch that tab away or minimize the window).
+A second monitor — or just parking the window on your current desktop — is ideal.
 
 **Setup (once):**
 1. System Settings → Privacy & Security → **Screen Recording** → enable **Terminal**.
-2. Open the X live broadcast and make sure the **Chat panel is visible on the right**.
-3. Double-click **`xchat-watch.command`**. Paste the ingest key. Press enter for the
-   default chat region (or pass your own `x,y,w,h` if the panel sits elsewhere).
-It prints `+N user·user` each time it pushes new messages. Leave it running during
-the show. Hand off by copying this folder to any Mac (repeat step 1 there).
-
-Tune the region: the default `1095,200,400,700` fits a 1512-wide screen with the
-broadcast maximized. Wrong spot? Pass the chat panel's `x,y,width,height`.
+2. Open the X live broadcast with the **Chat panel showing**.
+3. Double-click **`xchat-watch.command`**, paste the ingest key. Done.
+It finds the broadcast window automatically (by the tab URL), prints `+N @user`
+when it pushes new messages, and re-finds the window if you move it. The
+broadcaster + sponsor handles are filtered out (set `MB_BLOCK` to change).
+Hand off by copying this folder to any Mac (repeat step 1 there).
 
 ## 2. The Chrome extension — X live view count → the site
 `manifest.json` + `content.js` + `background.js` read the broadcast's "views"
