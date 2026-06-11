@@ -369,10 +369,13 @@ export default function Home() {
   const total = viewers?.totals.total ?? 0;
   const tw = viewers?.totals.twitch ?? 0;
   const kk = viewers?.totals.kick ?? 0;
-  // X reports REACH (impressions across the show's recent posts) — a different
-  // metric than concurrent viewers, so it gets its own row and never merges
-  // into the watching-now total.
-  const xViews = viewers?.x?.views ?? 0;
+  // X bar: the live broadcast viewer count when X is live (pushed by the
+  // bookmarklet — the only accurate source X still allows), otherwise post
+  // reach (impressions). Either way it's its own metric, never merged into
+  // the Twitch+Kick watching-now total.
+  const xIsLive = !!viewers?.xLive?.live;
+  const xViews = xIsLive ? viewers!.xLive!.viewers : (viewers?.x?.views ?? 0);
+  const xLabel = xIsLive ? "X" : "X views";
   const breakdown = Math.max(1, tw + kk);
 
   // viewer history → sparkline + delta
@@ -719,7 +722,7 @@ export default function Home() {
                       <span className="views-pop-head">Audience · by source</span>
                       <ViewsPopRow source="twitch" label="Twitch" count={tw} channels={serverChannels?.twitch} />
                       <ViewsPopRow source="kick" label="Kick" count={kk} channels={serverChannels?.kick} />
-                      <ViewsPopRow source="x" label="X views" count={xViews} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
+                      <ViewsPopRow source="x" label={xLabel} count={xViews} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
                       <span className="views-pop-foot">{fmt(total)} watching now</span>
                     </span>
                   </span>
@@ -734,7 +737,7 @@ export default function Home() {
               <div className="term-rows">
                 <IndexRow label="TWITCH" cls="tw" value={tw} pct={(tw / breakdown) * 100} />
                 <IndexRow label="KICK" cls="kk" value={kk} pct={(kk / breakdown) * 100} />
-                <IndexRow label="X VIEWS" cls="x" value={xViews} pct={xViews > 0 ? 100 : 0} />
+                <IndexRow label={xIsLive ? "X LIVE" : "X VIEWS"} cls="x" value={xViews} pct={xViews > 0 ? 100 : 0} />
               </div>
               <div className="term-vol">
                 <div className="term-vol-cell">

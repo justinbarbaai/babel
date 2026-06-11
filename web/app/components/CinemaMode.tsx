@@ -324,13 +324,14 @@ function CinemaViews({
   onSelect: (s: Stream) => void;
 }) {
   const t = viewers?.totals ?? { total: 0, twitch: 0, kick: 0 };
-  const xViews = viewers?.x?.views ?? 0;
+  const xIsLive = !!viewers?.xLive?.live;
+  const xViews = xIsLive ? (viewers?.xLive?.viewers ?? 0) : (viewers?.x?.views ?? 0);
   const total = t.total ?? 0;
   const rows = [
     { label: "Twitch", src: "twitch" as SourceKey, cls: "tw", v: t.twitch ?? 0, suffix: "" },
     { label: "Kick", src: "kick" as SourceKey, cls: "kk", v: t.kick ?? 0, suffix: "" },
     // X = reach (post impressions), not concurrent viewers — own metric
-    { label: "X", src: "x" as SourceKey, cls: "x", v: xViews, suffix: " views" },
+    { label: "X", src: "x" as SourceKey, cls: "x", v: xViews, suffix: xIsLive ? " live" : " views" },
   ];
   const fmt = (n: number) => n.toLocaleString();
 
