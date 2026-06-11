@@ -32,19 +32,36 @@ def broadcast_windows():
         except Exception: pass
     return pts
 
-def window_ids():
-    """Match each broadcast window's corner to a CGWindow id."""
+def chrome_windows():
+    """All Chrome windows from the window server, with bounds (no AppleScript)."""
+    return json.loads(subprocess.run([WINFIND], capture_output=True, text=True).stdout or "[]")
+
+def capture_targets():
+    """Windows to OCR. Prefer the ones AppleScript flags as broadcasts; if that
+    can't read URLs (separate profiles, app windows), fall back to every large
+    Chrome window. Each target carries both a CGWindow id and its bounds, so we
+    can window-capture (-l) and region-capture (-R) as a fallback."""
+    wins = chrome_windows()
+    big = [w for w in wins if w["w"] >= 700 and w["h"] >= 450]
     pts = broadcast_windows()
-    if not pts: return []
-    wins = json.loads(subprocess.run([WINFIND], capture_output=True, text=True).stdout or "[]")
-    ids = []
-    for px, py in pts:
-        best, bestd = None, 1e9
-        for w in wins:
-            d = abs(w["x"] - px) + abs(w["y"] - py)
-            if d < bestd: bestd, best = d, w
-        if best and bestd < 80 and best["id"] not in ids: ids.append(best["id"])
-    return ids
+    targets = []
+    if pts:
+        for px, py in pts:
+            m = min(big or wins, key=lambda w: abs(w["x"]-px)+abs(w["y"]-py), default=None)
+            if m and m not in targets: targets.append(m)
+    if not targets:                      # URL read failed → OCR every big window
+        targets = big
+    return targets
+
+def capture(w):
+    shot = "/tmp/mb_xcap.png"
+    try: os.remove(shot)
+    except OSError: pass
+    subprocess.run(["screencapture", "-x", "-o", "-l", str(w["id"]), shot], capture_output=True)
+    if not os.path.exists(shot):         # window capture failed → grab its region
+        r = f'{int(w["x"])},{int(w["y"])},{int(w["w"])},{int(w["h"])}'
+        subprocess.run(["screencapture", "-x", "-R", r, shot], capture_output=True)
+    return shot if os.path.exists(shot) else None
 
 def ocr(png):
     out = subprocess.run([OCR, png], capture_output=True, text=True).stdout
@@ -79,25 +96,23 @@ def main():
     print(f"Window-capture X chat → {HUB}\nCapturing every open X broadcast window. Ctrl-C to stop.")
     seen, warned = set(), False
     while True:
-        ids = window_ids()
-        if not ids:
-            if not warned: print("No Chrome window with an X broadcast tab found — open one."); warned = True
+        targets = capture_targets()
+        if not targets:
+            if not warned: print("No Chrome window found — open the X broadcast in Chrome."); warned = True
             time.sleep(5); continue
         warned = False
-        fresh = []
-        for k, wid in enumerate(ids):
-            shot = f"/tmp/mb_xchat_{k}.png"
-            try: os.remove(shot)
-            except OSError: pass
-            subprocess.run(["screencapture", "-x", "-o", "-l", str(wid), shot], capture_output=True)
-            if not os.path.exists(shot):
-                print("capture failed — grant this app Screen Recording permission."); break
+        fresh, captured = [], 0
+        for w in targets:
+            shot = capture(w)
+            if not shot:
+                print("capture failed — is this app allowed in Screen Recording?"); continue
+            captured += 1
             for m in parse(ocr(shot)):
                 k2 = m["username"] + ":" + m["text"]
                 if k2 not in seen: seen.add(k2); fresh.append(m)
         if len(seen) > 6000: seen = set(list(seen)[-3000:])
         n = post(fresh)
-        if n: print(time.strftime("%H:%M:%S"), f"{len(ids)} broadcast(s) +{n}", " · ".join("@"+m["username"] for m in fresh[:4]))
+        if n: print(time.strftime("%H:%M:%S"), f"{captured} window(s) +{n}", " · ".join("@"+m["username"] for m in fresh[:4]))
         time.sleep(15)
 
 if __name__ == "__main__": main()

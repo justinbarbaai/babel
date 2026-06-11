@@ -16,7 +16,7 @@ var lines: [[String: Any]] = []
 for obs in (req.results ?? []) {
     guard let top = obs.topCandidates(1).first else { continue }
     let bb = obs.boundingBox  // normalized, origin bottom-left
-    lines.append(["text": top.string, "y": 1.0 - bb.origin.y, "x": bb.origin.x])
+    lines.append(["text": top.string, "y": Double(1.0 - bb.origin.y), "x": Double(bb.origin.x)])
 }
 lines.sort { ($0["y"] as! Double) < ($1["y"] as! Double) }
 let data = try! JSONSerialization.data(withJSONObject: lines)
