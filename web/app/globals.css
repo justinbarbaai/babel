@@ -1395,6 +1395,26 @@ a.cf-card-head:hover {
   background: #b14bd8;
 }
 
+/* first message this session — the Twitch/Kick-style welcome highlight,
+   tinted with the chatter's platform color */
+.cf-row.cf-first {
+  background: color-mix(in srgb, var(--src, #9146ff) 9%, transparent);
+  border-left: 3px solid var(--src, #9146ff);
+  border-radius: 6px;
+  padding: 5px 10px 5px 9px;
+  margin: 3px 0;
+}
+.cf-first-tag {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--src, #9146ff) 70%, var(--text));
+  margin-bottom: 3px;
+}
+
 /* jump-to-latest button shown when the reader has scrolled up */
 .cf-jump {
   position: absolute;
@@ -3536,7 +3556,8 @@ body.overlay-bare::before {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 8;
+  /* above the grain-lifted panels so header menus drop over the workspace */
+  z-index: 10150;
   pointer-events: none;
 }
 .term-room:not(.offair) .term-logo,
@@ -4605,7 +4626,7 @@ body.panel-dragging iframe {
 /* ---- snap alignment guides (flash while dragging/resizing) ---- */
 .snap-guide {
   position: absolute;
-  z-index: 10040; /* above the grain-lifted panels */
+  z-index: 10091; /* above the grain-lifted panels */
   pointer-events: none;
   background: rgba(122, 162, 255, 0.95);
   box-shadow: 0 0 10px rgba(122, 162, 255, 0.55);
@@ -4645,7 +4666,7 @@ body.panel-dragging iframe {
 /* ---- drop ghost (where a panel will snap to) ---- */
 .snap-ghost {
   position: absolute;
-  z-index: 10039;
+  z-index: 10090;
   pointer-events: none;
   border: 1.5px dashed color-mix(in srgb, var(--text) 32%, transparent);
   border-radius: 14px;
@@ -5755,7 +5776,7 @@ body.panel-dragging iframe {
 .nr-scrim {
   position: fixed;
   inset: 0;
-  z-index: 10001;
+  z-index: 10400;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -6485,7 +6506,7 @@ body.panel-dragging iframe {
   inset: 0;
   /* above the off-air player (z 9999) so it still covers the VOD when open, and
      above the grain (9998) so the cinema video is crisp too. */
-  z-index: 9999;
+  z-index: 10200;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7193,7 +7214,7 @@ body.panel-dragging iframe {
 .vm-scrim {
   position: fixed;
   inset: 0;
-  z-index: 10001;
+  z-index: 10400;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7368,7 +7389,7 @@ body.panel-dragging iframe {
 /* floating mini-player — persists across pages */
 .mini {
   position: fixed;
-  z-index: 9999;
+  z-index: 10100;
   width: 360px;
   border-radius: 14px;
   overflow: hidden;
@@ -7402,7 +7423,7 @@ body.panel-dragging iframe {
 .boot {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 10300;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7473,7 +7494,7 @@ body.panel-dragging iframe {
 .cc-scrim {
   position: fixed;
   inset: 0;
-  z-index: 300;
+  z-index: 10500;
   background: rgba(8, 7, 5, 0);
   pointer-events: none;
   transition: background 0.3s ease;
@@ -7484,7 +7505,7 @@ body.panel-dragging iframe {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 310;
+  z-index: 10501;
   width: min(380px, 92vw);
   display: flex;
   flex-direction: column;

@@ -148,10 +148,15 @@ export function ChatFeed({
   }, [messages]);
 
   // Per-chatter session stats (message count + first seen) from the buffer.
+  // firstIds outlives the buffer: a chatter's FIRST message this session gets
+  // the Twitch/Kick-style "first message" highlight, and stays the only one
+  // even after the buffer evicts older rows.
+  const firstIdsRef = useRef(new Map<string, string>());
   const stats = useMemo(() => {
     const m = new Map<string, SessionStat>();
     for (const msg of messages) {
       const k = `${msg.source}:${msg.username.toLowerCase()}`;
+      if (!firstIdsRef.current.has(k)) firstIdsRef.current.set(k, msg.id);
       const e = m.get(k);
       if (e) e.count++;
       else m.set(k, { count: 1, first: msg.timestamp });
@@ -190,6 +195,7 @@ export function ChatFeed({
                 timestamps={options.timestamps}
                 profile={profiles?.[key]}
                 stat={stats.get(key)}
+                first={firstIdsRef.current.get(key) === m.id}
                 onHoverUser={onHoverUser}
                 moderation={moderation}
               />
@@ -215,6 +221,7 @@ function Row({
   timestamps,
   profile,
   stat,
+  first,
   onHoverUser,
   moderation,
 }: {
@@ -226,6 +233,8 @@ function Row({
   timestamps: boolean;
   profile?: Profile | null;
   stat?: SessionStat;
+  /** the chatter's first message this session — highlighted like Twitch/Kick */
+  first?: boolean;
   onHoverUser?: (source: string, username: string) => void;
   moderation?: Moderation;
 }) {
@@ -234,7 +243,12 @@ function Row({
   const url = profileUrl(m.source, m.username, profile);
 
   return (
-    <div className="cf-row" data-mid={m.id}>
+    <div
+      className={`cf-row${first ? " cf-first" : ""}`}
+      data-mid={m.id}
+      style={first ? ({ ["--src" as any]: m.color } as React.CSSProperties) : undefined}
+    >
+      {first && <span className="cf-first-tag">First message</span>}
       {badge === "none" ? null : badge !== "dot" && badge !== "text" ? (
         <span
           className="cf-badge"
