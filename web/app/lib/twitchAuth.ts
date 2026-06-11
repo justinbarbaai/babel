@@ -9,6 +9,10 @@
 const LS_CLIENT_ID = "mb_twitch_client_id";
 const LS_AUTH = "mb_twitch_auth";
 const LS_RETURN = "mb_twitch_return";
+// The app's public Client ID (NOT a secret — it ships in every OAuth URL).
+// Baked in as a fallback so login still works on deployments where the
+// NEXT_PUBLIC_TWITCH_CLIENT_ID env var was never configured.
+const PUBLIC_CLIENT_ID = "bt2g84siv1d9uu9bofyhvc0z8a3ynz";
 // chat:* lets us send; moderator:manage:banned_users lets a logged-in mod time
 // out / ban chatters in channels they moderate.
 const SCOPES = "chat:read chat:edit moderator:manage:banned_users";
@@ -20,7 +24,7 @@ export function getClientId(): string {
   return (
     localStorage.getItem(LS_CLIENT_ID) ||
     process.env.NEXT_PUBLIC_TWITCH_CLIENT_ID ||
-    ""
+    PUBLIC_CLIENT_ID
   );
 }
 

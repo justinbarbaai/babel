@@ -53,7 +53,11 @@ const config = {
 const kickOpts = {
   pusherKey: process.env.KICK_PUSHER_KEY || "32cbd69e4b950bf97679",
   cluster: process.env.KICK_PUSHER_CLUSTER || "us2",
+  // Manual overrides for when Cloudflare blocks the kick.com channel lookup
+  // from the host (datacenter IPs often are). Chatroom id feeds the Pusher
+  // subscription; broadcaster id is what chat-send/moderation need.
   chatroomId: process.env.KICK_CHATROOM_ID || null,
+  userId: process.env.KICK_BROADCASTER_ID || null,
 };
 const xOpts = {
   bearerToken: process.env.X_BEARER_TOKEN || "",
@@ -453,7 +457,11 @@ const server = http.createServer(async (req, res) => {
       res.end("Kick OAuth is not configured (set KICK_CLIENT_ID/SECRET).");
       return;
     }
-    res.writeHead(302, { Location: buildKickUserLoginUrl(kickCreds, KICK_REDIRECT_URI) });
+    // Which site to return the viewer to afterwards — allowlisted origins only
+    // (anything else falls back to WEB_ORIGIN, never an open redirect).
+    const ret = url.searchParams.get("return");
+    const returnOrigin = ret && ALLOWED_ORIGINS.includes(ret) ? ret : null;
+    res.writeHead(302, { Location: buildKickUserLoginUrl(kickCreds, KICK_REDIRECT_URI, returnOrigin) });
     res.end();
     return;
   }
@@ -492,8 +500,12 @@ const server = http.createServer(async (req, res) => {
       if (result?.sessionId) {
         // Deliver the session id in the URL FRAGMENT — fragments are never sent
         // to servers or in the Referer, so the credential can't leak that way.
+        // Return to the (allowlisted) origin that started the login, so the
+        // session lands in the right site's storage.
+        const back =
+          result.returnOrigin && ALLOWED_ORIGINS.includes(result.returnOrigin) ? result.returnOrigin : WEB_ORIGIN;
         const u = result.username ? `&kick_user=${encodeURIComponent(result.username)}` : "";
-        res.writeHead(302, { Location: `${WEB_ORIGIN}/#kick_session=${encodeURIComponent(result.sessionId)}${u}` });
+        res.writeHead(302, { Location: `${back}/#kick_session=${encodeURIComponent(result.sessionId)}${u}` });
       } else {
         broadcast(configPayload());
         res.writeHead(302, { Location: `${WEB_ORIGIN}/?kick=connected` });

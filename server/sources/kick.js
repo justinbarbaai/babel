@@ -14,16 +14,18 @@ const BROWSER_UA =
 //   2) Subscribe to Kick's public Pusher socket on chatrooms.{id}.v2 and parse
 //      ChatMessageEvent payloads.
 export class KickSource extends EventEmitter {
-  constructor(slug, { pusherKey, cluster, chatroomId, emotes } = {}) {
+  constructor(slug, { pusherKey, cluster, chatroomId, userId, emotes } = {}) {
     super();
     this.slug = String(slug || "").trim().toLowerCase();
     this.pusherKey = pusherKey;
     this.cluster = cluster;
-    // Optional manual override if Cloudflare blocks the lookup entirely.
+    // Optional manual overrides if Cloudflare blocks the lookup entirely.
+    // The fixed chatroom id skips the lookup, so the broadcaster user id
+    // (needed for chat-send + moderation) must be provided alongside it.
     this.fixedChatroomId = chatroomId ? Number(chatroomId) : null;
     this.emotes = emotes || null;
     this.emoteMap = new Map(); // 3rd-party name -> url, filled async once user id is known
-    this.kickUserId = null;
+    this.kickUserId = userId ? Number(userId) : null;
     this.ws = null;
     this.chatroomId = null;
     this.connected = false;
@@ -78,8 +80,9 @@ export class KickSource extends EventEmitter {
     }
     const id = json?.chatroom?.id;
     if (!id) throw new Error(`No chatroom id in Kick response for "${this.slug}"`);
-    // The streamer's user id keys the channel's 7TV emote set.
-    this.kickUserId = json?.user_id ?? json?.user?.id ?? null;
+    // The streamer's user id keys the channel's 7TV emote set (an env-provided
+    // override wins — the lookup can be Cloudflare-flaky).
+    this.kickUserId = this.kickUserId ?? json?.user_id ?? json?.user?.id ?? null;
     return id;
   }
 

@@ -43,7 +43,11 @@ export function startKickLogin() {
   // When the site is embedded same-origin (the /classic theater), break out to
   // the top window — Kick's OAuth pages refuse to render inside iframes.
   const nav = (() => { try { return window.top ?? window; } catch { return window; } })();
-  nav.location.href = `${HUB_HTTP}/auth/kick/user/login`;
+  // Tell the hub which site to send the user back to after Kick approves —
+  // the session must land on the SAME origin that started the login (the hub
+  // only honors origins on its allowlist).
+  const ret = encodeURIComponent(window.location.origin);
+  nav.location.href = `${HUB_HTTP}/auth/kick/user/login?return=${ret}`;
 }
 
 // Capture the session from the OAuth redirect FRAGMENT (#kick_session=…) — the
