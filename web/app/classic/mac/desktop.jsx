@@ -501,9 +501,7 @@ function Desktop({ onEject, soundOn, onToggleSound }) {
         <div className="theater">
           <div className="theater-bar">
             <span className="theater-live"><span className="theater-dot"></span> MARKET BUBBLE · LIVE SITE</span>
-            <a className="theater-note" href="https://market-bubble-nine.vercel.app" target="_blank" rel="noreferrer">
-              open full site ↗
-            </a>
+
             <button className="theater-close" onClick={() => { MacSound.close(); setTheater(false); }} title="Close">✕</button>
           </div>
           {/* the real site, same-origin embed (X-Frame-Options: SAMEORIGIN allows it) */}
