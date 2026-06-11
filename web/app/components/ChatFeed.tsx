@@ -33,6 +33,21 @@ function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// The face of the channel a message came from (the "Streamer face" badge).
+// Hosts resolve via unavatar; unknown channels fall back to the platform logo
+// (the img errors out and the logo square underneath shows through).
+const KNOWN_FACES: Record<string, string> = {
+  "twitch:fazebanks": "https://unavatar.io/twitter/Banks",
+  "kick:ansem": "https://unavatar.io/twitter/blknoiz06",
+};
+function faceUrl(source: string, channel?: string | null, username?: string): string | null {
+  if (source === "x" && username) return `https://unavatar.io/x/${encodeURIComponent(username.replace(/^@/, ""))}`;
+  const key = `${source}:${(channel || "").toLowerCase()}`;
+  if (KNOWN_FACES[key]) return KNOWN_FACES[key];
+  if (source === "twitch" && channel) return `https://unavatar.io/twitch/${encodeURIComponent(channel)}`;
+  return null;
+}
+
 // Link to the chatter's profile on their platform.
 function profileUrl(source: string, username: string, profile?: Profile | null): string | null {
   const u = encodeURIComponent((profile?.login || username).replace(/^@/, ""));
@@ -249,7 +264,24 @@ function Row({
       style={first ? ({ ["--src" as any]: m.color } as React.CSSProperties) : undefined}
     >
       {first && <span className="cf-first-tag">First message</span>}
-      {badge === "none" ? null : badge !== "dot" && badge !== "text" ? (
+      {badge === "face" ? (
+        <span className="cf-badge cf-badge-face" data-source={m.source} style={{ ["--src" as any]: m.color }}>
+          <SourceLogo source={m.source} size={10} />
+          {faceUrl(m.source, m.channel, m.username) && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="cf-face"
+              src={faceUrl(m.source, m.channel, m.username)!}
+              alt=""
+              loading="lazy"
+              onError={(e) => ((e.target as HTMLImageElement).style.display = "none")}
+            />
+          )}
+          <span className="cf-face-mini" data-source={m.source}>
+            <SourceLogo source={m.source} size={7} />
+          </span>
+        </span>
+      ) : badge === "none" ? null : badge !== "dot" && badge !== "text" ? (
         <>
           <span
             className="cf-badge"

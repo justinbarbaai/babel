@@ -1392,19 +1392,79 @@ a.cf-card-head:hover {
   background: #b14bd8;
 }
 
-/* "Logo + plain": the channel name as bare text beside the logo — no box */
+/* "Logo + plain": the channel as a quiet mono-caps LABEL (not a second name)
+   with a chevron pointing at the chatter — logo › FAZEBANKS › mopolo */
 .cf-badge-plain {
-  margin-right: 6px;
-  font-size: 0.78em;
+  margin-right: 7px;
+  font-family: var(--mono);
+  font-size: 0.62em;
   font-weight: 700;
-  letter-spacing: 0.2px;
-  color: color-mix(in srgb, var(--src, currentColor) 80%, var(--text));
-  vertical-align: 0.08em;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--src, currentColor) 55%, var(--muted));
+  vertical-align: 0.14em;
+}
+.cf-badge-plain::after {
+  content: "›";
+  margin-left: 5px;
+  opacity: 0.55;
+  letter-spacing: 0;
 }
 .cf-root[data-skin="twitch"] .cf-badge-plain {
-  font-size: 11px;
-  vertical-align: -1px;
-  margin-right: 5px;
+  font-size: 9.5px;
+  vertical-align: 1px;
+  margin-right: 6px;
+}
+
+/* "Streamer face": the host's avatar as the chip, platform logo pinned to the
+   corner. The logo square sits underneath as the fallback if the avatar 404s */
+.cf-badge.cf-badge-face {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--src);
+  color: #fff;
+  border: 0;
+  padding: 0;
+  margin-right: 7px;
+  vertical-align: -5px;
+  overflow: visible;
+}
+.cf-badge.cf-badge-face[data-source="kick"] { color: #0c0e0c; }
+.cf-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.cf-face-mini {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 3.5px;
+  background: var(--src);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 1.5px var(--bg);
+}
+.cf-face-mini[data-source="kick"] { color: #0c0e0c; }
+.cf-face-mini[data-source="x"] { background: #000; color: #fff; }
+/* keep the twitch skin from squaring/painting over the face chip */
+.cf-root[data-skin="twitch"] .cf-badge.cf-badge-face {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--src);
 }
 
 /* first message this session — the Twitch/Kick-style welcome highlight,
