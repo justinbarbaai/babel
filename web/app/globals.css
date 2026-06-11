@@ -7548,6 +7548,25 @@ body.panel-dragging iframe {
   background: var(--bg);
   color: var(--muted);
 }
+/* the viewer's own channels for THEIR overlay (link-building only) */
+.cc-mine {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 4px 0 10px;
+}
+.cc-mine-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-size: 13px;
+  outline: none;
+}
+.cc-mine-input::placeholder { color: var(--muted); opacity: 0.7; }
+.cc-mine-input:focus { border-color: var(--text); }
 .cc-overlay-btns { display: flex; gap: 8px; }
 .cc-overlay-copy,
 .cc-overlay-open {
