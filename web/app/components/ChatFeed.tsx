@@ -250,25 +250,32 @@ function Row({
     >
       {first && <span className="cf-first-tag">First message</span>}
       {badge === "none" ? null : badge !== "dot" && badge !== "text" ? (
-        <span
-          className="cf-badge"
-          data-style={badge}
-          data-source={m.source}
-          style={{ ["--src" as any]: m.color }}
-        >
-          <SourceLogo source={m.source} size={14} />
-          {badge === "full" && (
-            <span className="cf-badge-label">{SOURCE_LABELS[m.source]}</span>
-          )}
-          {badge === "channel" && (
-            <span
-              className="cf-badge-label"
-              style={accountColor === "white" ? { color: "#ffffff" } : undefined}
-            >
+        <>
+          <span
+            className="cf-badge"
+            data-style={badge === "logoplain" ? "logo" : badge}
+            data-source={m.source}
+            style={{ ["--src" as any]: m.color }}
+          >
+            <SourceLogo source={m.source} size={14} />
+            {badge === "full" && (
+              <span className="cf-badge-label">{SOURCE_LABELS[m.source]}</span>
+            )}
+            {badge === "channel" && (
+              <span
+                className="cf-badge-label"
+                style={accountColor === "white" ? { color: "#ffffff" } : undefined}
+              >
+                {channel || SOURCE_LABELS[m.source]}
+              </span>
+            )}
+          </span>
+          {badge === "logoplain" && (
+            <span className="cf-badge-plain" style={{ ["--src" as any]: m.color }}>
               {channel || SOURCE_LABELS[m.source]}
             </span>
           )}
-        </span>
+        </>
       ) : badge === "text" ? (
         <span
           className="cf-badge cf-badge-textonly"

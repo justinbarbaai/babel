@@ -2,7 +2,7 @@
 // Everything here is encoded into the /overlay?... link so an OBS browser
 // source is fully self-contained.
 
-export type BadgeStyle = "full" | "channel" | "logo" | "text" | "dot" | "none";
+export type BadgeStyle = "full" | "channel" | "logoplain" | "logo" | "text" | "dot" | "none";
 export type BgStyle = "glass" | "box" | "none";
 // Overall chat skin: "twitch" (compact Twitch-style rows — the site default),
 // "default" (platform colors), or "paper" (Market Bubble — handwritten ink
@@ -153,7 +153,7 @@ function pick<T extends string>(value: string | null, allowed: T[], fallback: T)
 
 export function parseOptions(params: URLSearchParams): OverlayOptions {
   return {
-    badge: pick(params.get("badge"), ["full", "channel", "logo", "text", "dot", "none"], DEFAULT_OPTIONS.badge),
+    badge: pick(params.get("badge"), ["full", "channel", "logoplain", "logo", "text", "dot", "none"], DEFAULT_OPTIONS.badge),
     bg: pick(params.get("bg"), ["glass", "box", "none"], DEFAULT_OPTIONS.bg),
     skin: pick(params.get("sk"), ["twitch", "default", "paper"], DEFAULT_OPTIONS.skin),
     shadow: params.get("shadow") !== "0",

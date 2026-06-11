@@ -72,6 +72,7 @@ export function StyleControls({
         options={[
           ["full", "Logo + name"],
           ["channel", "Logo + channel"],
+          ["logoplain", "Logo + plain"],
           ["logo", "Logo only"],
           ["text", "Name only"],
           ["dot", "Color dot"],
