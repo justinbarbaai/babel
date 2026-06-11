@@ -73,6 +73,7 @@ export function StyleControls({
           ["full", "Logo + name"],
           ["channel", "Logo + channel"],
           ["logoplain", "Logo + plain"],
+          ["face", "Streamer face"],
           ["logo", "Logo only"],
           ["text", "Name only"],
           ["dot", "Color dot"],
