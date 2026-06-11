@@ -239,23 +239,6 @@ function __initMacSound() {
       const g = c.createGain();
       g.gain.value = 1;
       g.connect(out(c));
-      // vinyl crackle — looping sparse-tick buffer under a lowpass
-      const len = c.sampleRate * 2;
-      const buf = c.createBuffer(1, len, c.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) {
-        d[i] = Math.random() < 0.0005 ? (Math.random() * 2 - 1) * 0.5 : (Math.random() * 2 - 1) * 0.01;
-      }
-      const src = c.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      const lp = c.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 3800;
-      const cg = c.createGain();
-      cg.gain.value = 0.5;
-      src.connect(lp).connect(cg).connect(g);
-      src.start();
       // slow lo-fi chord cycle — Cmaj7 → Am7 → Fmaj7 → G6, one bar each
       const chords = [
         [261.63, 329.63, 392.0, 493.88],
@@ -277,13 +260,12 @@ function __initMacSound() {
       };
       playBar();
       const timer = setInterval(playBar, 4000);
-      amb = { timer, src, g };
+      amb = { timer, g };
       try { localStorage.setItem("mbmac.ambient", "1"); } catch (e) {}
     },
     stopAmbient() {
       if (!amb) return;
       clearInterval(amb.timer);
-      try { amb.src.stop(); } catch (e) {}
       try { amb.g.disconnect(); } catch (e) {}
       amb = null;
       try { localStorage.setItem("mbmac.ambient", "0"); } catch (e) {}
