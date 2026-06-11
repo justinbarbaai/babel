@@ -175,7 +175,9 @@ export function CinemaMode({
         }
       : undefined;
 
-  const total = (viewers?.totals?.total ?? 0) + (viewers?.xLive?.live ? viewers.xLive.viewers : 0);
+  // concurrent viewers only (twitch + kick) — X impressions are a different
+  // metric and live on their own chip in the strip
+  const total = viewers?.totals?.total ?? 0;
 
   return (
     <div className={`cin ${vis ? "in" : ""} ${idle ? "idle" : ""}`} role="dialog" aria-modal="true">
@@ -322,12 +324,13 @@ function CinemaViews({
   onSelect: (s: Stream) => void;
 }) {
   const t = viewers?.totals ?? { total: 0, twitch: 0, kick: 0 };
-  const xv = viewers?.xLive?.live ? viewers.xLive.viewers : 0;
+  const xViews = viewers?.x?.views ?? 0;
   const total = t.total ?? 0;
   const rows = [
-    { label: "Twitch", src: "twitch" as SourceKey, cls: "tw", v: t.twitch ?? 0 },
-    { label: "Kick", src: "kick" as SourceKey, cls: "kk", v: t.kick ?? 0 },
-    { label: "X", src: "x" as SourceKey, cls: "x", v: xv },
+    { label: "Twitch", src: "twitch" as SourceKey, cls: "tw", v: t.twitch ?? 0, suffix: "" },
+    { label: "Kick", src: "kick" as SourceKey, cls: "kk", v: t.kick ?? 0, suffix: "" },
+    // X = reach (post impressions), not concurrent viewers — own metric
+    { label: "X", src: "x" as SourceKey, cls: "x", v: xViews, suffix: " views" },
   ];
   const fmt = (n: number) => n.toLocaleString();
 
@@ -356,8 +359,13 @@ function CinemaViews({
       <span className="cin-strip-total">{fmt(total)}</span>
       <span className="cin-strip-sep" aria-hidden />
       {rows.map((r) => (
-        <span className={`cin-strip-src ${r.cls}`} key={r.label} title={`${r.label} viewers`}>
+        <span
+          className={`cin-strip-src ${r.cls}`}
+          key={r.label}
+          title={r.suffix ? `${r.label} — post views (reach)` : `${r.label} viewers`}
+        >
           <SourceLogo source={r.src} size={12} /> {fmt(r.v)}
+          {r.suffix && <span className="cin-strip-suffix">{r.suffix}</span>}
         </span>
       ))}
     </div>

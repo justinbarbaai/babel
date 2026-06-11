@@ -55,7 +55,55 @@ async function twitchViewers(channels, clientId, clientSecret) {
   return out;
 }
 
-function kickViewers(slug) {
+// ---- Kick official API (app token): datacenter-safe — kick.com's site API
+// is Cloudflare-blocked from hosts like Render, so prefer this and fall back
+// to the curl scrape only when app creds are missing or the call fails.
+let kickAppToken = null; // { token, expiresAt }
+async function kickAppAccessToken() {
+  const id = process.env.KICK_CLIENT_ID;
+  const secret = process.env.KICK_CLIENT_SECRET;
+  if (!id || !secret) return null;
+  if (kickAppToken && Date.now() < kickAppToken.expiresAt - 60000) return kickAppToken.token;
+  try {
+    const res = await fetch("https://id.kick.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: id, client_secret: secret }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    kickAppToken = { token: j.access_token, expiresAt: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
+    return kickAppToken.token;
+  } catch {
+    return null;
+  }
+}
+
+async function kickViewersOfficial(slug) {
+  const token = await kickAppAccessToken();
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://api.kick.com/public/v1/channels?slug=${encodeURIComponent(slug)}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const ch = Array.isArray(j?.data) ? j.data[0] : null;
+    const s = ch?.stream;
+    if (!s) return null;
+    return { live: Boolean(s.is_live), viewers: s.is_live ? Number(s.viewer_count) || 0 : 0 };
+  } catch {
+    return null;
+  }
+}
+
+async function kickViewers(slug) {
+  const official = await kickViewersOfficial(slug);
+  if (official) return official;
+  return kickViewersScrape(slug);
+}
+
+function kickViewersScrape(slug) {
   const url = `https://kick.com/api/v2/channels/${slug}`;
   return new Promise((resolve) => {
     execFile(
