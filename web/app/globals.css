@@ -6684,17 +6684,69 @@ body.panel-dragging iframe {
 }
 .cin-chat .cf-text { color: rgba(255, 255, 255, 0.95) !important; }
 
-/* overlay layout: the audience card slides out from the right edge at
-   mid-height — docked beside the panel switch, same motion as chat */
+/* overlay layout: live views is a lower-third broadcast strip — one slim bar
+   docked above the player's control bar, reading like a scoreboard */
 .cin-views {
   position: absolute;
-  right: 18px;
-  top: 50%;
+  left: 50%;
+  bottom: 64px;
   z-index: 4;
-  width: 290px;
-  transform: translate(14px, -50%);
+  transform: translate(-50%, 12px);
 }
-.cin-views.show { transform: translate(0, -50%); }
+.cin-views.show { transform: translate(-50%, 0); }
+.cin-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(10, 10, 9, 0.74);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.8);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.cin-strip .cin-tabs { margin-bottom: 0; }
+.cin-strip-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+.cin-strip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e0464c;
+  animation: cin-strip-pulse 2s ease-out infinite;
+}
+@keyframes cin-strip-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(224, 70, 76, 0.45); }
+  70% { box-shadow: 0 0 0 7px rgba(224, 70, 76, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(224, 70, 76, 0); }
+}
+.cin-strip-total {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.cin-strip-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, 0.16); }
+.cin-strip-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+}
 
 
 /* views card */
@@ -6896,10 +6948,6 @@ body.panel-dragging iframe {
 }
 /* ride the open panel's edge */
 .cin-stage[data-chat="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 10px); }
-.cin-stage[data-views="1"] .cin-switch { right: calc(290px + 18px + 12px); }
-/* both up in overlay: views steps left of the chat column, switch rides views */
-.cin-stage[data-chat="1"][data-views="1"] .cin-views { right: calc(clamp(280px, 34%, 460px) + 14px); }
-.cin-stage[data-chat="1"][data-views="1"] .cin-switch { right: calc(clamp(280px, 34%, 460px) + 14px + 290px + 12px); }
 .cin-stage[data-layout="rail"][data-chat="1"] .cin-switch,
 .cin-stage[data-layout="rail"][data-views="1"] .cin-switch { right: calc(clamp(300px, 26vw, 400px) + 10px); }
 
@@ -7020,6 +7068,8 @@ body.panel-dragging iframe {
 .cin-stage[data-layout="rail"] .cin-views {
   grid-column: 2;
   grid-row: 1 / -1;
+  left: auto;
+  bottom: auto;
   padding: 16px 16px 14px;
 }
 .cin-stage[data-layout="rail"] .cin-views-card {
