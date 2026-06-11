@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useHub } from "../lib/useHub";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useHub, type ChatMessage, type Profile } from "../lib/useHub";
 import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
 import { MediaPlayer } from "./MediaPlayer";
+import { ChatFeed } from "./ChatFeed";
 import type { Media } from "../lib/media";
+import type { OverlayOptions } from "../lib/overlay";
 import { HOSTS, type Stream } from "../lib/showContent";
 
 function twitchVodId(url?: string): string | null {
@@ -38,7 +40,20 @@ function countdown(toMs: number, now: number): string {
 // The off-air home: a centered replay theater (Banks' latest Twitch VODs) plus
 // host channels, a recent-broadcasts rail, a next-live countdown, and a slim
 // markets + clips strip. Shown when no host is live.
-export function OffAir() {
+export function OffAir({
+  messages,
+  options,
+  profiles,
+  requestProfile,
+  composer,
+}: {
+  // the show's chat stays open between shows — people talk in there
+  messages?: ChatMessage[];
+  options?: OverlayOptions;
+  profiles?: Record<string, Profile | null>;
+  requestProfile?: (source: string, login: string) => void;
+  composer?: ReactNode;
+}) {
   const { hubHttpUrl } = useHub();
   const [vods, setVods] = useState<Stream[]>([]);
   const [selected, setSelected] = useState<Stream | null>(null);
@@ -91,28 +106,47 @@ export function OffAir() {
         )}
       </div>
 
-      {/* centered theater — latest clip autoplays; rail swaps to a full VOD */}
-      <div className="oa-stage">
-        {heroMedia ? (
-          <div className="oa-player">
-            {/* same player engine as the mini-player */}
-            <MediaPlayer media={heroMedia} muted />
-          </div>
-        ) : (
-          <div className="oa-player oa-player-empty">
-            <span className="muted">Loading the latest broadcast…</span>
-          </div>
-        )}
-        {heroMedia && (
-          <div className="oa-stage-cap">
-            <div className="oa-stage-meta">
-              <span className="oa-stage-badge">{heroMedia.kind === "clip" ? "Highlight" : "Replay"}</span>
-              <span className="oa-stage-title">{heroMedia.title}</span>
+      {/* centered theater — latest clip autoplays; rail swaps to a full VOD.
+          The Room's chat keeps running beside it: the show may be off air, but
+          people still talk in the chats. */}
+      <div className={`oa-stage ${messages && options ? "oa-stage-split" : ""}`}>
+        <div className="oa-stage-main">
+          {heroMedia ? (
+            <div className="oa-player">
+              {/* same player engine as the mini-player */}
+              <MediaPlayer media={heroMedia} muted />
             </div>
-            <a className="oa-stage-go" href={heroMedia.url} target="_blank" rel="noreferrer">
-              <SourceLogo source="twitch" size={12} /> Watch on Twitch ↗
-            </a>
-          </div>
+          ) : (
+            <div className="oa-player oa-player-empty">
+              <span className="muted">Loading the latest broadcast…</span>
+            </div>
+          )}
+          {heroMedia && (
+            <div className="oa-stage-cap">
+              <div className="oa-stage-meta">
+                <span className="oa-stage-badge">{heroMedia.kind === "clip" ? "Highlight" : "Replay"}</span>
+                <span className="oa-stage-title">{heroMedia.title}</span>
+              </div>
+              <a className="oa-stage-go" href={heroMedia.url} target="_blank" rel="noreferrer">
+                <SourceLogo source="twitch" size={12} /> Watch on Twitch ↗
+              </a>
+            </div>
+          )}
+        </div>
+        {messages && options && (
+          <aside className="oa-chat">
+            <div className="oa-chat-head">The Room</div>
+            <div className="oa-chat-feed">
+              <ChatFeed
+                messages={messages}
+                options={options}
+                profiles={profiles ?? {}}
+                onHoverUser={requestProfile}
+                placeholder={<span>Quiet in here… say something.</span>}
+              />
+            </div>
+            {composer}
+          </aside>
         )}
       </div>
 
