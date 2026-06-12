@@ -232,14 +232,10 @@ const VIEWERS_INTERVAL = 20000;
 const X_VIEWS_EVERY = 6;
 
 async function pollViewers() {
-  // X views (paid) only every Nth tick, or once at startup if not yet fetched.
-  if (xOpts.bearerToken && config.xQuery && (viewersTick % X_VIEWS_EVERY === 0 || lastXViews === null)) {
-    try {
-      lastXViews = await fetchXViews(config.xQuery, xOpts.bearerToken);
-    } catch (err) {
-      console.warn("[xviews]", err.message);
-    }
-  }
+  // X "views" used to sum paid recent-search impression_count, but impressions
+  // aren't viewers — the site now shows ONLY the live broadcast count pushed by
+  // the X Bridge (xLiveOverride below). So we no longer pay for that read.
+  lastXViews = null;
   viewersTick++;
 
   // X live concurrent viewers. X removed every public endpoint, so the only

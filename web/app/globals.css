@@ -8196,6 +8196,22 @@ body.panel-dragging iframe {
 .room-tog:not(.on):hover { color: var(--text); }
 .room-fs { margin-left: 2px; }
 
+/* Fullscreen: the SAME Stream / Chat / Views / ⤢ pill, floated top-right over the
+   room so panels stay toggleable while featured on stream (⤢ exits). Sits at a
+   calm opacity so it doesn't fight the chat, and lifts to full on hover. */
+.room-toggles-fs {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  z-index: 240;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  backdrop-filter: blur(8px);
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+.room-toggles-fs:hover { opacity: 1; }
+
 /* true browser fullscreen (⤢): the room element fills the whole screen with the
    paper background, so the featured chat is edge-to-edge with no black bars. */
 .term-room:fullscreen { width: 100vw; height: 100vh; background: var(--bg); }

@@ -207,6 +207,17 @@ export default function Home() {
       if (el && !document.fullscreenElement) el.requestFullscreen?.()?.catch?.(() => {});
     } catch {}
   };
+  // The Stream / Chat / Views / ⤢ controls — rendered in the header normally, and
+  // floated over the room in fullscreen (so panels stay toggleable on-stream and
+  // ⤢ doubles as the exit). Same buttons in both spots.
+  const togButtons = (
+    <>
+      <button className={`room-tog ${show.stream ? "on" : ""}`} onClick={() => toggleShow("stream")} aria-pressed={show.stream} title="Show / hide the stream">Stream</button>
+      <button className={`room-tog ${show.chat ? "on" : ""}`} onClick={() => toggleShow("chat")} aria-pressed={show.chat} title="Show / hide chat">Chat</button>
+      <button className={`room-tog ${show.index ? "on" : ""}`} onClick={() => toggleShow("index")} aria-pressed={show.index} title="Show / hide live views">Views</button>
+      <button className={`term-icon room-fs ${focusMode ? "on" : ""}`} onClick={toggleFocus} aria-pressed={focusMode} aria-label="Fullscreen" title={focusMode ? "Exit fullscreen (Esc)" : "True fullscreen — hides the browser bar too (Esc to exit)"}>⤢</button>
+    </>
+  );
 
   // ---- arrangeable workspace (draggable / resizable panels) ----
   const workRef = useRef<HTMLDivElement>(null);
@@ -406,12 +417,12 @@ export default function Home() {
   const total = viewers?.totals.total ?? 0;
   const tw = viewers?.totals.twitch ?? 0;
   const kk = viewers?.totals.kick ?? 0;
-  // X bar: the live broadcast viewer count when X is live (pushed by the
-  // bookmarklet — the only accurate source X still allows), otherwise post
-  // reach (impressions). Either way it's its own metric, never merged into
-  // the Twitch+Kick watching-now total.
+  // X bar: ONLY the live broadcast viewer count pushed by the X Bridge (the tool
+  // we built that reads the real concurrent count off the live X page). We no
+  // longer fall back to post reach / impressions — that number isn't "viewers".
+  // Its own metric, never merged into the Twitch+Kick watching-now total.
   const xIsLive = !!viewers?.xLive?.live;
-  const xViews = xIsLive ? viewers!.xLive!.viewers : (viewers?.x?.views ?? 0);
+  const xViews = xIsLive ? viewers!.xLive!.viewers : 0;
   const xLabel = xIsLive ? "X" : "X views";
   const breakdown = Math.max(1, tw + kk);
 
@@ -590,10 +601,7 @@ export default function Home() {
           </button>
           {showLive && (
             <div className="room-toggles" role="group" aria-label="Show / hide panels">
-              <button className={`room-tog ${show.stream ? "on" : ""}`} onClick={() => toggleShow("stream")} aria-pressed={show.stream} title="Show / hide the stream">Stream</button>
-              <button className={`room-tog ${show.chat ? "on" : ""}`} onClick={() => toggleShow("chat")} aria-pressed={show.chat} title="Show / hide chat">Chat</button>
-              <button className={`room-tog ${show.index ? "on" : ""}`} onClick={() => toggleShow("index")} aria-pressed={show.index} title="Show / hide live views">Views</button>
-              <button className={`term-icon room-fs ${focusMode ? "on" : ""}`} onClick={toggleFocus} aria-pressed={focusMode} aria-label="Fullscreen" title="True fullscreen — hides the browser bar too (Esc to exit)">⤢</button>
+              {togButtons}
             </div>
           )}
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
@@ -734,9 +742,9 @@ export default function Home() {
       )}
 
       {showLive && focusMode && (
-        <button className="full-exit" onClick={exitFocus} title="Exit fullscreen (Esc)">
-          Exit fullscreen ✕
-        </button>
+        <div className="room-toggles room-toggles-fs" role="group" aria-label="Show / hide panels">
+          {togButtons}
+        </div>
       )}
 
       {/* ---- bottom tape: live market ticker + brand ---- */}
