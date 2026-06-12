@@ -25,7 +25,8 @@ BROADCASTERS = {"banks": "Banks", "blknoiz06": "Ansem", "marketbbl": "Market Bub
 UI = re.compile(r"^(ask gemini|chat|subscribe|resubscribe|send a message|follow|gift a sub|"
                 r"\.\.\.|los angeles|new york|-? ?polymarket|bubbl|bubh|ubl|sign up|copy the best|\W*)$", re.I)
 JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain|not constitute|"
-                  r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store)", re.I)
+                  r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
+                  r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
 
 def broadcast_windows():
     """Top-left corner of EVERY Chrome window whose active tab is a broadcast."""
@@ -102,6 +103,14 @@ def parse(lines, source):
         for k in range(i + 1, end):
             t = txt[k].strip()
             if t and not UI.match(t) and not JUNK.search(t): body.append(t)
+        # if the first body line is the chatter's own display name (short, no
+        # sentence, often resembles the handle), drop it
+        if len(body) > 1:
+            first = body[0]
+            norm = re.sub(r"[^a-z0-9]", "", first.lower())
+            if len(first) < 18 and "." not in first and "?" not in first and (
+               " " not in first.strip() or norm[:4] in user.lower() or user.lower()[:4] in norm):
+                body = body[1:]
         text = " ".join(body).strip()
         text = re.sub(r"\s+\S{1,3}$", "", text) if len(text) > 12 else text  # drop trailing crumb
         text = text.strip(" •·~&")
