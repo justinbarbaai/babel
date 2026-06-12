@@ -173,6 +173,15 @@ export default function Home() {
   }, [isLive]);
   const showLive = manualView ? manualView === "live" : isLive;
 
+  // Publish the live state for chrome-level FX (favicon dot + "● LIVE" title).
+  useEffect(() => {
+    document.documentElement.dataset.live = isLive ? "1" : "0";
+    return () => {
+      delete document.documentElement.dataset.live;
+    };
+  }, [isLive]);
+
+
   // Fullscreen "focus" mode: hide the header + footer so the whole screen is the
   // chat / stream / views, and free the panels to move anywhere (barrier -> 0).
   const [focusMode, setFocusMode] = useState(false);
@@ -746,6 +755,7 @@ export default function Home() {
           {togButtons}
         </div>
       )}
+
 
       {/* ---- bottom tape: live market ticker + brand ---- */}
       <div className="term-tape-slot">

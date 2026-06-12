@@ -5,6 +5,7 @@ import { SourceLogo } from "./logos";
 import { HostSocials } from "./HostSocialCard";
 import { usePlayer } from "../lib/player";
 import { TweetPreview } from "./TweetCard";
+import { ScrollFX } from "./ScrollFX";
 import type { Media } from "../lib/media";
 import { MBMark } from "./brand";
 import { useHub } from "../lib/useHub";
@@ -94,6 +95,7 @@ export function ContentBoard() {
 
   return (
     <div className="cnt-mag">
+      <ScrollFX />
       {/* masthead */}
       <div className="cnt-masthead">
         <span className="cnt-mast-kicker">The Bubble Dispatch</span>
@@ -143,6 +145,7 @@ export function ContentBoard() {
           <a
             key={i}
             className="cnt-strip-card"
+            data-rv={(i % 6) + 1}
             href={c.url || "#"}
             target="_blank"
             rel="noreferrer"
@@ -172,13 +175,14 @@ export function ContentBoard() {
             replies: t.replies,
           };
           return (
-            <TweetPreview
-              key={i}
-              tweet={tweet}
-              onOpen={() =>
-                play({ kind: "clip", source: "x", title: t.text, url: t.url || X_PROFILE, thumb: t.thumb, tweet })
-              }
-            />
+            <div key={i} data-rv={(i % 6) + 1}>
+              <TweetPreview
+                tweet={tweet}
+                onOpen={() =>
+                  play({ kind: "clip", source: "x", title: t.text, url: t.url || X_PROFILE, thumb: t.thumb, tweet })
+                }
+              />
+            </div>
           );
         })}
       </div>
@@ -190,6 +194,7 @@ export function ContentBoard() {
           <a
             key={i}
             className="cnt-strip-card"
+            data-rv={(i % 6) + 1}
             href={s.url || "#"}
             target="_blank"
             rel="noreferrer"

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { ScrollFX } from "./ScrollFX";
 
 type Sentiment = "bullish" | "bearish" | "neutral";
 type NewsItem = {
@@ -120,9 +121,10 @@ function Board({ items, now, onRead }: { items: NewsItem[]; now: number; onRead:
 
   return (
     <div className="wire-board">
+      <ScrollFX />
       <div className="wire-main">
         {lead && (
-          <button className="wire-lead" onClick={() => onRead(lead)} type="button">
+          <button className="wire-lead" data-rv="1" onClick={() => onRead(lead)} type="button">
             <span
               className="wire-lead-img"
               style={lead.image ? { backgroundImage: `url(${lead.image})` } : undefined}
@@ -137,8 +139,8 @@ function Board({ items, now, onRead }: { items: NewsItem[]; now: number; onRead:
         )}
 
         <div className="wire-cols">
-          {columns.map((it) => (
-            <button key={it.url} className="wire-story" onClick={() => onRead(it)} type="button">
+          {columns.map((it, i) => (
+            <button key={it.url} className="wire-story" data-rv={(i % 8) + 1} onClick={() => onRead(it)} type="button">
               {it.image ? (
                 <img className="wire-story-thumb" src={it.image} alt="" loading="lazy" />
               ) : null}
@@ -200,10 +202,23 @@ function Reader({ item, now, onClose }: { item: NewsItem; now: number; onClose: 
 
   const hero = art?.image || item.image;
   const paras = art?.paragraphs?.length ? art.paragraphs : item.summary ? [item.summary] : [];
+  const words = paras.join(" ").split(/\s+/).filter(Boolean).length;
+  const readMins = Math.max(1, Math.round(words / 220));
 
   return createPortal(
     <div className="nr-scrim" onClick={onClose}>
-      <article className="nr" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <article
+        className="nr"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const max = el.scrollHeight - el.clientHeight;
+          el.style.setProperty("--read", max > 0 ? String(el.scrollTop / max) : "0");
+        }}
+      >
+        <div className="nr-progress" aria-hidden="true"><i /></div>
         <button className="nr-x" onClick={onClose} aria-label="Close">
           ✕
         </button>
@@ -213,6 +228,12 @@ function Reader({ item, now, onClose }: { item: NewsItem; now: number; onClose: 
             <span className="nr-src">{item.source}</span>
             <span className="wire-dot">·</span>
             <span>{ago(item.ts, now)}</span>
+            {!loading && paras.length > 0 && (
+              <>
+                <span className="wire-dot">·</span>
+                <span className="nr-readtime">{readMins} min read</span>
+              </>
+            )}
             <SentimentChip s={item.sentiment} />
           </span>
           <h1 className="nr-title">{item.title}</h1>
@@ -234,6 +255,7 @@ function Reader({ item, now, onClose }: { item: NewsItem; now: number; onClose: 
           <a className="nr-open" href={item.url} target="_blank" rel="noreferrer">
             Read the full article on {item.source} ↗
           </a>
+          <div className="nr-colophon">Set in Playfair · The Bubble Dispatch · Market Bubble</div>
         </div>
       </article>
     </div>,

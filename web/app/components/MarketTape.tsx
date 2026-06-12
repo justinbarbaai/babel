@@ -20,7 +20,7 @@ function fmtPrice(n: number): string {
 
 function Group({ title, rows, loading }: { title: string; rows: Row[]; loading: boolean }) {
   return (
-    <div className="tape-group">
+    <div className="tape-group" data-rv={title === "Equities" ? 1 : title === "Crypto" ? 2 : 3}>
       <div className="tape-group-head">
         <span className="tape-group-title">{title}</span>
         <span className="tape-group-cols">

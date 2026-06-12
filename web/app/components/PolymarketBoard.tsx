@@ -135,8 +135,10 @@ export function PolymarketBoard() {
         </div>
       ) : (
         <div className="mkt-grid">
-          {cards.map((c) => (
-            <MarketCard key={c.id} card={c} />
+          {cards.map((c, i) => (
+            <div key={c.id} data-rv={(i % 6) + 1}>
+              <MarketCard card={c} />
+            </div>
           ))}
         </div>
       )}

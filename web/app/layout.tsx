@@ -11,6 +11,7 @@ import {
 import "./globals.css";
 import { SiteFX } from "./components/SiteFX";
 import { PlayerLayer } from "./components/PlayerLayer";
+import { PremiumFX } from "./components/PremiumFX";
 
 // Chat-overlay font choices, exposed as CSS variables and selectable per overlay.
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
@@ -92,6 +93,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <PlayerLayer>{children}</PlayerLayer>
         <SiteFX />
+        <PremiumFX />
       </body>
     </html>
   );

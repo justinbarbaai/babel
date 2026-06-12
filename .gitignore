@@ -26,3 +26,4 @@ tools/x-bridge/.ingest-key
 tools/x-bridge/KEY.txt
 tools/x-bridge/wincap
 tools/x-bridge/__pycache__/
+tools/kling/.keys

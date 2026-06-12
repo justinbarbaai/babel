@@ -7,6 +7,7 @@ import { HostSocials } from "./HostSocialCard";
 import { MediaPlayer } from "./MediaPlayer";
 import type { Media } from "../lib/media";
 import { HOSTS, type Stream } from "../lib/showContent";
+import { ScrollFX } from "./ScrollFX";
 
 function twitchVodId(url?: string): string | null {
   const m = (url || "").match(/videos\/(\d+)/);
@@ -79,20 +80,20 @@ export function OffAir() {
   const nextLabel = next
     ? `${next.toLocaleDateString(undefined, { weekday: "short" })} ${next.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`
     : "";
-
   return (
     <div className="oa">
+      <ScrollFX />
       <div className="oa-masthead">
-        <span className="oa-mast-kicker">Off Air</span>
+        <span className="oa-mast-kicker" data-rv="1">Off Air</span>
         {next && (
-          <span className="oa-mast-note">
+          <span className="oa-mast-note" data-rv="2">
             Next live · {nextLabel} · {countdown(next.getTime(), now)}
           </span>
         )}
       </div>
 
       {/* centered theater — latest clip autoplays; rail swaps to a full VOD */}
-      <div className="oa-stage">
+      <div className="oa-stage" data-rv="3">
         {heroMedia ? (
           <div className="oa-player">
             {/* same player engine as the mini-player */}
@@ -119,9 +120,9 @@ export function OffAir() {
       {/* recent broadcasts rail */}
       {vods.length > 1 && (
         <div className="oa-section">
-          <div className="oa-section-head">
+          <div className="oa-section-head" data-rv="1">
             <span className="oa-section-title">Recent Broadcasts</span>
-            <span className="oa-section-rule" />
+            <span className="oa-section-rule" data-rv-rule="" />
           </div>
           <div className="oa-rail">
             {vods.map((v, i) => {
@@ -130,6 +131,7 @@ export function OffAir() {
                 <button
                   key={i}
                   className={`oa-rail-card ${on ? "on" : ""}`}
+                  data-rv={Math.min(i + 1, 6)}
                   onClick={() => setSelected(v)}
                 >
                   <span className="oa-rail-thumb">
@@ -156,13 +158,13 @@ export function OffAir() {
 
       {/* host channels */}
       <div className="oa-section">
-        <div className="oa-section-head">
+        <div className="oa-section-head" data-rv="1">
           <span className="oa-section-title">The Hosts</span>
-          <span className="oa-section-rule" />
+          <span className="oa-section-rule" data-rv-rule="" />
         </div>
-        <div className="oa-hosts">
-          {HOSTS.map((h) => (
-            <div key={h.handle} className="oa-host" tabIndex={0}>
+        <div className="oa-hosts" data-prlx="0.03">
+          {HOSTS.map((h, i) => (
+            <div key={h.handle} className="oa-host" tabIndex={0} data-rv={i + 1}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="oa-host-av" src={h.avatar} alt={h.name} loading="lazy" />
               <div className="oa-host-id">

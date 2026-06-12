@@ -3,10 +3,12 @@
 import { TermShell } from "../components/TermShell";
 import { MarketTape } from "../components/MarketTape";
 import { PolymarketBoard } from "../components/PolymarketBoard";
+import { ScrollFX } from "../components/ScrollFX";
 
 export default function MarketPage() {
   return (
     <TermShell>
+      <ScrollFX />
       <section className="mb-section-head">
         <h1 className="mb-page-title">Market</h1>
         <p className="mb-page-sub">

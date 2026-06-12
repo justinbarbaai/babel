@@ -68,6 +68,7 @@ export function TermFooter() {
             <Link href="/news">News</Link>
             <Link href="/content">Content</Link>
             <a href="/watch">Watch live</a>
+            <Link href="/about">Colophon</Link>
           </div>
           <div className="term-foot-col">
             <span className="term-foot-head">Studio</span>
