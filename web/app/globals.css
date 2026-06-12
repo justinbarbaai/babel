@@ -8228,3 +8228,25 @@ body.panel-dragging iframe {
   flex: 1;
   justify-content: center;
 }
+
+/* stream hidden → Live Audience collapses to a SLIM horizontal scoreboard so
+   the chat (the point) gets almost all the height. Number · bars · stats inline. */
+.room-grid[data-stream="0"] .rp-body-index {
+  flex-direction: row;
+  align-items: center;
+  gap: 30px;
+  padding: 6px 18px 8px;
+}
+.room-grid[data-stream="0"] .rp-body-index .term-index-quote { margin: 0; flex: 0 0 auto; }
+.room-grid[data-stream="0"] .rp-body-index .term-index-num { font-size: 26px; }
+.room-grid[data-stream="0"] .rp-body-index .term-rows {
+  margin: 0; padding: 0; border: 0; flex: 1; min-width: 220px; gap: 5px;
+}
+.room-grid[data-stream="0"] .rp-body-index .term-vol {
+  margin: 0; padding: 0; border: 0; flex: 0 0 auto; gap: 20px;
+}
+/* (when audience is ALONE — chat also off — keep it centered + roomy, not a strip) */
+.room-grid[data-stream="0"][data-chat="0"] .rp-body-index {
+  flex-direction: column;
+  justify-content: center;
+}
