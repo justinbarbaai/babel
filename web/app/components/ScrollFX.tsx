@@ -18,9 +18,11 @@ const FX_CSS = `
     opacity 0.34s cubic-bezier(0.2, 0.9, 0.3, 1),
     transform 0.42s cubic-bezier(0.2, 0.9, 0.3, 1);
   transition-delay: calc((var(--rvn, 1) - 1) * 45ms);
-  will-change: opacity, transform;
 }
-[data-rv].rv-in { opacity: 1; transform: translate3d(0, 0, 0); }
+/* Once landed, release EVERYTHING (transform: none, no will-change): a revealed
+   ancestor must not keep a stacking context, or video panels (z 9999) get
+   trapped under the site grain (z 9998) and the grain films over the picture. */
+[data-rv].rv-in { opacity: 1; transform: none; }
 [data-rv="1"]{--rvn:1}[data-rv="2"]{--rvn:2}[data-rv="3"]{--rvn:3}[data-rv="4"]{--rvn:4}
 [data-rv="5"]{--rvn:5}[data-rv="6"]{--rvn:6}[data-rv="7"]{--rvn:7}[data-rv="8"]{--rvn:8}
 [data-rv="9"]{--rvn:9}[data-rv="10"]{--rvn:10}[data-rv="11"]{--rvn:11}[data-rv="12"]{--rvn:12}
