@@ -3612,11 +3612,11 @@ body.overlay-bare::before {
    controls dropped to the vertical middle. */
 .term-room:not(.offair) .term-bar {
   align-items: center;
-  padding: 14px 28px;
-  min-height: 152px;
+  padding: 10px 24px;
+  min-height: 0;
 }
-.term-room:not(.offair) .term-logo { align-self: flex-start; }
-.term-room:not(.offair) .term-lockup { width: 150px; height: 141px; }
+.term-room:not(.offair) .term-logo { align-self: center; }
+.term-room:not(.offair) .term-lockup { width: 64px; height: 60px; }
 
 /* The header doesn't move — but it FLOATS over the workspace instead of taking a
    fixed block, so the panels can sit higher (the "barrier" moves up). Clicks
@@ -8119,10 +8119,11 @@ body.panel-dragging iframe {
 /* ===================== Locked live room (grid, no drag) ===================== */
 .room-grid {
   position: absolute;
-  inset: 0;
+  top: 88px;            /* clear the floating header */
+  left: 0; right: 0; bottom: 0;
   display: flex;
   gap: 14px;
-  padding: 12px clamp(12px, 3vw, 28px) 12px;
+  padding: 0 clamp(12px, 3vw, 28px) 12px;
 }
 .room-left {
   flex: 1;
