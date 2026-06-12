@@ -8196,6 +8196,11 @@ body.panel-dragging iframe {
 .room-tog:not(.on):hover { color: var(--text); }
 .room-fs { margin-left: 2px; }
 
+/* true browser fullscreen (⤢): the room element fills the whole screen with the
+   paper background, so the featured chat is edge-to-edge with no black bars. */
+.term-room:fullscreen { width: 100vw; height: 100vh; background: var(--bg); }
+.term-room:-webkit-full-screen { width: 100vw; height: 100vh; background: var(--bg); }
+
 /* mobile: stack the room vertically */
 @media (max-width: 820px) {
   .room-grid { flex-direction: column; overflow-y: auto; }

@@ -189,6 +189,25 @@ export default function Home() {
     });
   const barrier = focusMode ? 0 : HK_TOP;
 
+  // Real browser fullscreen for the live room. Entering focus mode also requests
+  // OS-level fullscreen (hides Chrome's address bar / tabs) so the aggregated chat
+  // can be featured edge-to-edge on stream; exiting (button, Esc, or the native
+  // OS gesture) restores the browser chrome. requestFullscreen must run inside the
+  // click gesture, so it lives in the toggle handler, not an effect.
+  const roomRef = useRef<HTMLDivElement>(null);
+  const exitFocus = () => {
+    setFocusMode(false);
+    try { if (document.fullscreenElement) document.exitFullscreen?.(); } catch {}
+  };
+  const toggleFocus = () => {
+    if (focusMode) return exitFocus();
+    setFocusMode(true);
+    try {
+      const el = roomRef.current;
+      if (el && !document.fullscreenElement) el.requestFullscreen?.()?.catch?.(() => {});
+    } catch {}
+  };
+
   // ---- arrangeable workspace (draggable / resizable panels) ----
   const workRef = useRef<HTMLDivElement>(null);
   const [bounds, setBounds] = useState({ w: 0, h: 0 });
@@ -319,16 +338,23 @@ export default function Home() {
     });
   // Leave fullscreen when the live room closes; Esc also exits.
   useEffect(() => {
-    if (!showLive && focusMode) setFocusMode(false);
+    if (!showLive && focusMode) exitFocus();
   }, [showLive, focusMode]);
   useEffect(() => {
     if (!focusMode) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFocusMode(false);
+      if (e.key === "Escape") exitFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [focusMode]);
+  // If the user leaves browser fullscreen via the native gesture (Esc / OS chrome),
+  // keep focus mode in sync so the site UI comes back with the address bar.
+  useEffect(() => {
+    const onFs = () => { if (!document.fullscreenElement) setFocusMode(false); };
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
 
   const [auth, setAuth] = useState<TwitchAuth | null>(null);
   const [clientId, setClientIdState] = useState("");
@@ -530,7 +556,7 @@ export default function Home() {
   );
 
   return (
-    <div className={`term term-room${!showLive ? " offair" : ""}${showLive && focusMode ? " focus" : ""}`}>
+    <div ref={roomRef} className={`term term-room${!showLive ? " offair" : ""}${showLive && focusMode ? " focus" : ""}`}>
       <div className="term-room-stage">
       {/* ---- terminal top bar ---- */}
       <div className="term-bar-slot">
@@ -567,7 +593,7 @@ export default function Home() {
               <button className={`room-tog ${show.stream ? "on" : ""}`} onClick={() => toggleShow("stream")} aria-pressed={show.stream} title="Show / hide the stream">Stream</button>
               <button className={`room-tog ${show.chat ? "on" : ""}`} onClick={() => toggleShow("chat")} aria-pressed={show.chat} title="Show / hide chat">Chat</button>
               <button className={`room-tog ${show.index ? "on" : ""}`} onClick={() => toggleShow("index")} aria-pressed={show.index} title="Show / hide live views">Views</button>
-              <button className={`term-icon room-fs ${focusMode ? "on" : ""}`} onClick={() => setFocusMode((f) => !f)} aria-pressed={focusMode} aria-label="Fullscreen" title="Fullscreen — hide header & footer (Esc to exit)">⤢</button>
+              <button className={`term-icon room-fs ${focusMode ? "on" : ""}`} onClick={toggleFocus} aria-pressed={focusMode} aria-label="Fullscreen" title="True fullscreen — hides the browser bar too (Esc to exit)">⤢</button>
             </div>
           )}
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
@@ -708,7 +734,7 @@ export default function Home() {
       )}
 
       {showLive && focusMode && (
-        <button className="full-exit" onClick={() => setFocusMode(false)} title="Exit fullscreen (Esc)">
+        <button className="full-exit" onClick={exitFocus} title="Exit fullscreen (Esc)">
           Exit fullscreen ✕
         </button>
       )}
