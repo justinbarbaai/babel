@@ -176,6 +176,17 @@ export default function Home() {
   // Fullscreen "focus" mode: hide the header + footer so the whole screen is the
   // chat / stream / views, and free the panels to move anywhere (barrier -> 0).
   const [focusMode, setFocusMode] = useState(false);
+  // Locked room: panels are fixed in a grid; viewers show/hide them, not drag.
+  const [show, setShow] = useState({ stream: true, chat: true, index: true });
+  useEffect(() => {
+    try { const r = localStorage.getItem("mb.roomShow"); if (r) setShow((v) => ({ ...v, ...JSON.parse(r) })); } catch {}
+  }, []);
+  const toggleShow = (k: "stream" | "chat" | "index") =>
+    setShow((v) => {
+      const next = { ...v, [k]: !v[k] };
+      try { localStorage.setItem("mb.roomShow", JSON.stringify(next)); } catch {}
+      return next;
+    });
   const barrier = focusMode ? 0 : HK_TOP;
 
   // ---- arrangeable workspace (draggable / resizable panels) ----
@@ -552,15 +563,12 @@ export default function Home() {
             Cinema
           </button>
           {showLive && (
-            <button
-              className={`term-icon ${focusMode ? "on" : ""}`}
-              onClick={() => setFocusMode((f) => !f)}
-              aria-pressed={focusMode}
-              aria-label="Fullscreen chat"
-              title="Fullscreen — hide header & footer, free the panels (Esc to exit)"
-            >
-              ⤢
-            </button>
+            <div className="room-toggles" role="group" aria-label="Show / hide panels">
+              <button className={`room-tog ${show.stream ? "on" : ""}`} onClick={() => toggleShow("stream")} aria-pressed={show.stream} title="Show / hide the stream">Stream</button>
+              <button className={`room-tog ${show.chat ? "on" : ""}`} onClick={() => toggleShow("chat")} aria-pressed={show.chat} title="Show / hide chat">Chat</button>
+              <button className={`room-tog ${show.index ? "on" : ""}`} onClick={() => toggleShow("index")} aria-pressed={show.index} title="Show / hide live views">Views</button>
+              <button className={`term-icon room-fs ${focusMode ? "on" : ""}`} onClick={() => setFocusMode((f) => !f)} aria-pressed={focusMode} aria-label="Fullscreen" title="Fullscreen — hide header & footer (Esc to exit)">⤢</button>
+            </div>
           )}
           <a className="term-auth term-studio" href="/studio" title="Market Bubble Studio (admin)">
             Studio
@@ -580,185 +588,122 @@ export default function Home() {
       {!showLive ? (
         <OffAir />
       ) : (
-      <div className="work" ref={workRef}>
-        {layout && (
-          <>
-            {/* THE ROOM — chat */}
-            <Panel
-              title="The Room"
-              rect={layout.chat}
-              bounds={bounds}
-              siblings={[layout.stream, layout.index]}
-              min={{ w: 300, h: 240 }}
-              minY={barrier}
-              onChange={(r) => moveRect("chat", r)}
-              onFocus={() => focusPanel("chat")}
-              onGuides={showGuides}
-              onGhost={showGhost}
-              headerRight={
+      <div className="work">
+        <div className="room-grid" data-stream={show.stream ? "1" : "0"} data-chat={show.chat ? "1" : "0"} data-index={show.index ? "1" : "0"}>
+          {(show.stream || show.index) && (
+            <div className="room-left">
+              {show.stream && (
+                <section className="rp rp-stream">
+                  <div className="rp-head">
+                    <span className="rp-title">Stream</span>
+                    <div className="panel-switch">
+                      {streams.length > 1 &&
+                        streams.map((st) => {
+                          const on = selected?.source === st.source && selected?.channel === st.channel;
+                          return (
+                            <button key={`${st.source}:${st.channel}`} className={`term-switch-pill ${on ? "on" : ""}`} data-source={st.source} onClick={() => setSelected(st)}>
+                              <SourceLogo source={st.source} size={11} /> {st.channel}
+                            </button>
+                          );
+                        })}
+                      <button
+                        className="panel-fs-btn"
+                        aria-label="Fullscreen"
+                        title="Fullscreen (won't pause the stream)"
+                        onClick={(e) => {
+                          const panel = (e.currentTarget as HTMLElement).closest(".rp") as HTMLElement | null;
+                          try {
+                            if (document.fullscreenElement) document.exitFullscreen()?.catch?.(() => {});
+                            else panel?.requestFullscreen?.()?.catch?.(() => {});
+                          } catch {}
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M16 21h3a2 2 0 0 0 2-2v-3M8 21H5a2 2 0 0 1-2-2v-3" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rp-body rp-body-stream">
+                    {parent && !DEMO_MODE && !isLive && vod ? (
+                      <div className="sp"><TwitchEmbed key={vod.id} video={vod.id} parent={parent} muted /></div>
+                    ) : parent && !DEMO_MODE && selected?.source === "twitch" ? (
+                      <div className="sp"><TwitchEmbed key={selected.channel} channel={selected.channel} parent={parent} muted /></div>
+                    ) : playerSrc ? (
+                      <div className="sp">
+                        <iframe className="sp-frame" key={playerSrc} src={playerSrc} title={selected ? `${selected.source} — ${selected.channel}` : "stream"} allowFullScreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture" frameBorder="0" />
+                      </div>
+                    ) : (
+                      <div className="term-pip-empty"><span className="muted small">stream offline</span></div>
+                    )}
+                  </div>
+                </section>
+              )}
+              {show.index && (
+                <section className="rp rp-index">
+                  <div className="rp-head">
+                    <span className="rp-title">Live Audience</span>
+                    <span className="panel-meta">Twitch · Kick · X</span>
+                  </div>
+                  <div className="rp-body rp-body-index">
+                    <div className="term-index-quote">
+                      {viewers ? (
+                        <span className="views-pop-wrap">
+                          <LiveNumber className="term-index-num" value={total} format={fmt} />
+                          <span className="views-pop" role="tooltip">
+                            <span className="views-pop-head">Audience · by source</span>
+                            <ViewsPopRow source="twitch" label="Twitch" count={tw} channels={serverChannels?.twitch} />
+                            <ViewsPopRow source="kick" label="Kick" count={kk} channels={serverChannels?.kick} />
+                            <ViewsPopRow source="x" label={xLabel} count={xViews} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
+                            <span className="views-pop-foot">{fmt(total)} watching now</span>
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="term-index-num">—</span>
+                      )}
+                      <span className={`term-index-delta ${delta >= 0 ? "up" : "down"}`}>
+                        {delta >= 0 ? "▲" : "▼"} {fmtK(Math.abs(delta))}
+                      </span>
+                    </div>
+                    <Sparkline data={history} up={delta >= 0} />
+                    <div className="term-rows">
+                      <IndexRow label="TWITCH" cls="tw" value={tw} pct={(tw / breakdown) * 100} />
+                      <IndexRow label="KICK" cls="kk" value={kk} pct={(kk / breakdown) * 100} />
+                      <IndexRow label={xIsLive ? "X LIVE" : "X VIEWS"} cls="x" value={xViews} pct={xViews > 0 ? 100 : 0} />
+                    </div>
+                    <div className="term-vol">
+                      <div className="term-vol-cell"><LiveNumber className="term-vol-num" value={perMin} format={fmtK} flash={false} /><span className="term-vol-label">msgs / min</span></div>
+                      <div className="term-vol-cell"><LiveNumber className="term-vol-num" value={chatters} format={fmtK} flash={false} /><span className="term-vol-label">chatters</span></div>
+                      <div className="term-vol-cell"><LiveNumber className="term-vol-num" value={totalMessages} format={fmtK} /><span className="term-vol-label">messages</span></div>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+          {show.chat && (
+            <section className="rp rp-chat">
+              <div className="rp-head">
+                <span className="rp-title">The Room</span>
                 <span className="panel-meta panel-meta-row">
                   <span>{fmtK(chatters)} talking · {fmtK(perMin)}/min</span>
-                  <button
-                    className={`chat-edit-btn ${editChat ? "on" : ""}`}
-                    onClick={() => setEditChat((v) => !v)}
-                    title="Customize your chat"
-                  >
-                    {customized ? "Edit ✦" : "Edit"}
-                  </button>
-                </span>
-              }
-            >
-              <div className="panel-chat">
-                <div className="panel-chat-feed">
-                  <ChatFeed
-                    messages={messages}
-                    options={feedOptions}
-                    profiles={profiles}
-                    onHoverUser={requestProfile}
-                    moderation={moderation}
-                    placeholder={<span>Waiting for the show to go live…</span>}
-                  />
-                </div>
-                {composerNode}
-              </div>
-            </Panel>
-
-            {/* STREAM */}
-            <Panel
-              title="Stream"
-              pad={false}
-              rect={layout.stream}
-              bounds={bounds}
-              siblings={[layout.chat, layout.index]}
-              min={{ w: 280, h: 200 }}
-              minY={barrier}
-              onChange={(r) => moveRect("stream", r)}
-              onFocus={() => focusPanel("stream")}
-              onGuides={showGuides}
-              onGhost={showGhost}
-              headerRight={
-                <div className="panel-switch">
-                  {streams.length > 1 &&
-                    streams.map((s) => {
-                      const on = selected?.source === s.source && selected?.channel === s.channel;
-                      return (
-                        <button
-                          key={`${s.source}:${s.channel}`}
-                          className={`term-switch-pill ${on ? "on" : ""}`}
-                          data-source={s.source}
-                          onClick={() => setSelected(s)}
-                        >
-                          <SourceLogo source={s.source} size={11} /> {s.channel}
-                        </button>
-                      );
-                    })}
-                  <button
-                    className="panel-fs-btn"
-                    aria-label="Fullscreen"
-                    title="Fullscreen (won't pause the stream)"
-                    onClick={(e) => {
-                      const panel = (e.currentTarget as HTMLElement).closest(".panel") as HTMLElement | null;
-                      try {
-                        if (document.fullscreenElement) document.exitFullscreen()?.catch?.(() => {});
-                        else panel?.requestFullscreen?.()?.catch?.(() => {});
-                      } catch {}
-                    }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M16 21h3a2 2 0 0 0 2-2v-3M8 21H5a2 2 0 0 1-2-2v-3" />
-                    </svg>
-                  </button>
-                </div>
-              }
-            >
-              {parent && !DEMO_MODE && !isLive && vod ? (
-                // off air: the room rolls the latest broadcast (autoplays, resumes)
-                <div className="sp">
-                  <TwitchEmbed key={vod.id} video={vod.id} parent={parent} muted />
-                </div>
-              ) : parent && !DEMO_MODE && selected?.source === "twitch" ? (
-                // live twitch: Embed API — reliable autoplay, fully clickable
-                <div className="sp">
-                  <TwitchEmbed key={selected.channel} channel={selected.channel} parent={parent} muted />
-                </div>
-              ) : playerSrc ? (
-                <div className="sp">
-                  <iframe
-                    className="sp-frame"
-                    key={playerSrc}
-                    src={playerSrc}
-                    title={selected ? `${selected.source} — ${selected.channel}` : "stream"}
-                    allowFullScreen
-                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                    frameBorder="0"
-                  />
-                </div>
-              ) : (
-                <div className="term-pip-empty">
-                  <span className="muted small">stream offline</span>
-                </div>
-              )}
-            </Panel>
-
-            {/* LIVE AUDIENCE — the index */}
-            <Panel
-              title="Live Audience"
-              rect={layout.index}
-              bounds={bounds}
-              siblings={[layout.chat, layout.stream]}
-              min={{ w: 280, h: 220 }}
-              minY={barrier}
-              onChange={(r) => moveRect("index", r)}
-              onFocus={() => focusPanel("index")}
-              onGuides={showGuides}
-              onGhost={showGhost}
-              headerRight={<span className="panel-meta">Twitch · Kick · X</span>}
-            >
-              <div className="term-index-quote">
-                {viewers ? (
-                  <span className="views-pop-wrap">
-                    <LiveNumber className="term-index-num" value={total} format={fmt} />
-                    <span className="views-pop" role="tooltip">
-                      <span className="views-pop-head">Audience · by source</span>
-                      <ViewsPopRow source="twitch" label="Twitch" count={tw} channels={serverChannels?.twitch} />
-                      <ViewsPopRow source="kick" label="Kick" count={kk} channels={serverChannels?.kick} />
-                      <ViewsPopRow source="x" label={xLabel} count={xViews} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
-                      <span className="views-pop-foot">{fmt(total)} watching now</span>
-                    </span>
-                  </span>
-                ) : (
-                  <span className="term-index-num">—</span>
-                )}
-                <span className={`term-index-delta ${delta >= 0 ? "up" : "down"}`}>
-                  {delta >= 0 ? "▲" : "▼"} {fmtK(Math.abs(delta))}
+                  <button className={`chat-edit-btn ${editChat ? "on" : ""}`} onClick={() => setEditChat((v) => !v)} title="Customize your chat">{customized ? "Edit ✦" : "Edit"}</button>
                 </span>
               </div>
-              <Sparkline data={history} up={delta >= 0} />
-              <div className="term-rows">
-                <IndexRow label="TWITCH" cls="tw" value={tw} pct={(tw / breakdown) * 100} />
-                <IndexRow label="KICK" cls="kk" value={kk} pct={(kk / breakdown) * 100} />
-                <IndexRow label={xIsLive ? "X LIVE" : "X VIEWS"} cls="x" value={xViews} pct={xViews > 0 ? 100 : 0} />
-              </div>
-              <div className="term-vol">
-                <div className="term-vol-cell">
-                  <LiveNumber className="term-vol-num" value={perMin} format={fmtK} flash={false} />
-                  <span className="term-vol-label">msgs / min</span>
-                </div>
-                <div className="term-vol-cell">
-                  <LiveNumber className="term-vol-num" value={chatters} format={fmtK} flash={false} />
-                  <span className="term-vol-label">chatters</span>
-                </div>
-                <div className="term-vol-cell">
-                  <LiveNumber className="term-vol-num" value={totalMessages} format={fmtK} />
-                  <span className="term-vol-label">messages</span>
+              <div className="rp-body">
+                <div className="panel-chat">
+                  <div className="panel-chat-feed">
+                    <ChatFeed messages={messages} options={feedOptions} profiles={profiles} onHoverUser={requestProfile} moderation={moderation} placeholder={<span>Waiting for the show to go live…</span>} />
+                  </div>
+                  {composerNode}
                 </div>
               </div>
-            </Panel>
-          </>
-        )}
-        <div ref={ghostRef} className="snap-ghost" style={{ display: "none" }} />
-        <span ref={vGuideRef} className="snap-guide v" style={{ display: "none" }} />
-        <span ref={hGuideRef} className="snap-guide h" style={{ display: "none" }} />
+            </section>
+          )}
+          {!show.stream && !show.chat && !show.index && (
+            <div className="room-allhidden"><span className="muted">Everything's hidden — use the Stream / Chat / Views buttons up top to bring panels back.</span></div>
+          )}
+        </div>
       </div>
       )}
 
