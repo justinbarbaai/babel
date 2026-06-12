@@ -21,10 +21,11 @@ BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymar
 # which broadcaster a window belongs to → the label shown as the chat source
 BROADCASTERS = {"banks": "Banks", "blknoiz06": "Ansem", "marketbbl": "Market Bubble",
                 "marketbubble": "Market Bubble"}
-# lines that are NOT chat: the market ticker + the standing disclaimer overlay
-JUNK = re.compile(r"(informational and entertainment|not constitute|financial.*advice|"
-                  r"[+\-]\d+\.\d+\s*%|\$\d|\b\d+\.\d{2}\b.*[+\-]|sign up for|app store|"
-                  r"copy the best|bubble20|presented by|polymarket)", re.I)
+# exact UI strings that are NEVER chat messages, + ticker/disclaimer/promo junk
+UI = re.compile(r"^(ask gemini|chat|subscribe|resubscribe|send a message|follow|gift a sub|"
+                r"\.\.\.|los angeles|new york|-? ?polymarket|bubbl|bubh|ubl|sign up|copy the best|\W*)$", re.I)
+JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain|not constitute|"
+                  r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store)", re.I)
 
 def broadcast_windows():
     """Top-left corner of EVERY Chrome window whose active tab is a broadcast."""
@@ -75,37 +76,36 @@ def ocr(png):
     try: return json.loads(out)
     except Exception: return []
 
-def broadcaster_of(lines):
+_bc_cache = {}
+def broadcaster_of(lines, wid=None):
     """Who owns this broadcast? Their handle appears OUTSIDE the chat (left/center)."""
     for l in lines:
         if l.get("x", 1) >= 0.58: continue
         m = HANDLE.search(l["text"])
         if m and m.group(1).lower() in BROADCASTERS:
-            return BROADCASTERS[m.group(1).lower()]
-    return None
+            label = BROADCASTERS[m.group(1).lower()]
+            if wid is not None: _bc_cache[wid] = label
+            return label
+    return _bc_cache.get(wid)   # remembered from a frame where the header was visible
 
 def parse(lines, source):
     chat = sorted([l for l in lines if l.get("x", 0) > 0.58], key=lambda l: l["y"])
     txt = [l["text"] for l in chat]
-    handles = [(HANDLE.search(t).group(1) if HANDLE.search(t) else None) for t in txt]
-    msgs, i = [], 0
-    while i < len(txt):
-        if not handles[i]: i += 1; continue
-        user, body, j = handles[i], [], i + 1
-        while j < len(txt) and not handles[j]:
-            body.append(txt[j]); j += 1
-        # drop a trailing line that's the NEXT chatter's display name (it sits
-        # right before the next @handle and resembles it)
-        if body and j < len(txt) and handles[j]:
-            norm = re.sub(r"[^a-z0-9]", "", body[-1].lower()); nh = handles[j].lower()
-            if norm and (norm in nh or nh.startswith(norm[:4]) or (len(body[-1]) < 14 and " " not in body[-1].strip())):
-                body = body[:-1]
-        clean = [t for t in body if not JUNK.search(t)]
-        text = " ".join(clean).strip()
-        if JUNK.search(text): text = JUNK.split(text)[0].strip()   # cut mid-line junk
-        if text and user.lower() not in BLOCK:
-            msgs.append({"username": user, "text": text, "channel": source or user})
-        i = j
+    hidx = [i for i, t in enumerate(txt) if HANDLE.search(t)]   # @handle line indices
+    msgs = []
+    for n, i in enumerate(hidx):
+        user = HANDLE.search(txt[i]).group(1)
+        if user.lower() in BLOCK: continue
+        nxt = hidx[n + 1] if n + 1 < len(hidx) else len(txt)
+        end = nxt - 1 if nxt < len(txt) else nxt     # drop the next row's display name
+        body = []
+        for k in range(i + 1, end):
+            t = txt[k].strip()
+            if t and not UI.match(t) and not JUNK.search(t): body.append(t)
+        text = " ".join(body).strip()
+        text = re.sub(r"\s+\S{1,3}$", "", text) if len(text) > 12 else text  # drop trailing crumb
+        text = text.strip(" •·~&")
+        if len(text) >= 2: msgs.append({"username": user, "text": text, "channel": source or user})
     return msgs
 
 def post(msgs):
@@ -132,7 +132,7 @@ def main():
                 print("capture failed — is this app allowed in Screen Recording?"); continue
             captured += 1
             lines = ocr(shot)
-            source = broadcaster_of(lines)
+            source = broadcaster_of(lines, w['id'])
             for m in parse(lines, source):
                 k2 = m["username"] + ":" + m["text"]
                 if k2 not in seen: seen.add(k2); fresh.append(m)
