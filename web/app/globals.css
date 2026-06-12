@@ -3624,18 +3624,8 @@ body.overlay-bare::before {
    panels clear of the logo/buttons (see page.tsx). */
 .term-room:not(.offair) .term-room-stage { position: relative; }
 .term-room:not(.offair) .term-bar-slot {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  /* above the grain-lifted panels so header menus drop over the workspace */
+  position: relative;   /* in-flow: the locked grid sits cleanly below it */
   z-index: 10150;
-  pointer-events: none;
-}
-.term-room:not(.offair) .term-logo,
-.term-room:not(.offair) .term-nav,
-.term-room:not(.offair) .term-bar-right {
-  pointer-events: auto;
 }
 /* footer + cinema lockup */
 .term-foot-lockup {
@@ -8119,11 +8109,10 @@ body.panel-dragging iframe {
 /* ===================== Locked live room (grid, no drag) ===================== */
 .room-grid {
   position: absolute;
-  top: 88px;            /* clear the floating header */
-  left: 0; right: 0; bottom: 0;
+  inset: 0;
   display: flex;
   gap: 14px;
-  padding: 0 clamp(12px, 3vw, 28px) 12px;
+  padding: 12px clamp(12px, 3vw, 28px) 12px;
 }
 .room-left {
   flex: 1;
@@ -8146,6 +8135,10 @@ body.panel-dragging iframe {
 }
 .rp-stream { flex: 1; min-height: 0; }
 .rp-index { flex: 0 0 auto; }
+.rp-index .rp-body { flex: 0 0 auto; overflow: visible; }   /* don't stretch */
+.rp-body-index { padding: 12px 16px 14px; }
+.rp-body-index .term-index-quote { margin-top: 4px; }
+.rp-body-index .term-spark { height: 22px; margin: 8px 0 2px; }
 .rp-chat { width: clamp(320px, 30%, 440px); flex: 0 0 auto; }
 .rp-head {
   flex: 0 0 auto;
