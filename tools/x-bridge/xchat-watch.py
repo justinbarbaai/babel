@@ -87,7 +87,7 @@ def broadcaster_of(lines, bid=None):
     for i, l in enumerate(left):
         m = HANDLE.search(l["text"])
         if not m or m.group(1).lower() not in BROADCASTERS: continue
-        near = any(ANCHOR.search(left[j]["text"]) for j in range(max(0, i-3), min(len(left), i+4)))
+        near = any(ANCHOR.search(left[j]["text"]) for j in range(max(0, i-2), min(len(left), i+3)))
         if near:
             label = BROADCASTERS[m.group(1).lower()]
             if bid is not None: _bc_cache[bid] = label
