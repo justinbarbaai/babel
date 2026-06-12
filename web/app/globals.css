@@ -8204,49 +8204,23 @@ body.panel-dragging iframe {
   .rp-stream { min-height: 240px; }
 }
 
-/* ---- adaptive room: when the STREAM is hidden, the remaining panels reflow
-   so there's never a dead void. Live Audience becomes a full-width strip on
-   top, chat fills the rest below (or fills entirely if it's alone). ---- */
-.room-grid[data-stream="0"] {
-  flex-direction: column;
-}
-.room-grid[data-stream="0"] .room-left {
-  flex: 0 0 auto;          /* Live Audience = compact top strip */
-}
-.room-grid[data-stream="0"] .rp-chat {
-  width: auto;
-  flex: 1;                 /* chat fills the rest, full width */
-  min-height: 0;
-}
-/* Live Audience alone (stream + chat both off) → fill and center it */
-.room-grid[data-stream="0"][data-chat="0"] .room-left,
-.room-grid[data-stream="0"][data-chat="0"] .rp-index {
-  flex: 1;
-  min-height: 0;
-}
-.room-grid[data-stream="0"][data-chat="0"] .rp-index .rp-body {
-  flex: 1;
-  justify-content: center;
-}
 
-/* stream hidden → Live Audience collapses to a SLIM horizontal scoreboard so
-   the chat (the point) gets almost all the height. Number · bars · stats inline. */
-.room-grid[data-stream="0"] .rp-body-index {
-  flex-direction: row;
-  align-items: center;
-  gap: 30px;
-  padding: 6px 18px 8px;
-}
-.room-grid[data-stream="0"] .rp-body-index .term-index-quote { margin: 0; flex: 0 0 auto; }
-.room-grid[data-stream="0"] .rp-body-index .term-index-num { font-size: 26px; }
-.room-grid[data-stream="0"] .rp-body-index .term-rows {
-  margin: 0; padding: 0; border: 0; flex: 1; min-width: 220px; gap: 5px;
-}
+
+
+
+
+/* ---- Stream hidden → chat is the focus (it goes on-stream). Chat fills the
+   main area; Live Audience shrinks to a narrow side rail with stacked stats. ---- */
+.room-grid[data-stream="0"] .room-left { flex: 0 0 clamp(220px, 22%, 300px); }
+.room-grid[data-stream="0"] .rp-chat { width: auto; flex: 1; min-height: 0; }
+.room-grid[data-stream="0"] .rp-index { flex: 1; min-height: 0; }
+.room-grid[data-stream="0"] .rp-index .rp-body { flex: 1; }
+.room-grid[data-stream="0"] .rp-body-index .term-index-num { font-size: 30px; }
 .room-grid[data-stream="0"] .rp-body-index .term-vol {
-  margin: 0; padding: 0; border: 0; flex: 0 0 auto; gap: 20px;
+  grid-template-columns: 1fr;          /* stack the 3 stats in the narrow rail */
+  gap: 10px;
 }
-/* (when audience is ALONE — chat also off — keep it centered + roomy, not a strip) */
-.room-grid[data-stream="0"][data-chat="0"] .rp-body-index {
-  flex-direction: column;
-  justify-content: center;
-}
+/* Live Audience alone (chat also off) → fill the width, centered */
+.room-grid[data-stream="0"][data-chat="0"] .room-left { flex: 1; }
+.room-grid[data-stream="0"][data-chat="0"] .rp-index .rp-body { justify-content: center; }
+.room-grid[data-stream="0"][data-chat="0"] .rp-body-index .term-vol { grid-template-columns: repeat(3, 1fr); }
