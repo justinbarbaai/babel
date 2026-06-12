@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Market Bubble — X broadcast chat → site, via window OCR.
-Captures EVERY Chrome window whose active tab is an X live broadcast (Banks,
-Ansem, Market Bubble — all at once) and OCRs each chat panel on-device,
-pushing new lines to the hub to join the unified Twitch/Kick/X feed.
+Captures EVERY Chrome window showing an X live broadcast (Banks, Ansem,
+Market Bubble — all at once) and OCRs each chat panel on-device, pushing new
+lines to the hub to join the unified Twitch/Kick/X feed. Also reads each
+broadcast's "watching" count and pushes the total as the X live audience.
 
-Each broadcast must be the ACTIVE tab in its OWN Chrome window, and those
-windows must stay open (browsers freeze background tabs). You can cover them.
+Each broadcast must be the ACTIVE tab in its OWN Chrome window. Windows can be
+COMPLETELY hidden behind other apps — capture is by window id — but must not
+be minimized or moved to another desktop/Space, and the display must be awake
+(the launcher runs under caffeinate for that).
 
 One-time: System Settings → Privacy & Security → Screen Recording → enable
 Terminal. Then run ./xchat-watch.command
@@ -17,24 +20,45 @@ KEY = os.environ.get("MB_INGEST_KEY") or (sys.argv[1] if len(sys.argv) > 1 else 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OCR, WINFIND = os.path.join(HERE, "ocr"), os.path.join(HERE, "winfind")
 HANDLE = re.compile(r"@(\w{2,15})")
-BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymarket,marketbbl") ).split(",")}
-# which broadcaster a window belongs to → the label shown as the chat source
+BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymarket,marketbbl")).split(",")}
+# which broadcaster a window belongs to → the label shown as the chat source.
+# Extendable for testing against any live channel:
+#   MB_BROADCASTERS="somehandle:Some Label,other:Other" ./xchat-watch.command
 BROADCASTERS = {"banks": "Banks", "blknoiz06": "Ansem", "marketbbl": "Market Bubble",
                 "marketbubble": "Market Bubble"}
+for pair in (os.environ.get("MB_BROADCASTERS", "") or "").split(","):
+    if ":" in pair:
+        h, label = pair.split(":", 1)
+        if h.strip(): BROADCASTERS[h.strip().lower()] = label.strip()
 # exact UI strings that are NEVER chat messages, + ticker/disclaimer/promo junk
 UI = re.compile(r"^(ask gemini|chat|subscribe|resubscribe|send a message|follow|gift a sub|"
                 r"\.\.\.|los angeles|new york|-? ?polymarket|bubbl|bubh|ubl|sign up|copy the best|\W*)$", re.I)
 JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain|not constitute|"
                   r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
+WATCHING = re.compile(r"([\d.,]+\s*[KkMm]?)\s*watching", re.I)
+# Short cycle = small frequent batches; the hub drips each batch out one message
+# at a time, so the site chat flows like a real live chat instead of clumping.
+CYCLE_SECS = 6
+
+def parse_count(s):
+    s = s.strip().replace(",", "").upper()
+    mult = 1
+    if s.endswith("K"): mult, s = 1000, s[:-1]
+    elif s.endswith("M"): mult, s = 1000000, s[:-1]
+    try: return int(float(s) * mult)
+    except ValueError: return 0
 
 def broadcast_windows():
-    """(corner_x, corner_y, broadcast_id) for every Chrome broadcast window."""
+    """(corner_x, corner_y, broadcast_id) for every Chrome broadcast window (URL read)."""
     js = ('tell application "Google Chrome"\n set out to ""\n repeat with w in windows\n'
           '  try\n   set u to URL of active tab of w\n   if u contains "broadcasts/" then\n'
           '    set b to bounds of w\n    set out to out & (item 1 of b as text) & "," & (item 2 of b as text) & "," & u & "\n"\n'
           '   end if\n  end try\n end repeat\n return out\nend tell')
-    r = subprocess.run(["osascript", "-e", js], capture_output=True, text=True).stdout.strip()
+    try:
+        r = subprocess.run(["osascript", "-e", js], capture_output=True, text=True, timeout=8).stdout.strip()
+    except subprocess.TimeoutExpired:
+        return []   # Chrome busy/dialog up — fall back to title identification
     out = []
     for line in r.splitlines():
         try:
@@ -45,11 +69,39 @@ def broadcast_windows():
     return out
 
 def chrome_windows():
-    """All Chrome windows from the window server, with bounds (no AppleScript)."""
-    return json.loads(subprocess.run([WINFIND], capture_output=True, text=True).stdout or "[]")
+    """All Chrome windows from the window server: id, bounds, title (no AppleScript)."""
+    try:
+        return json.loads(subprocess.run([WINFIND], capture_output=True, text=True).stdout or "[]")
+    except Exception:
+        return []
+
+def is_x_page(title):
+    t = (title or "").lower()
+    return "/ x" in t or t.rstrip().endswith("· x")
+
+def is_broadcast_title(title):
+    """An X page that is NOT a status post ('Account on X: "..."') or a profile
+    ('Name (@handle) / X') — i.e. plausibly a live/replay broadcast view. The
+    OCR host-card makes the final attribution; this only picks capture targets
+    when the AppleScript URL read is unavailable."""
+    t = (title or "").lower()
+    if not is_x_page(t): return False
+    if " on x:" in t: return False        # a status/post page
+    if re.search(r"\(@\w+\)\s*/ x", t): return False   # a profile page
+    return True
+
+def title_label(title):
+    """Broadcaster label from the window title, when it happens to be there."""
+    t = (title or "").lower()
+    if not is_x_page(t): return None
+    for handle, label in BROADCASTERS.items():
+        if handle in t or label.lower() in t:
+            return label
+    return None
 
 def capture_targets():
-    """Each open broadcast window → its CGWindow id + bounds + broadcast id."""
+    """Each open broadcast window → CGWindow id + bounds + broadcast id + title label.
+    Window ids are re-resolved EVERY cycle, so reopened windows just work."""
     wins = chrome_windows()
     big = [w for w in wins if w["w"] >= 700 and w["h"] >= 450]
     bw = broadcast_windows()
@@ -57,32 +109,40 @@ def capture_targets():
     if bw:
         for px, py, bid in bw:
             m = min(big or wins, key=lambda w: abs(w["x"]-px)+abs(w["y"]-py), default=None)
-            if m: targets.append({**m, "bid": bid})
-    else:                                # URL read failed → OCR every big window
-        targets = [{**w, "bid": w["id"]} for w in big]
+            if m: targets.append({**m, "bid": bid, "tlabel": title_label(m.get("title"))})
+    else:                                # URL read failed → identify by title only.
+        # Any big X window that isn't a status/profile page is a broadcast
+        # candidate; the OCR host-card attributes it. Never unrelated windows.
+        targets = [{**w, "bid": w["id"], "tlabel": title_label(w.get("title"))}
+                   for w in big if is_broadcast_title(w.get("title"))]
     return targets
 
 def capture(w):
+    """Capture by window id ONLY. No region fallback: when -l fails the window
+    is minimized / on another desktop / display asleep, and a region grab would
+    OCR whatever happens to be on the current screen — junk in the site chat."""
     shot = "/tmp/mb_xcap.png"
     try: os.remove(shot)
     except OSError: pass
     subprocess.run(["screencapture", "-x", "-o", "-l", str(w["id"]), shot], capture_output=True)
-    if not os.path.exists(shot):         # window capture failed → grab its region
-        r = f'{int(w["x"])},{int(w["y"])},{int(w["w"])},{int(w["h"])}'
-        subprocess.run(["screencapture", "-x", "-R", r, shot], capture_output=True)
     return shot if os.path.exists(shot) else None
 
 def ocr(png):
-    out = subprocess.run([OCR, png], capture_output=True, text=True).stdout
-    try: return json.loads(out)
-    except Exception: return []
+    try:
+        out = subprocess.run([OCR, png], capture_output=True, text=True, timeout=30).stdout
+        return json.loads(out)
+    except Exception:
+        return []
 
 _bc_cache = {}
 ANCHOR = re.compile(r"started|subscribe|follow|\bago\b|\blive\b", re.I)
-def broadcaster_of(lines, bid=None):
-    """The real broadcaster = a known handle that sits NEAR a Started/Subscribe/
-    Follow anchor (the broadcaster card) — not the Market Bubble watermark in the
-    video. Cached by the stable broadcast id."""
+def broadcaster_of(lines, bid=None, tlabel=None):
+    """Stream attribution, most→least trustworthy:
+      1. the OCR'd broadcaster card — a known @handle NEAR a Started/Subscribe/
+         Follow anchor (the host card; not the watermark, not the title)
+      2. the cache from an earlier frame where the card was visible
+      3. the window title — LAST because broadcast titles often mention the
+         other hosts ("LIVE WITH BANKS" on Ansem's stream would mislabel it)."""
     left = [l for l in lines if l.get("x", 1) < 0.58]
     for i, l in enumerate(left):
         m = HANDLE.search(l["text"])
@@ -92,10 +152,33 @@ def broadcaster_of(lines, bid=None):
             label = BROADCASTERS[m.group(1).lower()]
             if bid is not None: _bc_cache[bid] = label
             return label
-    return _bc_cache.get(bid)   # remembered from a frame where the card was visible
+    cached = _bc_cache.get(bid)   # remembered from a frame where the card was visible
+    if cached: return cached
+    if tlabel and bid is not None: _bc_cache[bid] = tlabel
+    return tlabel
+
+def watching_count(lines):
+    """The broadcast's live "N watching" count, read off the left column."""
+    for l in lines:
+        if l.get("x", 1) < 0.6:
+            m = WATCHING.search(l["text"])
+            if m:
+                n = parse_count(m.group(1))
+                if n: return n
+    return 0
+
+def chat_column_start(lines):
+    """Where the chat panel begins, anchored to the OCR'd "Chat" header itself —
+    a fixed threshold swallows the right edge of the VIDEO (tile captions like
+    "BANKS", the Polymarket banner) and glues them into messages."""
+    for l in lines:
+        if l.get("x", 0) > 0.5 and l["text"].strip().lower() in ("chat", "char", "chai"):
+            return max(0.58, l["x"] - 0.03)
+    return 0.72
 
 def parse(lines, source):
-    chat = sorted([l for l in lines if l.get("x", 0) > 0.58], key=lambda l: l["y"])
+    col = chat_column_start(lines)
+    chat = sorted([l for l in lines if l.get("x", 0) > col], key=lambda l: l["y"])
     txt = [l["text"] for l in chat]
     hidx = [i for i, t in enumerate(txt) if HANDLE.search(t)]   # @handle line indices
     msgs = []
@@ -123,36 +206,130 @@ def parse(lines, source):
     return msgs
 
 def post(msgs):
-    if not msgs: return 0
+    if not msgs: return 0, None
     req = urllib.request.Request(HUB + "/ingest/xchat", data=json.dumps({"messages": msgs}).encode(),
         headers={"content-type": "application/json", "x-ingest-key": KEY})
-    try: return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("pushed", 0)
-    except Exception as e: print("post error:", e); return 0
+    try: return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("pushed", 0), None
+    except Exception as e: return 0, str(e)
+
+def post_xlive(total):
+    """Total live viewers across all captured broadcasts → the site's X count.
+    Same /ingest/xlive endpoint + shape the hub has always accepted."""
+    req = urllib.request.Request(HUB + "/ingest/xlive",
+        data=json.dumps({"live": total > 0, "viewers": total}).encode(),
+        headers={"content-type": "application/json", "x-ingest-key": KEY})
+    try: urllib.request.urlopen(req, timeout=10).read(); return None
+    except Exception as e: return str(e)
+
+def notify(msg):
+    """Loud macOS notification — for when a stream silently dies mid-show."""
+    try:
+        subprocess.run(["osascript", "-e",
+            f'display notification "{msg}" with title "MB X Bridge" sound name "Basso"'],
+            capture_output=True, timeout=5)
+    except Exception: pass
+
+# ---------------- live terminal HUD ----------------
+class Hud:
+    def __init__(self):
+        self.streams = {}   # label -> {last_msg, watching, ok, win}
+        self.events = []    # rolling event log
+        self.push_err = None
+        self.started = time.time()
+        self.pushed_total = 0
+
+    def event(self, line):
+        self.events.append(time.strftime("%H:%M:%S ") + line)
+        self.events = self.events[-6:]
+
+    def draw(self, capturing):
+        now = time.time()
+        out = ["\x1b[2J\x1b[H"]  # clear + home
+        out.append("MARKET BUBBLE — X BRIDGE        up %dm · pushed %d msgs · hub %s" % (
+            (now - self.started) // 60, self.pushed_total, HUB.split("//")[1]))
+        out.append("─" * 72)
+        if not self.streams:
+            out.append("  (no broadcast windows found — open each X broadcast in its OWN")
+            out.append("   Chrome window; hidden behind other apps is fine, minimized is not)")
+        for label, s in sorted(self.streams.items()):
+            age = (now - s["last_msg"]) if s["last_msg"] else None
+            if not s["ok"]:
+                icon, note = "❌", "WINDOW LOST — reopen the broadcast window"
+            elif age is None:
+                icon, note = "⚠️ ", "capturing, no chat read yet"
+            elif age > 120:
+                icon, note = "⚠️ ", f"no new chat for {int(age)}s"
+            else:
+                icon, note = "✅", f"last chat {int(age)}s ago"
+            watch = f"{s['watching']:,} watching" if s["watching"] else "—"
+            out.append(f"  {icon} {label:<14} {watch:<18} {note}")
+        out.append("─" * 72)
+        if self.push_err:
+            out.append(f"  ⚠️  last push error: {self.push_err[:60]} (auto-retries next cycle)")
+        for e in self.events:
+            out.append("  " + e)
+        out.append("")
+        out.append("  Ctrl-C to stop. Keep this Mac awake (launcher runs caffeinate).")
+        sys.stdout.write("\n".join(out) + "\n")
+        sys.stdout.flush()
 
 def main():
     if not KEY: sys.exit("Set MB_INGEST_KEY (or pass it as arg 1).")
-    print(f"Window-capture X chat → {HUB}\nCapturing every open X broadcast window. Ctrl-C to stop.")
-    seen, warned = set(), False
+    hud = Hud()
+    seen = set()
+    hud.event(f"bridge started → {HUB}")
     while True:
-        targets = capture_targets()
-        if not targets:
-            if not warned: print("No Chrome window found — open the X broadcast in Chrome."); warned = True
-            time.sleep(5); continue
-        warned = False
-        fresh, captured = [], 0
-        for w in targets:
-            shot = capture(w)
-            if not shot:
-                print("capture failed — is this app allowed in Screen Recording?"); continue
-            captured += 1
-            lines = ocr(shot)
-            source = broadcaster_of(lines, w['bid'])
-            for m in parse(lines, source):
-                k2 = m["username"] + ":" + m["text"]
-                if k2 not in seen: seen.add(k2); fresh.append(m)
-        if len(seen) > 6000: seen = set(list(seen)[-3000:])
-        n = post(fresh)
-        if n: print(time.strftime("%H:%M:%S"), f"{captured} window(s) +{n}", " · ".join(f'{m["username"]}→{m["channel"]}' for m in fresh[:3]))
-        time.sleep(15)
+        try:
+            targets = capture_targets()
+            # mark streams whose windows vanished; notice the ones that came back
+            live_labels = set()
+            fresh, total_watching = [], 0
+            for w in targets:
+                shot = capture(w)
+                if not shot:
+                    hud.event(f"window {w['id']} not capturable — minimized or on ANOTHER DESKTOP; "
+                              "bring it to this desktop (hidden behind apps is fine)")
+                    continue
+                lines = ocr(shot)
+                source = broadcaster_of(lines, w["bid"], w.get("tlabel"))
+                label = source or f"window {w['id']}"
+                live_labels.add(label)
+                st = hud.streams.setdefault(label, {"last_msg": 0, "watching": 0, "ok": True, "win": w["id"]})
+                if not st["ok"]:
+                    st["ok"] = True
+                    hud.event(f"✅ {label} window is back")
+                    notify(f"{label} stream window is back")
+                st["win"] = w["id"]
+                n = watching_count(lines)
+                if n: st["watching"] = n
+                total_watching += st["watching"]
+                for m in parse(lines, source):
+                    k2 = m["username"] + ":" + m["text"]
+                    if k2 not in seen:
+                        seen.add(k2); fresh.append(m)
+                        st["last_msg"] = time.time()
+            # anything we tracked but didn't capture this cycle = lost window
+            for label, st in hud.streams.items():
+                if label not in live_labels and st["ok"]:
+                    st["ok"] = False
+                    hud.event(f"❌ {label} WINDOW LOST")
+                    notify(f"{label} stream window LOST — reopen it!")
+            if len(seen) > 6000: seen = set(list(seen)[-3000:])
+            n, err = post(fresh)
+            hud.pushed_total += n
+            hud.push_err = err
+            if err: hud.event(f"chat push failed: {err[:50]}")
+            if total_watching:
+                xerr = post_xlive(total_watching)
+                if xerr and not err: hud.push_err = xerr
+            hud.draw(len(targets))
+        except KeyboardInterrupt:
+            print("\nstopped.")
+            return
+        except Exception as e:
+            hud.event(f"cycle error (continuing): {str(e)[:60]}")
+            try: hud.draw(0)
+            except Exception: pass
+        time.sleep(CYCLE_SECS)
 
 if __name__ == "__main__": main()

@@ -610,7 +610,13 @@ const server = http.createServer(async (req, res) => {
           // channel = which broadcast it came from (Banks / Ansem / Market
           // Bubble), set by the bridge; falls back to the author's handle.
           const channel = String(m.channel || username).slice(0, 80).replace(/^@/, "");
-          broadcast(unifiedMessage("x", username, text, Date.now(), undefined, undefined, channel));
+          // Drip the batch out one message at a time (OCR reads arrive in
+          // clumps; a real chat flows). Spread stays under the bridge's read
+          // cycle so batches never pile up.
+          const delay = Math.min(pushed * 350, 5000);
+          setTimeout(() => {
+            broadcast(unifiedMessage("x", username, text, Date.now(), undefined, undefined, channel));
+          }, delay);
           pushed++;
         }
         res.writeHead(200, { ...cors, "Content-Type": "application/json" });
