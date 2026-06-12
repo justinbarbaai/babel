@@ -190,6 +190,30 @@ code {
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+
+/* pre-show health strip (Studio) */
+.healthstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hs-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.hs-chip .dot { width: 7px; height: 7px; border-radius: 50%; }
+.hs-chip b { font-weight: 700; }
+.hs-chip .hs-detail { color: var(--muted); }
+.hs-chip.bad { border-color: color-mix(in srgb, var(--down) 45%, var(--border)); }
 .statuscard {
   display: flex;
   align-items: center;

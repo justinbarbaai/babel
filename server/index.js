@@ -124,6 +124,7 @@ function ingestKeyOk(key) {
 // Manual X live-viewer count pushed by the bookmarklet (X killed the public
 // endpoints, so this is the only accurate source). Used while fresh.
 let xLiveOverride = null; // { live, viewers, ts }
+let lastXchatAt = 0; // when the X Bridge last pushed chat (health strip)
 // Dedupe ids for pushed X broadcast-chat messages.
 const xChatSeen = new Set();
 // Constant-time compare so the key can't be guessed by timing.
@@ -221,6 +222,7 @@ loadState();
 // Latest combined viewer-count snapshot, refreshed on an interval and sent to
 // each newly-connected client so the dashboard shows a number immediately.
 let lastViewers = null;
+let lastViewersAt = 0; // last successful viewer-count poll (health strip)
 let lastXViews = null;
 let lastXLive = null;
 let viewersTimer = null;
@@ -265,6 +267,7 @@ async function pollViewers() {
     // X numbers live on their own bar (reach OR live count) — never merged
     // into the Twitch+Kick concurrent total.
     lastViewers = snap;
+    lastViewersAt = Date.now();
     broadcast({ type: "viewers", viewers: lastViewers });
   } catch (err) {
     console.warn("[viewers]", err.message);
@@ -474,6 +477,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // One-glance pre-show health: is everything wired and fresh? Read-only and
+  // contains nothing secret (channel names are already public via config).
+  if (url.pathname === "/status") {
+    const now = Date.now();
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(
+      JSON.stringify({
+        ok: true,
+        uptimeSec: Math.round(process.uptime()),
+        wsClients: wss ? wss.clients.size : 0,
+        channels: {
+          twitch: config.twitchChannels,
+          kick: config.kickChannels,
+          xLiveHandle: config.xLiveHandle,
+        },
+        sources: {
+          twitch: status.twitch?.connected ?? false,
+          kick: status.kick?.connected ?? false,
+        },
+        bridge: {
+          // seconds since the X Bridge last pushed chat; null = never (this boot)
+          xchatAgoSec: lastXchatAt ? Math.round((now - lastXchatAt) / 1000) : null,
+          xLiveAgoSec: xLiveOverride ? Math.round((now - xLiveOverride.ts) / 1000) : null,
+        },
+        viewersUpdatedAgoSec: lastViewersAt ? Math.round((now - lastViewersAt) / 1000) : null,
+      })
+    );
+    return;
+  }
+
   // Throttle abuse / API-cost burn. OAuth redirects are exempt (low volume,
   // user-driven); everything else shares a generous per-IP bucket.
   if (!url.pathname.startsWith("/auth/kick/") && rateLimited(clientIp(req))) {
@@ -564,6 +597,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (url.pathname === "/ingest/xchat") {
         const msgs = Array.isArray(j.messages) ? j.messages : [];
+        lastXchatAt = Date.now();
         let pushed = 0;
         for (const m of msgs) {
           const id = String(m.id || `${m.username}:${m.text}`).slice(0, 200);

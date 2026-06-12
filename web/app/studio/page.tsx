@@ -242,6 +242,9 @@ function ControlPanel() {
         })}
       </div>
 
+      {/* pre-show health: hub + bridge freshness at a glance */}
+      <HealthStrip hubHttpUrl={hubHttpUrl} />
+
       {/* host account cards — connect + channel, the one place the feed is built */}
       <div className="host-grid">
         <HostAccountCard name="Banks" role="Host" avatarHandle={banksX}>
@@ -543,4 +546,70 @@ function Field({
 
 function srcColor(src: SourceKey): string {
   return src === "twitch" ? "#9146FF" : src === "kick" ? "#53FC18" : "#FFFFFF";
+}
+
+// Pre-show health strip — polls the hub's /status every 10s. Green across the
+// board at 12:30 on Thursday = go; anything red tells you exactly what to fix.
+type HubStatus = {
+  ok: boolean;
+  uptimeSec: number;
+  wsClients: number;
+  channels: { twitch: string[]; kick: string[]; xLiveHandle: string };
+  sources: { twitch: boolean; kick: boolean };
+  bridge: { xchatAgoSec: number | null; xLiveAgoSec: number | null };
+  viewersUpdatedAgoSec: number | null;
+};
+
+function HealthStrip({ hubHttpUrl }: { hubHttpUrl: string }) {
+  const [st, setSt] = useState<HubStatus | null>(null);
+  const [dead, setDead] = useState(false);
+  useEffect(() => {
+    let stop = false;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${hubHttpUrl}/status`, { cache: "no-store" });
+        const j = await r.json();
+        if (!stop) {
+          setSt(j);
+          setDead(false);
+        }
+      } catch {
+        if (!stop) setDead(true);
+      }
+    };
+    poll();
+    const t = setInterval(poll, 10000);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [hubHttpUrl]);
+
+  const fmtAgo = (s: number | null) =>
+    s == null ? "never" : s < 90 ? `${s}s ago` : s < 5400 ? `${Math.round(s / 60)}m ago` : `${Math.round(s / 3600)}h ago`;
+  // The bridge pushes continuously during a live broadcast — older than 2 min
+  // while you expect it to be running means it died or lost its windows.
+  const bridgeFresh = st?.bridge.xchatAgoSec != null && st.bridge.xchatAgoSec < 120;
+
+  const chips: { label: string; ok: boolean; detail: string }[] = dead || !st
+    ? [{ label: "Hub", ok: false, detail: dead ? "unreachable" : "checking…" }]
+    : [
+        { label: "Hub", ok: true, detail: `up ${fmtAgo(st.uptimeSec)?.replace(" ago", "")} · ${st.wsClients} viewers` },
+        { label: "Twitch src", ok: st.sources.twitch, detail: st.channels.twitch.join(", ") || "no channel" },
+        { label: "Kick src", ok: st.sources.kick, detail: st.channels.kick.join(", ") || "no channel" },
+        { label: "X bridge", ok: bridgeFresh, detail: `chat ${fmtAgo(st.bridge.xchatAgoSec)}` },
+        { label: "Viewer counts", ok: st.viewersUpdatedAgoSec != null && st.viewersUpdatedAgoSec < 120, detail: fmtAgo(st.viewersUpdatedAgoSec) },
+      ];
+
+  return (
+    <div className="healthstrip" role="status" aria-label="Hub health">
+      {chips.map((c) => (
+        <span key={c.label} className={`hs-chip ${c.ok ? "ok" : "bad"}`}>
+          <span className="dot" style={{ background: c.ok ? "var(--up)" : "var(--down)" }} />
+          <b>{c.label}</b>
+          <span className="hs-detail">{c.detail}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
