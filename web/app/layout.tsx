@@ -58,6 +58,7 @@ const fontVars = [inter, montserrat, poppins, oswald, anton, playfair, plexMono]
   .join(" ");
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://market-bubble-nine.vercel.app"),
   title: "Market Bubble — Make Money. Command Attention. Leverage AI.",
   description:
     "Market Bubble — live Thursdays 1PM PST. Watch Banks & Ansem, one unified chat across Twitch, Kick & X, live markets, and news.",
