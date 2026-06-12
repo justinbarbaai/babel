@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Market Bubble — X Bridge",
+  "version": "1.0",
+  "description": "Reads the live X broadcast viewer count + chat on this machine and pushes them to the Market Bubble hub. Run it on a computer that has the X live page open.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://market-bubble-hub.onrender.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_popup": "popup.html", "default_title": "Market Bubble X Bridge" }
+}
