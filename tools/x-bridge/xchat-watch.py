@@ -29,37 +29,37 @@ JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
 
 def broadcast_windows():
-    """Top-left corner of EVERY Chrome window whose active tab is a broadcast."""
+    """(corner_x, corner_y, broadcast_id) for every Chrome broadcast window."""
     js = ('tell application "Google Chrome"\n set out to ""\n repeat with w in windows\n'
-          '  if (URL of active tab of w) contains "broadcasts/" then\n'
-          '   set b to bounds of w\n   set out to out & (item 1 of b as text) & "," & (item 2 of b as text) & "\n"\n'
-          '  end if\n end repeat\n return out\nend tell')
+          '  try\n   set u to URL of active tab of w\n   if u contains "broadcasts/" then\n'
+          '    set b to bounds of w\n    set out to out & (item 1 of b as text) & "," & (item 2 of b as text) & "," & u & "\n"\n'
+          '   end if\n  end try\n end repeat\n return out\nend tell')
     r = subprocess.run(["osascript", "-e", js], capture_output=True, text=True).stdout.strip()
-    pts = []
+    out = []
     for line in r.splitlines():
-        try: x, y = map(int, line.split(",")); pts.append((x, y))
+        try:
+            x, y, url = line.split(",", 2)
+            m = re.search(r"broadcasts/([A-Za-z0-9]+)", url)
+            out.append((int(x), int(y), m.group(1) if m else url))
         except Exception: pass
-    return pts
+    return out
 
 def chrome_windows():
     """All Chrome windows from the window server, with bounds (no AppleScript)."""
     return json.loads(subprocess.run([WINFIND], capture_output=True, text=True).stdout or "[]")
 
 def capture_targets():
-    """Windows to OCR. Prefer the ones AppleScript flags as broadcasts; if that
-    can't read URLs (separate profiles, app windows), fall back to every large
-    Chrome window. Each target carries both a CGWindow id and its bounds, so we
-    can window-capture (-l) and region-capture (-R) as a fallback."""
+    """Each open broadcast window → its CGWindow id + bounds + broadcast id."""
     wins = chrome_windows()
     big = [w for w in wins if w["w"] >= 700 and w["h"] >= 450]
-    pts = broadcast_windows()
+    bw = broadcast_windows()
     targets = []
-    if pts:
-        for px, py in pts:
+    if bw:
+        for px, py, bid in bw:
             m = min(big or wins, key=lambda w: abs(w["x"]-px)+abs(w["y"]-py), default=None)
-            if m and m not in targets: targets.append(m)
-    if not targets:                      # URL read failed → OCR every big window
-        targets = big
+            if m: targets.append({**m, "bid": bid})
+    else:                                # URL read failed → OCR every big window
+        targets = [{**w, "bid": w["id"]} for w in big]
     return targets
 
 def capture(w):
@@ -78,16 +78,21 @@ def ocr(png):
     except Exception: return []
 
 _bc_cache = {}
-def broadcaster_of(lines, wid=None):
-    """Who owns this broadcast? Their handle appears OUTSIDE the chat (left/center)."""
-    for l in lines:
-        if l.get("x", 1) >= 0.58: continue
+ANCHOR = re.compile(r"started|subscribe|follow|\bago\b|\blive\b", re.I)
+def broadcaster_of(lines, bid=None):
+    """The real broadcaster = a known handle that sits NEAR a Started/Subscribe/
+    Follow anchor (the broadcaster card) — not the Market Bubble watermark in the
+    video. Cached by the stable broadcast id."""
+    left = [l for l in lines if l.get("x", 1) < 0.58]
+    for i, l in enumerate(left):
         m = HANDLE.search(l["text"])
-        if m and m.group(1).lower() in BROADCASTERS:
+        if not m or m.group(1).lower() not in BROADCASTERS: continue
+        near = any(ANCHOR.search(left[j]["text"]) for j in range(max(0, i-3), min(len(left), i+4)))
+        if near:
             label = BROADCASTERS[m.group(1).lower()]
-            if wid is not None: _bc_cache[wid] = label
+            if bid is not None: _bc_cache[bid] = label
             return label
-    return _bc_cache.get(wid)   # remembered from a frame where the header was visible
+    return _bc_cache.get(bid)   # remembered from a frame where the card was visible
 
 def parse(lines, source):
     chat = sorted([l for l in lines if l.get("x", 0) > 0.58], key=lambda l: l["y"])
@@ -141,7 +146,7 @@ def main():
                 print("capture failed — is this app allowed in Screen Recording?"); continue
             captured += 1
             lines = ocr(shot)
-            source = broadcaster_of(lines, w['id'])
+            source = broadcaster_of(lines, w['bid'])
             for m in parse(lines, source):
                 k2 = m["username"] + ":" + m["text"]
                 if k2 not in seen: seen.add(k2); fresh.append(m)
