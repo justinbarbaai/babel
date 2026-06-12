@@ -204,6 +204,7 @@ function ControlPanel() {
         </Link>
         <div className="topbar-right">
           <ThemeToggle className="term-icon" />
+          <a className="btn btn-ghost btn-watch" href="/overlay-studio">OBS overlay</a>
           <a className="btn btn-ghost btn-watch" href="/">View site</a>
           <div className="livestat">
             <span className={`dot ${hubConnected ? "on" : "off"}`} />

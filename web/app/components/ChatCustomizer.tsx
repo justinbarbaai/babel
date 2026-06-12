@@ -49,25 +49,23 @@ export function ChatCustomizer({
       return next;
     });
   };
-  const hasMine = !!(mine.twitch.trim() || mine.kick.trim() || (mine.xQuery.trim() && mine.xToken.trim()));
+  const hasMine = !!(mine.twitch.trim() || mine.kick.trim());
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   // The exported links carry the show's channels by default — or the viewer's
-  // own, if they filled any in. X only rides with their own bearer token (the
-  // stream reads bill THEIR X account), tucked in the #fragment so it never
-  // appears in any server log.
+  // own, if they filled any in. (X live chat has no API — it comes only from the
+  // show's X Bridge, so there's no per-viewer X option here.)
   const linkOptions: OverlayOptions = useMemo(() => {
     if (!hasMine) return overlayOptions;
     return {
       ...overlayOptions,
       twitch: splitList(mine.twitch),
       kick: splitList(mine.kick),
-      xQuery: mine.xToken.trim() ? mine.xQuery.trim() : "",
+      xQuery: "",
     };
   }, [overlayOptions, hasMine, mine]);
-  const frag = hasMine && linkOptions.xQuery && mine.xToken.trim() ? `#xt=${encodeURIComponent(mine.xToken.trim())}` : "";
-  const overlayUrl = origin ? `${origin}/overlay?${buildQuery(linkOptions)}${frag}` : "";
-  const readerUrl = origin ? `${origin}/reader?${buildQuery(linkOptions)}${frag}` : "";
+  const overlayUrl = origin ? `${origin}/overlay?${buildQuery(linkOptions)}` : "";
+  const readerUrl = origin ? `${origin}/reader?${buildQuery(linkOptions)}` : "";
   const popReader = () => window.open(readerUrl, "mbreader", "width=440,height=760,resizable=yes");
 
   const copy = async () => {
@@ -117,31 +115,6 @@ export function ChatCustomizer({
                 placeholder="Your Kick channel (optional)"
                 spellCheck={false}
               />
-              <input
-                className="cc-mine-input"
-                value={mine.xQuery}
-                onChange={(e) => patchMine({ xQuery: e.target.value })}
-                placeholder="X posts — from:you OR $TICKER (optional)"
-                spellCheck={false}
-              />
-              {mine.xQuery.trim() && (
-                <>
-                  <input
-                    className="cc-mine-input"
-                    type="password"
-                    value={mine.xToken}
-                    onChange={(e) => patchMine({ xToken: e.target.value })}
-                    placeholder="Your X API bearer token"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                  <p className="cc-overlay-note">
-                    X is pay-per-read, so the overlay runs on <b>your</b> token and bills your X
-                    developer account. It stays on this device, riding after the link&apos;s{" "}
-                    <code>#</code> — browsers never send that part to servers.
-                  </p>
-                </>
-              )}
             </div>
             <input className="cc-overlay-url" value={overlayUrl} readOnly onFocus={(e) => e.currentTarget.select()} />
             <div className="cc-overlay-btns">

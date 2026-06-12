@@ -72,7 +72,6 @@ export function TermFooter() {
           <div className="term-foot-col">
             <span className="term-foot-head">Studio</span>
             <a href="/studio">Operator console</a>
-            <a href="/overlay-studio">OBS overlay</a>
           </div>
           <div className="term-foot-col">
             <span className="term-foot-head">Legal</span>

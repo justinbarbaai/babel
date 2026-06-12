@@ -6,11 +6,10 @@ import { Readable } from "node:stream";
 import { WebSocketServer } from "ws";
 import { TwitchSource } from "./sources/twitch.js";
 import { KickSource } from "./sources/kick.js";
-import { XSource } from "./sources/x.js";
 import { SOURCE_COLORS, unifiedMessage } from "./sources/constants.js";
 import { EmoteResolver } from "./sources/emoteResolver.js";
 import { TwitchBadgeResolver } from "./sources/twitchBadges.js";
-import { fetchViewerSnapshot, fetchXViews, fetchXLive } from "./sources/viewers.js";
+import { fetchViewerSnapshot, fetchXLive } from "./sources/viewers.js";
 import { fetchContent } from "./sources/content.js";
 import { fetchKickContent } from "./sources/kickContent.js";
 import { fetchTweets } from "./sources/tweets.js";
@@ -340,14 +339,9 @@ function startSources() {
     wireSource(s, "kick");
     return s;
   });
-  // X posts/mentions in chat are OFF by default — the live broadcast chat comes
-  // from the bridge instead (no mention spam). Reach number is unaffected.
-  if (process.env.X_CHAT_STREAM === "1") {
-    sources.x = new XSource(config.xQuery, xOpts);
-    wireSource(sources.x, "x");
-  } else {
-    sources.x = null;
-  }
+  // X chat comes ONLY from the X Bridge (/ingest/xchat) — the old posts/mentions
+  // stream (paid filtered search) is gone; it was never the real broadcast chat.
+  sources.x = null;
 
   for (const s of sources.twitch) s.start();
   for (const s of sources.kick) s.start();
@@ -417,18 +411,8 @@ function setupPrivate(ws, twitchChannels, kickChannels, xQuery = "", xToken = ""
     ...build("twitch", twitchChannels, (ch) => new TwitchSource(ch, { emotes, badges: twitchBadges })),
     ...build("kick", kickChannels, (ch) => new KickSource(ch, { ...kickOptsFor(ch), emotes })),
   ];
-  // X rides along ONLY with the viewer's own bearer token — streaming reads
-  // bill to their account, never the show's.
-  if (xQuery && xToken) {
-    const xs = new XSource(xQuery, { bearerToken: xToken });
-    xs._platform = "x";
-    xs.on("message", (msg) => send(msg));
-    xs.on("status", () =>
-      send({ type: "status", source: "x", connected: xs.connected, channel: xQuery })
-    );
-    xs.on("error", () => {});
-    ws._sources.push(xs);
-  }
+  // (The old per-viewer X stream — bring-your-own bearer token — is gone too;
+  // X live chat has no API and comes only from the bridge.)
   for (const s of ws._sources) s.start();
 }
 

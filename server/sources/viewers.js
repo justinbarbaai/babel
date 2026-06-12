@@ -127,42 +127,8 @@ function kickViewersScrape(slug) {
   });
 }
 
-// Total X "views" (impression_count) across the most recent posts matching the
-// query. This is cumulative reach, not concurrent viewers, so it's reported
-// separately. Uses recent-search (a paid endpoint), so callers should poll it
-// on a slow cadence. Returns null when X isn't configured.
-function buildXRule(query) {
-  const handle = String(query || "").trim().match(/^@?(\w{1,15})$/);
-  // A bare handle → impressions on that account's own posts (its reach), not
-  // every post that merely mentions it.
-  if (handle) return `from:${handle[1]}`;
-  return String(query || "").trim();
-}
-
-export async function fetchXViews(query, bearerToken, maxResults = 25) {
-  const q = buildXRule(query);
-  if (!q || !bearerToken) return null;
-  const params = new URLSearchParams({
-    query: q,
-    max_results: String(Math.min(Math.max(maxResults, 10), 100)),
-    "tweet.fields": "public_metrics",
-  });
-  const res = await fetch(`https://api.x.com/2/tweets/search/recent?${params}`, {
-    headers: { Authorization: `Bearer ${bearerToken}` },
-  });
-  if (!res.ok) throw new Error(`X views request failed (${res.status})`);
-  const json = await res.json();
-  let views = 0;
-  let posts = 0;
-  for (const t of json?.data || []) {
-    const n = t?.public_metrics?.impression_count;
-    if (typeof n === "number") {
-      views += n;
-      posts += 1;
-    }
-  }
-  return { enabled: true, views, posts, updatedAt: Date.now() };
-}
+// (fetchXViews — the paid recent-search impressions sum — is gone: impressions
+// aren't viewers. The X number now comes only from the X Bridge's live count.)
 
 // ---- X (Twitter) live broadcast concurrent viewers ----
 // X's native "Live" broadcasts run on the old Periscope backend. The official
