@@ -8215,6 +8215,10 @@ body.panel-dragging iframe {
 .room-grid[data-stream="0"] .rp-chat { width: auto; flex: 1; min-height: 0; }
 .room-grid[data-stream="0"] .rp-index { flex: 1; min-height: 0; }
 .room-grid[data-stream="0"] .rp-index .rp-body { flex: 1; }
+/* chat is the on-stream feature now → read it bigger/cleaner; biggest when it's
+   the ONLY panel (pure aggregated chat to throw on the broadcast). */
+.room-grid[data-stream="0"] .rp-chat .cf-root { font-size: 15px; }
+.room-grid[data-stream="0"][data-index="0"] .rp-chat .cf-root { font-size: 16.5px; line-height: 1.45; }
 .room-grid[data-stream="0"] .rp-body-index .term-index-num { font-size: 30px; }
 .room-grid[data-stream="0"] .rp-body-index .term-vol {
   grid-template-columns: 1fr;          /* stack the 3 stats in the narrow rail */
