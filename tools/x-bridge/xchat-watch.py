@@ -5,13 +5,18 @@ Market Bubble — all at once) and OCRs each chat panel on-device, pushing new
 lines to the hub to join the unified Twitch/Kick/X feed. Also reads each
 broadcast's "watching" count and pushes the total as the X live audience.
 
-Each broadcast must be the ACTIVE tab in its OWN Chrome window. Windows can be
-COMPLETELY hidden behind other apps — capture is by window id — but must not
-be minimized or moved to another desktop/Space, and the display must be awake
-(the launcher runs under caffeinate for that).
+Each broadcast must be the ACTIVE tab in its OWN Chrome window.
 
-One-time: System Settings → Privacy & Security → Screen Recording → enable
-Terminal. Then run ./xchat-watch.command
+Capture comes from the MBCapture helper app (persistent ScreenCaptureKit
+streams, the OBS technique): windows can be fullscreen, on other desktops/
+Spaces, or buried behind anything. The ONLY forbidden state is MINIMIZED to
+the Dock — macOS stops maintaining a minimized window's image, for everyone.
+If the helper isn't running the bridge falls back to legacy `screencapture`,
+which additionally needs the windows on the CURRENT desktop, not fullscreen.
+
+One-time setup: System Settings → Privacy & Security → Screen Recording →
+enable MBCapture (and Terminal for the fallback). Then ./xchat-watch.command
+(the launcher starts MBCapture automatically).
 """
 import subprocess, sys, json, re, time, os, urllib.request
 
@@ -35,6 +40,7 @@ UI = re.compile(r"^(ask gemini|chat|subscribe|resubscribe|send a message|follow|
                 r"\.\.\.|los angeles|new york|-? ?polymarket|bubbl|bubh|ubl|sign up|copy the best|\W*)$", re.I)
 JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain|not constitute|"
                   r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
+                  r"this broadcast has ended|"
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
 WATCHING = re.compile(r"([\d.,]+\s*[KkMm]?)\s*watching", re.I)
 # Short cycle = small frequent batches; the hub drips each batch out one message
@@ -99,9 +105,32 @@ def title_label(title):
             return label
     return None
 
+MBCAP = "/tmp/mbcap"
+def mbcap_meta():
+    """MBCapture helper's captured-window list — None when the helper is dead
+    (meta.json stale). The helper rewrites meta every cycle (~3s)."""
+    try:
+        p = MBCAP + "/meta.json"
+        if time.time() - os.path.getmtime(p) > 20: return None
+        with open(p) as f: return json.load(f)
+    except Exception:
+        return None
+
 def capture_targets():
-    """Each open broadcast window → CGWindow id + bounds + broadcast id + title label.
-    Window ids are re-resolved EVERY cycle, so reopened windows just work."""
+    """Each open broadcast window → window id + broadcast id + title label.
+    Re-resolved EVERY cycle, so reopened windows just work.
+
+    Preferred source: the MBCapture helper (works across Spaces/fullscreen).
+    Its titles are complete (the window server truncates), so title
+    identification is reliable and we skip the AppleScript URL read entirely.
+    Fallback: window-server list + screencapture (same-desktop only)."""
+    meta = mbcap_meta()
+    if meta is not None:
+        return [{"id": m["id"], "w": m["w"], "h": m["h"], "bid": m["id"],
+                 "tlabel": title_label(m.get("title")),
+                 "png": f"{MBCAP}/{m['id']}.png", "frame_t": m.get("t", 0)}
+                for m in meta
+                if m["w"] >= 700 and m["h"] >= 450 and is_broadcast_title(m.get("title"))]
     wins = chrome_windows()
     big = [w for w in wins if w["w"] >= 700 and w["h"] >= 450]
     bw = broadcast_windows()
@@ -118,9 +147,14 @@ def capture_targets():
     return targets
 
 def capture(w):
-    """Capture by window id ONLY. No region fallback: when -l fails the window
-    is minimized / on another desktop / display asleep, and a region grab would
-    OCR whatever happens to be on the current screen — junk in the site chat."""
+    """MBCapture targets carry their frame path — the helper already captured
+    them (atomic rename, safe to read). Legacy targets go through
+    `screencapture` by window id ONLY. No region fallback: when -l fails the
+    window is minimized / on another desktop / display asleep, and a region
+    grab would OCR whatever happens to be on the current screen — junk in the
+    site chat."""
+    if w.get("png"):
+        return w["png"] if os.path.exists(w["png"]) else None
     shot = "/tmp/mb_xcap.png"
     try: os.remove(shot)
     except OSError: pass
@@ -130,9 +164,37 @@ def capture(w):
 def ocr(png):
     try:
         out = subprocess.run([OCR, png], capture_output=True, text=True, timeout=30).stdout
-        return json.loads(out)
+        return stitch_rows(json.loads(out))
     except Exception:
         return []
+
+def stitch_rows(lines, ytol=0.008, gap=0.02):
+    """Vision (especially tiled over wide frames) splits one visual row —
+    'Adam McBride ✓ @adamamcbride' — into adjacent fragments. Cluster lines
+    that sit on the same y, order each cluster by x, and re-join fragments
+    that nearly touch, so the parser sees rows the way single-pass OCR
+    returned them. Distant fragments (video captions, Following buttons,
+    panel padding) stay separate lines."""
+    lines = sorted(lines, key=lambda l: l.get("y", 0))
+    out, i = [], 0
+    while i < len(lines):
+        cluster = [lines[i]]
+        j = i + 1
+        while j < len(lines) and lines[j].get("y", 0) - cluster[-1].get("y", 0) < ytol:
+            cluster.append(lines[j]); j += 1
+        i = j
+        cluster.sort(key=lambda l: l.get("x", 0))
+        merged = [dict(cluster[0])]
+        for l in cluster[1:]:
+            prev = merged[-1]
+            if 0 <= l.get("x", 0) - (prev["x"] + prev.get("w", 0)) < gap:
+                prev["text"] += " " + l["text"]
+                prev["w"] = (l["x"] + l.get("w", 0)) - prev["x"]
+            else:
+                merged.append(dict(l))
+        out.extend(merged)
+    out.sort(key=lambda l: l.get("y", 0))
+    return out
 
 _bc_cache = {}
 ANCHOR = re.compile(r"started|subscribe|follow|\bago\b|\blive\b", re.I)
@@ -142,8 +204,11 @@ def broadcaster_of(lines, bid=None, tlabel=None):
          Follow anchor (the host card; not the watermark, not the title)
       2. the cache from an earlier frame where the card was visible
       3. the window title — LAST because broadcast titles often mention the
-         other hosts ("LIVE WITH BANKS" on Ansem's stream would mislabel it)."""
-    left = [l for l in lines if l.get("x", 1) < 0.58]
+         other hosts ("LIVE WITH BANKS" on Ansem's stream would mislabel it).
+    "Left" = everything left of the chat column, derived from the frame itself:
+    a fixed 0.58 misses the host card on fullscreen windows (wider video)."""
+    col = chat_column_start(lines)
+    left = [l for l in lines if l.get("x", 1) < col - 0.02]
     for i, l in enumerate(left):
         m = HANDLE.search(l["text"])
         if not m or m.group(1).lower() not in BROADCASTERS: continue
@@ -158,9 +223,11 @@ def broadcaster_of(lines, bid=None, tlabel=None):
     return tlabel
 
 def watching_count(lines):
-    """The broadcast's live "N watching" count, read off the left column."""
+    """The broadcast's live "N watching" count, read off the video side
+    (anything left of the chat column — fullscreen pushes it past 0.6)."""
+    col = chat_column_start(lines)
     for l in lines:
-        if l.get("x", 1) < 0.6:
+        if l.get("x", 1) < col - 0.02:
             m = WATCHING.search(l["text"])
             if m:
                 n = parse_count(m.group(1))
@@ -237,6 +304,7 @@ class Hud:
         self.push_err = None
         self.started = time.time()
         self.pushed_total = 0
+        self.mbcap = False  # capturing via the MBCapture helper?
 
     def event(self, line):
         self.events.append(time.strftime("%H:%M:%S ") + line)
@@ -245,16 +313,22 @@ class Hud:
     def draw(self, capturing):
         now = time.time()
         out = ["\x1b[2J\x1b[H"]  # clear + home
+        mode = ("MBCapture · fullscreen/any desktop OK, just not minimized" if self.mbcap
+                else "LEGACY · windows must be on THIS desktop, not fullscreen/minimized")
         out.append("MARKET BUBBLE — X BRIDGE        up %dm · pushed %d msgs · hub %s" % (
             (now - self.started) // 60, self.pushed_total, HUB.split("//")[1]))
+        out.append("  capture: " + mode)
         out.append("─" * 72)
         if not self.streams:
             out.append("  (no broadcast windows found — open each X broadcast in its OWN")
-            out.append("   Chrome window; hidden behind other apps is fine, minimized is not)")
+            out.append("   Chrome window; fullscreen/hidden is fine, minimized is not)")
         for label, s in sorted(self.streams.items()):
             age = (now - s["last_msg"]) if s["last_msg"] else None
+            frozen = s.get("frozen")
             if not s["ok"]:
                 icon, note = "❌", "WINDOW LOST — reopen the broadcast window"
+            elif frozen:
+                icon, note = "⚠️ ", f"frames frozen {int(frozen)}s — window MINIMIZED? un-minimize it (fullscreen is fine)"
             elif age is None:
                 icon, note = "⚠️ ", "capturing, no chat read yet"
             elif age > 120:
@@ -280,6 +354,14 @@ def main():
     hud.event(f"bridge started → {HUB}")
     while True:
         try:
+            mb = mbcap_meta() is not None
+            if mb != hud.mbcap:
+                hud.mbcap = mb
+                if mb:
+                    hud.event("✅ MBCapture helper online — fullscreen/any-desktop capture")
+                else:
+                    hud.event("❌ MBCapture helper DOWN — legacy capture: windows must be on THIS desktop")
+                    notify("MBCapture helper stopped — X windows must be on the current desktop!")
             targets = capture_targets()
             # mark streams whose windows vanished; notice the ones that came back
             live_labels = set()
@@ -300,6 +382,14 @@ def main():
                     hud.event(f"✅ {label} window is back")
                     notify(f"{label} stream window is back")
                 st["win"] = w["id"]
+                # MBCapture frame age: a live chat always moves, so frames that
+                # stop for 90s+ mean the window was minimized (or the page died).
+                frame_age = (time.time() - w["frame_t"]) if w.get("frame_t") else 0
+                was_frozen = st.get("frozen")
+                st["frozen"] = frame_age if frame_age > 90 else None
+                if st["frozen"] and not was_frozen:
+                    hud.event(f"⚠️ {label} frames frozen — window minimized? un-minimize it")
+                    notify(f"{label} window frames frozen — minimized? Un-minimize it (fullscreen is fine)")
                 n = watching_count(lines)
                 if n: st["watching"] = n
                 total_watching += st["watching"]

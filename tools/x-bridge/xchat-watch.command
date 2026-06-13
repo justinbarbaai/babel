@@ -2,9 +2,23 @@
 cd "$(dirname "$0")"
 [ -x ./ocr ]     || { echo "Building OCR…";     swiftc -O ocr.swift -o ocr; }
 [ -x ./winfind ] || { echo "Building winfind…"; swiftc -O winfind.swift -o winfind; }
+
+# MBCapture: the ScreenCaptureKit helper that photographs the X broadcast
+# windows wherever they live — fullscreen, other desktops, buried. Without it
+# the bridge falls back to screencapture (same-desktop only). Install once to
+# /Applications; grant Screen Recording in System Settings on first run.
+if [ ! -d /Applications/MBCapture.app ] && [ -d ./MBCapture.app ]; then
+  echo "Installing MBCapture helper to /Applications…"
+  cp -R ./MBCapture.app /Applications/MBCapture.app
+fi
+if [ -d /Applications/MBCapture.app ] && ! pgrep -qf "MBCapture.app/Contents/MacOS/MBCapture"; then
+  echo "Starting MBCapture helper…"
+  open -g /Applications/MBCapture.app
+fi
+
 echo "Market Bubble — X chat bridge (window capture)"
-echo "Each X broadcast in its OWN Chrome window (active tab). Hidden behind"
-echo "other apps is fine — just don't minimize them or move them to another desktop."
+echo "Each X broadcast in its OWN Chrome window (active tab). Fullscreen, other"
+echo "desktops, or buried behind apps is all fine — just NEVER minimize them."
 # remember the key so you only ever enter it once
 if [ -f .ingest-key ]; then
   KEY="$(cat .ingest-key)"
