@@ -19,7 +19,7 @@ import {
   type TwitchAuth,
 } from "../lib/twitchAuth";
 
-const SOURCES: SourceKey[] = ["twitch", "kick", "x"];
+const SOURCES: SourceKey[] = ["twitch", "kick"];
 
 const clean = (s: string) => s.replace(/^@/, "").trim();
 
@@ -36,7 +36,6 @@ function ControlPanel() {
     messages,
     statuses,
     hubConnected,
-    xEnabled,
     kickEnabled,
     kickConnected,
     serverChannels,
@@ -46,44 +45,14 @@ function ControlPanel() {
     hubHttpUrl,
   } = useHub();
 
-  // The show = Banks on Twitch + Ansem on Kick, both on X. Connecting / setting
-  // any of these merges its chat into the single feed everyone sees.
+  // The show = Banks on Twitch + Ansem on Kick. Connecting either merges its
+  // chat into the one feed everyone sees. X chat arrives through the bridge
+  // (the switch below), so X needs no setup here.
   const [banksTwitch, setBanksTwitch] = useState("fazebanks");
-  const [banksX, setBanksX] = useState("Banks");
   const [ansemKick, setAnsemKick] = useState("ansem");
-  const [ansemX, setAnsemX] = useState("blknoiz06");
 
   const [twitch, setTwitch] = useState<string[]>([]);
   const [kick, setKick] = useState<string[]>([]);
-  const [xQuery, setXQuery] = useState("");
-  const [xLiveHandle, setXLiveHandle] = useState("");
-  // Manual X live-viewer count + ingest key — X walls off every automated
-  // path, so the operator pushes the number they see on x.com straight to the
-  // hub (it broadcasts to every viewer's X bar).
-  const [xLiveOn, setXLiveOn] = useState(false);
-  const [xLiveCount, setXLiveCount] = useState("");
-  const [xLiveKey, setXLiveKey] = useState("");
-  const [xLiveStatus, setXLiveStatus] = useState("");
-  useEffect(() => {
-    try { setXLiveKey(localStorage.getItem("mb.ingestKey") || ""); } catch {}
-  }, []);
-  const pushXLive = async (live: boolean, count: number) => {
-    const key = xLiveKey.trim();
-    if (!key) { setXLiveStatus("Paste your ingest key first."); return; }
-    try { localStorage.setItem("mb.ingestKey", key); } catch {}
-    try {
-      const res = await fetch(`${hubHttpUrl}/ingest/xlive`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-ingest-key": key },
-        body: JSON.stringify({ live, viewers: count }),
-      });
-      const j = await res.json();
-      setXLiveStatus(j?.ok ? (live ? `Pushed — ${count.toLocaleString()} live` : "X set offline") : (j?.error || "failed"));
-    } catch {
-      setXLiveStatus("Can't reach the hub.");
-    }
-  };
-  const [xToken, setXToken] = useState("");
   const [seeded, setSeeded] = useState(false);
 
   // Guest streamers — connect a Twitch or Kick channel (not X) and their chat
@@ -121,13 +90,8 @@ function ControlPanel() {
     if (serverChannels && !seeded) {
       setTwitch(serverChannels.twitch);
       setKick(serverChannels.kick);
-      setXQuery(serverChannels.xQuery);
-      setXLiveHandle(serverChannels.xLiveHandle ?? "");
       if (serverChannels.twitch[0]) setBanksTwitch(serverChannels.twitch[0]);
       if (serverChannels.kick[0]) setAnsemKick(serverChannels.kick[0]);
-      const froms = (serverChannels.xQuery.match(/from:(\w+)/gi) || []).map((m) => m.slice(5));
-      if (froms[0]) setBanksX(froms[0]);
-      if (froms[1]) setAnsemX(froms[1]);
       setSeeded(true);
     }
   }, [serverChannels, seeded]);
@@ -136,28 +100,21 @@ function ControlPanel() {
   const cleanKick = useMemo(() => kick.map(clean).filter(Boolean), [kick]);
 
   const previewOptions: OverlayOptions = useMemo(
-    () => ({ ...SITE_DEFAULT_LOOK, twitch: cleanTwitch, kick: cleanKick, xQuery }),
-    [cleanTwitch, cleanKick, xQuery]
+    () => ({ ...SITE_DEFAULT_LOOK, twitch: cleanTwitch, kick: cleanKick, xQuery: "" }),
+    [cleanTwitch, cleanKick]
   );
 
   // Merge everything that's set/connected — hosts + guests — into one feed.
+  // X chat is handled separately by the bridge, not the channel config.
   const applyHosts = () => {
-    const xHandles = [banksX, ansemX].map(clean).filter(Boolean);
-    const xq = xHandles.map((h) => `from:${h}`).join(" OR ");
     const guestTw = guests.filter((g) => g.platform === "twitch").map((g) => clean(g.channel));
     const guestKk = guests.filter((g) => g.platform === "kick").map((g) => clean(g.channel));
     const tw = [...new Set([clean(banksTwitch), ...guestTw].filter(Boolean))];
     const kk = [...new Set([clean(ansemKick), ...guestKk].filter(Boolean))];
     setTwitch(tw);
     setKick(kk);
-    setXQuery(xq);
-    const live = xLiveHandle || clean(banksX);
-    setXLiveHandle(live);
-    applyChannels({ twitch: tw, kick: kk, xQuery: xq, xLiveHandle: live }, xToken);
+    applyChannels({ twitch: tw, kick: kk, xQuery: "" });
   };
-
-  const saveXAccess = () =>
-    applyChannels({ twitch: cleanTwitch, kick: cleanKick, xQuery, xLiveHandle }, xToken);
 
   // ---- connect controls (rendered inside the platform blocks) ----
   const twitchConnect: ReactNode = twAuth ? (
@@ -191,10 +148,6 @@ function ControlPanel() {
     </p>
   );
 
-  const xConnect: ReactNode = (
-    <p className="acct-note">Posts arrive via the X API token — set it under <b>X access</b> below.</p>
-  );
-
   return (
     <div className="console">
       <header className="topbar">
@@ -225,16 +178,15 @@ function ControlPanel() {
       {/* live source status */}
       <div className="statusrow">
         {SOURCES.map((src) => {
-          const disabled = src === "x" && !xEnabled;
-          const on = statuses[src].connected && !disabled;
+          const on = statuses[src].connected;
           return (
             <div className={`statuscard ${on ? "live" : "down"}`} key={src} data-source={src}>
-              <span className="sc-logo" style={{ color: src === "x" ? "var(--text)" : srcColor(src) }}>
+              <span className="sc-logo" style={{ color: srcColor(src) }}>
                 <SourceLogo source={src} size={18} />
               </span>
               <div className="sc-meta">
                 <div className="sc-name">{SOURCE_LABELS[src]}</div>
-                <div className="sc-target">{disabled ? "no API token" : statuses[src].channel || "—"}</div>
+                <div className="sc-target">{statuses[src].channel || "—"}</div>
               </div>
               <span className={`dot ${on ? "on" : "off"}`} />
             </div>
@@ -250,7 +202,7 @@ function ControlPanel() {
 
       {/* host account cards — connect + channel, the one place the feed is built */}
       <div className="host-grid">
-        <HostAccountCard name="Banks" role="Host" avatarHandle={banksX}>
+        <HostAccountCard name="Banks" role="Host" avatarHandle="Banks">
           <PlatformBlock
             source="twitch"
             value={banksTwitch}
@@ -260,18 +212,9 @@ function ControlPanel() {
             stateLabel={twAuth ? "Connected" : "Not connected"}
             connect={twitchConnect}
           />
-          <PlatformBlock
-            source="x"
-            value={banksX}
-            onChange={setBanksX}
-            placeholder="Banks"
-            on={xEnabled}
-            stateLabel={xEnabled ? "API on" : "No token"}
-            connect={xConnect}
-          />
         </HostAccountCard>
 
-        <HostAccountCard name="Ansem" role="Co-host" avatarHandle={ansemX}>
+        <HostAccountCard name="Ansem" role="Co-host" avatarHandle="blknoiz06">
           <PlatformBlock
             source="kick"
             value={ansemKick}
@@ -280,15 +223,6 @@ function ControlPanel() {
             on={kickConnected}
             stateLabel={kickConnected ? "Connected" : "Not connected"}
             connect={kickConnect}
-          />
-          <PlatformBlock
-            source="x"
-            value={ansemX}
-            onChange={setAnsemX}
-            placeholder="blknoiz06"
-            on={xEnabled}
-            stateLabel={xEnabled ? "API on" : "No token"}
-            connect={xConnect}
           />
         </HostAccountCard>
 
@@ -311,77 +245,10 @@ function ControlPanel() {
       <div className="host-apply">
         <button className="btn btn-gold" onClick={applyHosts}>Apply &amp; merge chat</button>
         <span className="muted small">
-          Merges every connected account — Banks (Twitch) + Ansem (Kick) + both on X — into the one
-          chat everyone sees.
+          Merges every connected account — Banks (Twitch) + Ansem (Kick) + guests — into the one
+          chat everyone sees. X chat comes in through the bridge above.
         </span>
       </div>
-
-      {/* X access (credential only) */}
-      <section className="card">
-        <h2 className="card-title">X access</h2>
-        <p className="muted small" style={{ marginTop: 0 }}>
-          The X API token that powers posts &amp; live views. The handles themselves live on the host
-          cards above.
-        </p>
-        <div className="fields">
-          <Field
-            label="X bearer token (enables X)"
-            value={xToken}
-            onChange={setXToken}
-            type="password"
-            placeholder={xEnabled ? "X enabled — paste a token to replace" : "paste your X API bearer token"}
-            hint={xEnabled ? "X is connected. Token stays server-side, never in any link." : "Paste your X bearer token to turn on X (kept server-side)."}
-          />
-          <Field
-            label="X live account (viewer count)"
-            value={xLiveHandle}
-            onChange={setXLiveHandle}
-            placeholder="e.g. banks"
-            hint="The X account whose live broadcast viewer count shows on the site."
-          />
-          <button className="btn btn-gold" onClick={saveXAccess}>Save X access</button>
-        </div>
-
-        <h2 className="card-title" style={{ marginTop: 22 }}>X live viewers (manual)</h2>
-        <p className="muted small" style={{ marginTop: 0 }}>
-          X removed every public way to read a live broadcast&apos;s viewer count, so set it here:
-          type the number you see on x.com and push it — it shows on everyone&apos;s X bar instantly.
-        </p>
-        <div className="fields">
-          <Field
-            label="Ingest key"
-            value={xLiveKey}
-            onChange={setXLiveKey}
-            type="password"
-            placeholder="paste the ingest key"
-            hint="Separate from the operator key. Stored on this device."
-          />
-          <Field
-            label="Live viewer count"
-            value={xLiveCount}
-            onChange={setXLiveCount}
-            placeholder="e.g. 4368"
-          />
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              className="btn btn-gold"
-              onClick={() => { const n = parseInt(xLiveCount.replace(/[^\d]/g, ""), 10) || 0; setXLiveOn(true); pushXLive(true, n); }}
-            >
-              Push live count
-            </button>
-            <button
-              className="btn btn-ghost"
-              onClick={() => { setXLiveOn(false); pushXLive(false, 0); }}
-            >
-              Set offline
-            </button>
-            {xLiveStatus && <span className="muted small">{xLiveStatus}</span>}
-          </div>
-          <p className="muted small" style={{ margin: 0 }}>
-            The pushed number stays live for 90s, so re-push every minute or so during the show.
-          </p>
-        </div>
-      </section>
 
       {/* live chat preview */}
       <section className="card preview-card">
@@ -509,40 +376,6 @@ function PlatformBlock({
         spellCheck={false}
       />
       <div className="acct-connect">{connect}</div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  onKeyDown,
-  placeholder,
-  hint,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent) => void;
-  placeholder?: string;
-  hint?: string;
-  type?: string;
-}) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        autoComplete={type === "password" ? "off" : undefined}
-        spellCheck={false}
-      />
-      {hint && <span className="field-hint">{hint}</span>}
     </div>
   );
 }
