@@ -413,6 +413,15 @@ def main():
                 xerr = post_xlive(total_watching)
                 if xerr and not err: hud.push_err = xerr
             hud.draw(len(targets))
+            # publish state for the local control panel (mbpanel.py)
+            try:
+                with open("/tmp/mb_bridge_state.json.tmp", "w") as f:
+                    json.dump({"streams": hud.streams, "events": hud.events,
+                               "mbcap": hud.mbcap, "pushed": hud.pushed_total,
+                               "push_err": hud.push_err, "started": hud.started,
+                               "t": time.time()}, f)
+                os.replace("/tmp/mb_bridge_state.json.tmp", "/tmp/mb_bridge_state.json")
+            except Exception: pass
         except KeyboardInterrupt:
             print("\nstopped.")
             return
