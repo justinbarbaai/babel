@@ -41,6 +41,62 @@ def helper_running():
     return subprocess.run(["pgrep", "-f", "MBCapture.app/Contents/MacOS/MBCapture"],
                           capture_output=True).returncode == 0
 
+# ---- MBCapture self-healing ----
+# A long-running MBCapture can go stale and silently stop capturing new windows
+# (seen after 7h). So we (a) ALWAYS start a fresh one when capture turns on, and
+# (b) a watchdog restarts it if it dies, stalls (meta stops updating), or goes
+# blind (Chrome windows are open but it captures none).
+META_FILE = "/tmp/mbcap/meta.json"
+_helper_started_at = 0.0
+
+def start_helper_fresh():
+    """Kill any (possibly stale) MBCapture and launch a clean one."""
+    global _helper_started_at
+    subprocess.run(["pkill", "-f", "MBCapture.app/Contents/MacOS/MBCapture"], capture_output=True)
+    time.sleep(1)
+    if os.path.isdir(HELPER):
+        subprocess.run(["open", "-g", HELPER], capture_output=True)
+    _helper_started_at = time.time()
+
+def _x_page_windows():
+    """Count big windows that look like X pages (what MBCapture should be
+    capturing). Counting ALL big windows would false-flag 'blind' whenever a
+    non-X window is open."""
+    try:
+        ws = json.loads(subprocess.run([os.path.join(HERE, "winfind")],
+                        capture_output=True, text=True, timeout=5).stdout or "[]")
+        n = 0
+        for w in ws:
+            if w.get("w", 0) < 700 or w.get("h", 0) < 450: continue
+            t = (w.get("title") or "").lower().strip()
+            if t == "x" or "/ x" in t or t.endswith("· x"): n += 1
+        return n
+    except Exception:
+        return 0
+
+def _meta_count():
+    try:
+        return len(json.load(open(META_FILE)))
+    except Exception:
+        return -1   # missing / unreadable
+
+def helper_healthy():
+    """Running AND actually capturing. False if dead, stalled (meta.json stops
+    updating ~every 3s), or blind (big Chrome windows up but it captures none).
+    A grace window after a fresh start avoids restart thrash during warm-up."""
+    if not helper_running():
+        return False
+    if time.time() - _helper_started_at < 15:
+        return True
+    try:
+        if time.time() - os.path.getmtime(META_FILE) > 15:
+            return False     # loop stalled
+    except OSError:
+        return False         # not writing frames at all
+    if _x_page_windows() > 0 and _meta_count() == 0:
+        return False         # blind: X pages are open but it captures none
+    return True
+
 
 def read_key():
     try:
@@ -137,15 +193,19 @@ def bridge_state():
         return None
 
 
-def start_bridge():
+def start_bridge(fresh_helper=True):
     global bridge, caff, desired_on
     with lock:
         desired_on = True
         if bridge and bridge.poll() is None: return "already running"
         key = read_key()
         if not key: return "no ingest key saved"
-        if os.path.isdir(HELPER) and not helper_running():
-            subprocess.run(["open", "-g", HELPER])
+        # Capture turning on → always a CLEAN MBCapture (never inherit a stale
+        # one). The watchdog's bridge-only restarts pass fresh_helper=False.
+        if fresh_helper:
+            start_helper_fresh()
+        elif not helper_healthy():
+            start_helper_fresh()
         try: os.remove(STATE)
         except OSError: pass
         env = dict(os.environ, MB_INGEST_KEY=key)
@@ -174,11 +234,17 @@ def stop_bridge():
 
 
 def watchdog():
-    """If the switch is ON and the bridge died, bring it back (5s backoff)."""
+    """While capture is ON, keep both halves alive: restart MBCapture if it
+    dies/stalls/goes blind (heals the long-run-stale bug on its own, ~10s), and
+    restart the bridge if it crashes — without needlessly churning the helper."""
     while True:
         time.sleep(5)
-        if desired_on and (bridge is None or bridge.poll() is not None):
-            start_bridge()
+        if not desired_on:
+            continue
+        if not helper_healthy():
+            start_helper_fresh()
+        if bridge is None or bridge.poll() is not None:
+            start_bridge(fresh_helper=False)
 
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8">
