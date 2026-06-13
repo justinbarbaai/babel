@@ -94,11 +94,33 @@ function detectBroadcaster() {
   return broadcaster;
 }
 
+// Only ever scrape on a live-broadcast page. The content script is injected on
+// ALL of x.com, so without this it would read the right-rail "who to follow"
+// panel on the regular timeline as if it were chat. X is a SPA, so this is
+// re-checked every cycle (not just at load).
+function onBroadcast() {
+  return /^\/i\/broadcasts\/[A-Za-z0-9]+/.test(location.pathname);
+}
+// When the tab moves to a different broadcast (SPA nav), forget the cached host
+// and the seen-set so the new broadcast attributes cleanly.
+let activeBid = null;
+function syncBroadcast() {
+  const m = location.pathname.match(/^\/i\/broadcasts\/([A-Za-z0-9]+)/);
+  const bid = m ? m[1] : null;
+  if (bid !== activeBid) {
+    activeBid = bid;
+    broadcaster = null;
+    seenChat.clear();
+    chatQueue.length = 0;
+  }
+}
+
 // Scan the panel for single-message rows (exactly ONE @handle + a username link)
 // and queue any we haven't seen. Periodic scan is robust to X virtualizing the
 // list (recycled DOM nodes) — a MutationObserver alone misses those.
 function scanChat() {
-  if (!cfg.enabled) return;
+  if (!cfg.enabled || !onBroadcast()) return; // never scrape the regular timeline
+  syncBroadcast();     // reset caches if the tab changed broadcasts
   detectBroadcaster(); // cheap once cached; catches the host card while it's up
   // Chat lives in the right-hand column. Pick rows there that are a SINGLE
   // message (exactly one @handle) with a username link — verified robust on a
@@ -142,6 +164,12 @@ function setBadge(text, ok) {
 let lastCount = null, chatSent = 0;
 async function tick() {
   if (!cfg.enabled) { if (badge) badge.remove(), (badge = null); return; }
+  if (!onBroadcast()) {
+    // enabled, but the user is browsing regular Twitter — stay idle, push nothing
+    chatQueue.length = 0;
+    setBadge("MB X Bridge ○\nidle — open a broadcast", false);
+    return;
+  }
   const count = findViewerCount();
   const channel = detectBroadcaster();
   // tag each message with the broadcast it came from so the site shows the
