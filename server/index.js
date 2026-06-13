@@ -132,7 +132,7 @@ let lastXchatAt = 0; // when the X Bridge last pushed chat (health strip)
 // so a bug here cannot affect the live show feed.
 let agentState = null; // last status the agent reported: { status, ts }
 let agentCommands = []; // queue of commands awaiting the agent's next heartbeat
-const AGENT_CMDS = new Set(["start", "stop", "open", "auto_on", "auto_off"]);
+const AGENT_CMDS = new Set(["start", "stop", "open", "open_profiles", "auto_on", "auto_off"]);
 const X_BROADCAST = /^https:\/\/(x|twitter)\.com\/\S+$/i;
 // "The show is live" = any tracked Twitch/Kick channel is live (the show
 // simulcasts, so this also means the X broadcast is live). The agent uses this

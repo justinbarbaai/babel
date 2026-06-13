@@ -262,6 +262,8 @@ code {
 .bc-watch { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .bc-openrow { display: flex; gap: 10px; }
 .bc-openrow .acct-input { flex: 1; }
+.bc-profiles { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bc-profiles .btn { flex: none; white-space: nowrap; }
 .bc-err { color: var(--down); }
 .bc-help { border-top: 1px solid var(--border); padding-top: 12px; }
 .bc-help > summary {

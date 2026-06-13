@@ -488,6 +488,7 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
 
   const toggle = () => { if (online && !busy && !auto) cmd(running ? "stop" : "start"); };
   const toggleAuto = () => { if (online && !busy) cmd(auto ? "auto_off" : "auto_on"); };
+  const openProfiles = () => { if (online && !busy) cmd("open_profiles"); };
   const openUrl = () => {
     const u = url.trim();
     if (!u || !online) return;
@@ -574,6 +575,13 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
           disabled={!online}
         />
         <button className="btn btn-gold" onClick={openUrl} disabled={!online || !url.trim()}>Open</button>
+      </div>
+      <div className="bc-profiles">
+        <button className="btn btn-ghost" onClick={openProfiles} disabled={!online}>Open host profiles</button>
+        <span className="muted small">
+          Opens Banks &amp; Ansem’s X pages on the show machine, ready for the live ring — click it to
+          enter the broadcast when they go live.
+        </span>
       </div>
       <p className="muted small" style={{ margin: 0 }}>
         Paste a broadcast link — it opens in its own window on the show machine. Fullscreen it after.

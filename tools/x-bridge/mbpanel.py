@@ -63,6 +63,30 @@ def open_broadcast(url):
     subprocess.run(["open", "-na", "Google Chrome", "--args", "--new-window", url])
     return True
 
+# The show's hosts — their PROFILE urls are stable (unlike the random per-
+# broadcast urls), so we can open them ahead of time. When a host goes live a
+# "LIVE" ring appears on their avatar; clicking it enters the broadcast and the
+# bridge captures it from there. Override with MB_HOSTS="Handle1,Handle2".
+HOSTS = [h.strip() for h in os.environ.get("MB_HOSTS", "Banks,blknoiz06").split(",") if h.strip()]
+def open_host_profiles():
+    """Open each host's X profile in its own window, ready for the live ring.
+    Skips any that already have a window open (best-effort, via winfind)."""
+    titles = ""
+    try:
+        wf = os.path.join(HERE, "winfind")
+        if os.path.exists(wf):
+            titles = subprocess.run([wf], capture_output=True, text=True, timeout=5).stdout.lower()
+    except Exception:
+        pass
+    opened = 0
+    for h in HOSTS:
+        if f"(@{h.lower()})" in titles or f"/{h.lower()}".lower() in titles:
+            continue  # a window for this handle looks already open
+        if open_broadcast(f"https://x.com/{h}"):
+            opened += 1
+            time.sleep(0.4)
+    return opened
+
 
 def hub_agent_loop():
     """Connect UP to the hub so Studio can drive this agent remotely. Every 2s
@@ -89,6 +113,7 @@ def hub_agent_loop():
             if a == "start": start_bridge()
             elif a == "stop": stop_bridge()
             elif a == "open": open_broadcast((cmd.get("url") or "").strip())
+            elif a == "open_profiles": open_host_profiles()
             elif a == "auto_on": auto_mode = True; save_auto(True)
             elif a == "auto_off": auto_mode = False; save_auto(False)
         # Auto mode: capture exactly while the show is live.
