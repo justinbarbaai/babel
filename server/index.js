@@ -160,6 +160,13 @@ let lastXchatAt = 0; // when X chat last arrived from EITHER source (health stri
 // never stops, and we never double up. Extension comes back → it takes over.
 let lastExtAt = 0;
 const EXT_FAILOVER_MS = 20000;
+// Extension heartbeat — the extension pings /ingest/xhb every ~5s it's alive on
+// a broadcast, INDEPENDENT of chat/count (a dead chat must not look like a dead
+// extension). lastExtSent = its cumulative chat-sent counter, so a watcher can
+// tell "alive but scraper stalled" (heartbeat fresh, sent not climbing) from a
+// genuine crash (no heartbeat at all). The bridge panel watches this to alarm.
+let lastExtHb = 0;
+let lastExtSent = 0;
 // ---- remote control of the local X-bridge agent (Studio → hub → agent) ----
 // The agent (mbpanel on the operator's Mac) heartbeats here with the ingest
 // key; Studio reads its status + queues commands with the operator key. This
@@ -545,6 +552,11 @@ const server = http.createServer(async (req, res) => {
           // seconds since the X Bridge last pushed chat; null = never (this boot)
           xchatAgoSec: lastXchatAt ? Math.round((now - lastXchatAt) / 1000) : null,
           xLiveAgoSec: lastXLiveAt ? Math.round((now - lastXLiveAt) / 1000) : null,
+          // extension dead-man's switch: seconds since its last heartbeat (null =
+          // never this boot) + its cumulative chat-sent counter. The bridge panel
+          // alarms when this goes stale while broadcasts are live.
+          extHbAgoSec: lastExtHb ? Math.round((now - lastExtHb) / 1000) : null,
+          extSent: lastExtSent,
         },
         viewersUpdatedAgoSec: lastViewersAt ? Math.round((now - lastViewersAt) / 1000) : null,
       })
@@ -724,6 +736,14 @@ const server = http.createServer(async (req, res) => {
     req.on("end", () => {
       let j = {};
       try { j = JSON.parse(body || "{}"); } catch {}
+      if (url.pathname === "/ingest/xhb") {
+        // extension liveness ping — fresh = the scraper is alive on a broadcast
+        lastExtHb = Date.now();
+        lastExtSent = Number(j.sent) || 0;
+        res.writeHead(200, { ...cors, "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
       if (url.pathname === "/ingest/xlive") {
         // one push per broadcast tab — key by host so the 3 accounts don't
         // overwrite each other; the bar sums them, the hover lists them.

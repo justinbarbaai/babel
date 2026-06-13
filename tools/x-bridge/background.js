@@ -14,6 +14,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const headers = { "content-type": "application/json", "x-ingest-key": key };
     let ok = true;
     try {
+      // Heartbeat — fires every tick (5s) the extension is alive on a broadcast,
+      // INDEPENDENT of chat or count. This is the dead-man's switch: if it stops,
+      // the extension crashed / the tab closed / the scraper hung, and the bridge
+      // panel raises a loud alarm so the operator reloads it. A quiet chat looks
+      // identical to a dead extension from the outside — only this tells them apart.
+      await fetch(`${base}/ingest/xhb`, {
+        method: "POST", headers,
+        body: JSON.stringify({ host: msg.host || null, sent: msg.sent || 0 }),
+      });
       // Only push a count when we know which broadcast it's for — a hostless
       // count would land under the fallback key and clash with the OCR bridge's
       // per-host entries (double-counting the bar).

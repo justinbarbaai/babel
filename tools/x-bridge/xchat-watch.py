@@ -42,6 +42,10 @@ JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain
                   r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
                   r"this broadcast has ended|"
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
+# OUR OWN extension's on-screen status badge ("MB X Bridge ● host: … views: …
+# chat sent: …") + the chat composer placeholder. The OCR reads pixels, so this
+# overlay would otherwise glue onto real messages. NEVER chat.
+BADGE = re.compile(r"mb\s*x\s*bridge|chat\s*sent|send a mess|^\s*host:\s|^\s*views?:\s*[-\d]", re.I)
 # The broadcast's live count is labelled "watching", "viewers", or "views"
 # depending on the broadcast — match any. Scoped to the VIDEO side (left of the
 # chat column) by the caller, so this never picks up a tweet's view count.
@@ -282,7 +286,7 @@ def parse(lines, source):
             # as its handle — OCR sometimes splits "Name ✓ @handle" in two)
             if nxt < len(txt) and abs(chat[k]["y"] - chat[nxt]["y"]) < 0.006: continue
             t = txt[k].strip()
-            if t and not UI.match(t) and not JUNK.search(t): body.append(t)
+            if t and not UI.match(t) and not JUNK.search(t) and not BADGE.search(t): body.append(t)
         # if the first body line is the chatter's own display name (short, no
         # sentence, often resembles the handle), drop it
         if len(body) > 1:
@@ -324,6 +328,34 @@ def notify(msg):
             f'display notification "{msg}" with title "MB X Bridge" sound name "Basso"'],
             capture_output=True, timeout=5)
     except Exception: pass
+
+# ---------------- extension dead-man's switch ----------------
+_ext_down = False
+_ext_seen = False
+def check_extension_alive(hud):
+    """Alarm when the browser EXTENSION dies mid-show. The extension pings the
+    hub every ~5s it's alive on a broadcast; if that heartbeat goes stale while
+    we're still capturing live broadcasts, it crashed / the tab closed / X broke
+    its layout. A dead chat looks identical to a dead extension from outside —
+    the heartbeat is the only thing that tells them apart. The OCR keeps chat
+    flowing meanwhile, but the operator MUST know to reload it. Only fires after
+    we've seen it alive, so an intentional OCR-only run never false-alarms."""
+    global _ext_down, _ext_seen
+    try:
+        r = json.loads(urllib.request.urlopen(HUB + "/status", timeout=5).read())
+        ago = r.get("bridge", {}).get("extHbAgoSec")
+    except Exception:
+        return
+    alive = ago is not None and ago <= 30
+    if alive: _ext_seen = True
+    if _ext_seen and not alive and not _ext_down:
+        _ext_down = True
+        hud.event("⚠️ X EXTENSION DOWN — RELOAD IT! (OCR backup is covering chat)")
+        notify("X EXTENSION DOWN — reload the browser extension! Backup is covering chat.")
+    elif alive and _ext_down:
+        _ext_down = False
+        hud.event("✅ X extension recovered")
+        notify("X extension is back up")
 
 # ---------------- live terminal HUD ----------------
 class Hud:
@@ -475,6 +507,9 @@ def main():
                     e = post_xlive(label, w)
                     if e: xerr = e
             if xerr and not err: hud.push_err = xerr
+            # only watch the extension while broadcasts are actually live (windows
+            # captured) — so closing everything at show's end doesn't false-alarm
+            if targets: check_extension_alive(hud)
             hud.draw(len(targets))
             # publish state for the local control panel (mbpanel.py)
             try:
