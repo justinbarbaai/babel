@@ -771,10 +771,14 @@ const server = http.createServer(async (req, res) => {
         const now2 = Date.now();
         const source = j.source === "ext" ? "ext" : "ocr";
         if (source === "ext") lastExtAt = now2;
-        else if (now2 - lastExtAt < EXT_FAILOVER_MS) {
-          // extension is live → ignore the OCR backup (no doubles)
+        // Suppress OCR chat while the extension is ALIVE (heartbeat fresh) — NOT
+        // merely while it's actively sending chat. A dead/quiet X chat means the
+        // live extension has nothing to push, but it still OWNS the chat; keying
+        // on chat freshness (lastExtAt) wrongly let the OCR's noise through on a
+        // silent chat. The heartbeat is the true "extension is covering it" signal.
+        else if (now2 - lastExtHb < EXT_FAILOVER_MS) {
           res.writeHead(200, { ...cors, "Content-Type": "application/json" });
-          res.end(JSON.stringify({ ok: true, pushed: 0, suppressed: "extension live" }));
+          res.end(JSON.stringify({ ok: true, pushed: 0, suppressed: "extension alive" }));
           return;
         }
         lastXchatAt = now2;
