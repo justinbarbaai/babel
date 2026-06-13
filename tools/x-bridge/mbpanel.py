@@ -25,6 +25,16 @@ bridge = None          # the xchat-watch.py subprocess
 caff = None            # the caffeinate subprocess
 desired_on = False
 lock = threading.Lock()
+AUTOFILE = os.path.join(HERE, ".auto")   # persisted Auto-mode flag
+def load_auto():
+    return os.path.exists(AUTOFILE)
+def save_auto(on):
+    try:
+        if on: open(AUTOFILE, "w").close()
+        else: os.remove(AUTOFILE)
+    except OSError: pass
+auto_mode = load_auto()   # follow the show going live, hands-off
+_last_live = 0.0          # last time the hub said the show was live
 
 
 def helper_running():
@@ -44,7 +54,7 @@ def snapshot():
     running = desired_on and bridge is not None and bridge.poll() is None
     return {"running": running, "helper": helper_running(),
             "key_saved": bool(read_key()), "bridge": bridge_state(),
-            "now": time.time()}
+            "auto": auto_mode, "now": time.time()}
 
 
 def open_broadcast(url):
@@ -57,8 +67,11 @@ def open_broadcast(url):
 def hub_agent_loop():
     """Connect UP to the hub so Studio can drive this agent remotely. Every 2s
     we heartbeat our status (authenticated with the ingest key) and run any
-    commands the hub hands back. Pure addition — the local panel still works,
-    and if the hub is unreachable we simply keep serving locally."""
+    commands the hub hands back. In Auto mode we also start/stop capture to
+    follow the show going live — no one touches the switch. Pure addition — the
+    local panel still works, and if the hub is unreachable we keep serving."""
+    global auto_mode, _last_live
+    STOP_GRACE = 120   # keep capturing this long after "live" drops, to ride out blips
     while True:
         time.sleep(2)
         key = read_key()
@@ -76,6 +89,18 @@ def hub_agent_loop():
             if a == "start": start_bridge()
             elif a == "stop": stop_bridge()
             elif a == "open": open_broadcast((cmd.get("url") or "").strip())
+            elif a == "auto_on": auto_mode = True; save_auto(True)
+            elif a == "auto_off": auto_mode = False; save_auto(False)
+        # Auto mode: capture exactly while the show is live.
+        if auto_mode:
+            now = time.time()
+            show_live = bool(resp.get("showLive"))
+            if show_live: _last_live = now
+            running = bridge is not None and bridge.poll() is None
+            if show_live and not running:
+                start_bridge()
+            elif not show_live and running and (now - _last_live) > STOP_GRACE:
+                stop_bridge()
 
 
 def bridge_state():

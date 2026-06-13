@@ -230,6 +230,17 @@ code {
 .bc-switch.on { background: var(--up); border-color: var(--up); }
 .bc-switch.on::after { left: 39px; background: #fff; }
 .bc-switch.off-disabled { opacity: 0.45; cursor: not-allowed; }
+.bc-switches { display: flex; align-items: center; gap: 12px; }
+.bc-auto-pill {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--muted); transition: all 0.18s;
+}
+.bc-auto-pill .bc-auto-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.bc-auto-pill.on { border-color: var(--up); color: var(--text); background: color-mix(in srgb, var(--up) 12%, transparent); }
+.bc-auto-pill.on .bc-auto-dot { background: var(--up); box-shadow: 0 0 8px color-mix(in srgb, var(--up) 70%, transparent); }
+.bc-auto-pill.off-disabled { opacity: 0.45; cursor: not-allowed; }
 .bc-offline {
   border: 1px solid color-mix(in srgb, var(--down) 35%, var(--border));
   background: color-mix(in srgb, var(--down) 6%, transparent);

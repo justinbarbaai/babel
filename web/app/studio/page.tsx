@@ -391,6 +391,7 @@ type StreamRow = { last_msg: number; watching: number; ok: boolean; frozen: numb
 type AgentStatus = {
   running: boolean;
   helper: boolean;
+  auto: boolean;
   now: number;
   bridge: {
     streams: Record<string, StreamRow>;
@@ -470,8 +471,13 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
   const names = Object.keys(streams).sort();
 
   const fmtAge = (s: number) => (s < 90 ? `${Math.round(s)}s` : `${Math.round(s / 60)}m`);
+  const auto = !!status?.auto;
   const sub = !online
     ? "the capture app isn’t running on the show machine"
+    : auto
+    ? running
+      ? "Auto — the show is live, capturing"
+      : "Auto — waiting for the show to go live"
     : running
     ? fresh
       ? bridge?.mbcap
@@ -480,7 +486,8 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
       : "on — starting up…"
     : "off — nothing is being read or pushed";
 
-  const toggle = () => { if (online && !busy) cmd(running ? "stop" : "start"); };
+  const toggle = () => { if (online && !busy && !auto) cmd(running ? "stop" : "start"); };
+  const toggleAuto = () => { if (online && !busy) cmd(auto ? "auto_off" : "auto_on"); };
   const openUrl = () => {
     const u = url.trim();
     if (!u || !online) return;
@@ -495,12 +502,22 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
           <h2 className="card-title" style={{ margin: 0 }}>X chat bridge</h2>
           <span className="muted small">{sub}</span>
         </div>
-        <button
-          className={`bc-switch ${running ? "on" : ""} ${!online || busy ? "off-disabled" : ""}`}
-          onClick={toggle}
-          disabled={!online || busy}
-          aria-label={running ? "Turn bridge off" : "Turn bridge on"}
-        />
+        <div className="bc-switches">
+          <button
+            className={`bc-auto-pill ${auto ? "on" : ""} ${!online || busy ? "off-disabled" : ""}`}
+            onClick={toggleAuto}
+            disabled={!online || busy}
+            title="Auto-capture follows the show going live"
+          >
+            <span className="bc-auto-dot" /> Auto
+          </button>
+          <button
+            className={`bc-switch ${running ? "on" : ""} ${!online || busy || auto ? "off-disabled" : ""}`}
+            onClick={toggle}
+            disabled={!online || busy || auto}
+            aria-label={running ? "Turn bridge off" : "Turn bridge on"}
+          />
+        </div>
       </div>
 
       {!online && (
@@ -514,7 +531,11 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
       {online && (
         <div className="bc-streams">
           {!running ? (
-            <div className="bc-empty">Flip the switch on, then paste each broadcast link below.</div>
+            <div className="bc-empty">
+              {auto
+                ? "Auto is on — capture starts by itself when the show goes live. Just leave the broadcast windows open."
+                : "Flip the switch on, then paste each broadcast link below."}
+            </div>
           ) : names.length === 0 ? (
             <div className="bc-empty">
               No broadcast windows found yet — paste them below. Fullscreen is fine; minimized is not.
@@ -588,6 +609,11 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
               Turn it off after the show.
             </li>
           </ol>
+          <p>
+            <b>Hands-off:</b> turn on <b>Auto</b> and you never touch the switch again — capture
+            starts by itself when Banks/Ansem go live and stops when the show ends. Just leave the
+            Mac on with the broadcast windows open. The switch is there for manual override.
+          </p>
           <p className="bc-rule">
             <b>The one rule:</b> never <b>minimize</b> a broadcast window. Fullscreen, another
             desktop, or buried behind other apps is all fine — only minimizing to the Dock stops
