@@ -487,9 +487,9 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
 
       {!online && (
         <div className="bc-offline">
-          Bridge agent offline — open <b>Market Bubble Bridge</b> on the show machine. Once it’s
-          running, this switch controls it from here.
-          {state?.agoSec != null && <span className="muted small"> (last seen {fmtAge(state.agoSec)} ago)</span>}
+          Bridge agent offline — start it on the show Mac to control it from here (see{" "}
+          <b>How the bridge works</b> below).
+          {state?.agoSec != null && <span className="muted small"> Last seen {fmtAge(state.agoSec)} ago.</span>}
         </div>
       )}
 
@@ -541,6 +541,37 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
         {bridge?.push_err && <span className="bc-err"> · push error: {bridge.push_err}</span>}
         {note && <span className="bc-err"> · {note}</span>}
       </p>
+
+      <details className="bc-help">
+        <summary>How the bridge works · setup</summary>
+        <div className="bc-help-body">
+          <p>
+            X has no API for live-broadcast chat, so a small agent on the show Mac reads it off the
+            screen and feeds it into the site’s chat. This switch controls that agent from here.
+          </p>
+          <ol>
+            <li>
+              <b>Start the agent</b> on the show Mac — open <code>mb-panel.command</code> in the{" "}
+              <code>x-bridge</code> folder. It runs in the background; the switch above turns on once
+              it connects. First time only: grant <b>Screen&nbsp;Recording</b> to <b>MBCapture</b>{" "}
+              when macOS asks.
+            </li>
+            <li>
+              <b>Open each broadcast</b> — paste its X link in the box above and hit Open. Each opens
+              in its own window. <b>Fullscreen every one.</b>
+            </li>
+            <li>
+              <b>Flip the switch on.</b> Each stream shows a green dot with a live “last chat” timer.
+              Turn it off after the show.
+            </li>
+          </ol>
+          <p className="bc-rule">
+            <b>The one rule:</b> never <b>minimize</b> a broadcast window. Fullscreen, another
+            desktop, or buried behind other apps is all fine — only minimizing to the Dock stops
+            capture, and that’s a macOS limit nothing can work around.
+          </p>
+        </div>
+      </details>
     </section>
   );
 }

@@ -252,6 +252,28 @@ code {
 .bc-openrow { display: flex; gap: 10px; }
 .bc-openrow .acct-input { flex: 1; }
 .bc-err { color: var(--down); }
+.bc-help { border-top: 1px solid var(--border); padding-top: 12px; }
+.bc-help > summary {
+  cursor: pointer; font-family: var(--mono); font-size: 12px; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--muted); list-style: none; user-select: none;
+}
+.bc-help > summary::-webkit-details-marker { display: none; }
+.bc-help > summary::before { content: "▸ "; color: var(--muted); }
+.bc-help[open] > summary::before { content: "▾ "; }
+.bc-help > summary:hover { color: var(--text); }
+.bc-help-body { font-size: 13px; line-height: 1.6; margin-top: 12px; max-width: 62ch; }
+.bc-help-body p { margin: 0 0 12px; color: var(--muted); }
+.bc-help-body ol { margin: 0 0 12px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.bc-help-body li { color: var(--text); }
+.bc-help-body code {
+  font-family: var(--mono); font-size: 12px; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
+}
+.bc-help-body .bc-rule {
+  color: var(--text); background: color-mix(in srgb, var(--gold, #d4a04b) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold, #d4a04b) 30%, var(--border));
+  border-radius: 8px; padding: 10px 12px; margin: 0;
+}
 .statuscard {
   display: flex;
   align-items: center;
