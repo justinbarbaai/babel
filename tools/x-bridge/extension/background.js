@@ -14,10 +14,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const headers = { "content-type": "application/json", "x-ingest-key": key };
     let ok = true;
     try {
-      if (typeof msg.count === "number" && msg.count >= 0) {
+      // Only push a count when we know which broadcast it's for — a hostless
+      // count would land under the fallback key and clash with the OCR bridge's
+      // per-host entries (double-counting the bar).
+      if (typeof msg.count === "number" && msg.count >= 0 && msg.host) {
         await fetch(`${base}/ingest/xlive`, {
           method: "POST", headers,
-          body: JSON.stringify({ live: msg.count > 0, viewers: msg.count }),
+          body: JSON.stringify({ live: msg.count > 0, viewers: msg.count, host: msg.host }),
         });
       }
       if (Array.isArray(msg.chat) && msg.chat.length) {

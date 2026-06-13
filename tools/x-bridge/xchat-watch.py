@@ -304,11 +304,12 @@ def post(msgs):
     try: return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("pushed", 0), None
     except Exception as e: return 0, str(e)
 
-def post_xlive(total):
-    """Total live viewers across all captured broadcasts → the site's X count.
-    Same /ingest/xlive endpoint + shape the hub has always accepted."""
+def post_xlive(host, viewers):
+    """One broadcast's live "N watching" count, tagged with its host (Banks /
+    Ansem / Market Bubble). The hub keys by host so the site can show the
+    per-account breakdown AND sum the live ones for the combined bar."""
     req = urllib.request.Request(HUB + "/ingest/xlive",
-        data=json.dumps({"live": total > 0, "viewers": total}).encode(),
+        data=json.dumps({"live": viewers > 0, "viewers": viewers, "host": host}).encode(),
         headers={"content-type": "application/json", "x-ingest-key": KEY})
     try: urllib.request.urlopen(req, timeout=10).read(); return None
     except Exception as e: return str(e)
@@ -461,9 +462,16 @@ def main():
             hud.pushed_total += n
             hud.push_err = err
             if err: hud.event(f"chat push failed: {err[:50]}")
-            if total_watching:
-                xerr = post_xlive(total_watching)
-                if xerr and not err: hud.push_err = xerr
+            # push each broadcast's count on its own (tagged with its host) so
+            # the site can show the per-account breakdown; the hub sums the live
+            # ones for the combined bar. Only hosts with a read count this cycle.
+            xerr = None
+            for label in live_labels:
+                w = hud.streams.get(label, {}).get("watching", 0)
+                if w:
+                    e = post_xlive(label, w)
+                    if e: xerr = e
+            if xerr and not err: hud.push_err = xerr
             hud.draw(len(targets))
             # publish state for the local control panel (mbpanel.py)
             try:
