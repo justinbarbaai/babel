@@ -64,11 +64,42 @@ function extractChat(el) {
   return { username: username || "x", text: msgLines.join(" ").trim() };
 }
 
+// Which broadcaster THIS tab is on → the label shown as the chat's source
+// (Banks / Ansem / Market Bubble). Same mapping the OCR bridge uses, so both
+// sources tag identically; unknown handles (test broadcasts) pass through raw.
+const BROADCASTERS = { banks: "Banks", blknoiz06: "Ansem", marketbbl: "Market Bubble", marketbubble: "Market Bubble" };
+const NAV_HREFS = new Set(["/home","/explore","/notifications","/messages","/jobs","/communities","/i","/settings","/compose","/search","/tos","/privacy"]);
+let broadcaster = null; // cached — a tab's broadcast never changes hosts
+
+// The host card (avatar + display name + @handle, all linking to the
+// broadcaster's profile) renders over the video in the LEFT region, separate
+// from the right-hand chat column. So the profile that appears most often on
+// the left half IS the broadcaster. Caches on first detection (the card can
+// fade), so an early catch sticks for the whole session.
+function detectBroadcaster() {
+  if (broadcaster) return broadcaster;
+  const W = window.innerWidth;
+  const tally = {};
+  for (const a of document.querySelectorAll('a[href^="/"]')) {
+    const href = (a.getAttribute("href") || "").split("?")[0];
+    if (!/^\/[A-Za-z0-9_]{1,15}$/.test(href) || NAV_HREFS.has(href)) continue;
+    const r = a.getBoundingClientRect();
+    if (!r.width || r.left > W * 0.5) continue; // skip the right-hand chat column
+    const h = href.slice(1);
+    tally[h] = (tally[h] || 0) + 1;
+  }
+  let best = null, n = 0;
+  for (const h in tally) if (tally[h] > n) { n = tally[h]; best = h; }
+  if (best && n >= 2) broadcaster = BROADCASTERS[best.toLowerCase()] || best; // avatar+name+handle = 3 hits
+  return broadcaster;
+}
+
 // Scan the panel for single-message rows (exactly ONE @handle + a username link)
 // and queue any we haven't seen. Periodic scan is robust to X virtualizing the
 // list (recycled DOM nodes) — a MutationObserver alone misses those.
 function scanChat() {
   if (!cfg.enabled) return;
+  detectBroadcaster(); // cheap once cached; catches the host card while it's up
   // Chat lives in the right-hand column. Pick rows there that are a SINGLE
   // message (exactly one @handle) with a username link — verified robust on a
   // real broadcast (the "Send a message" panel walk-up was not).
@@ -112,7 +143,10 @@ let lastCount = null, chatSent = 0;
 async function tick() {
   if (!cfg.enabled) { if (badge) badge.remove(), (badge = null); return; }
   const count = findViewerCount();
-  const batch = chatQueue.splice(0, 25);
+  const channel = detectBroadcaster();
+  // tag each message with the broadcast it came from so the site shows the
+  // host (Banks / Ansem / …), not the chatter, as the source.
+  const batch = chatQueue.splice(0, 25).map((m) => (channel ? { ...m, channel } : m));
   let ok = false;
   try {
     const r = await chrome.runtime.sendMessage({ type: "push", count, chat: batch });
@@ -121,7 +155,7 @@ async function tick() {
     chatSent += batch.length;
   } catch {}
   setBadge(
-    `MB X Bridge ${ok ? "●" : "○"}\nviews: ${lastCount?.toLocaleString() ?? "—"}\nchat sent: ${chatSent}`,
+    `MB X Bridge ${ok ? "●" : "○"}\nhost: ${channel || "—"}\nviews: ${lastCount?.toLocaleString() ?? "—"}\nchat sent: ${chatSent}`,
     ok
   );
 }
