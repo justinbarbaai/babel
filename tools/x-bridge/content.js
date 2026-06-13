@@ -80,26 +80,36 @@ const BROADCASTERS = { banks: "Banks", blknoiz06: "Ansem", marketbbl: "Market Bu
 const NAV_HREFS = new Set(["/home","/explore","/notifications","/messages","/jobs","/communities","/i","/settings","/compose","/search","/tos","/privacy"]);
 let broadcaster = null; // cached — a tab's broadcast never changes hosts
 
-// The host card (avatar + display name + @handle, all linking to the
-// broadcaster's profile) renders over the video in the LEFT region, separate
-// from the right-hand chat column. So the profile that appears most often on
-// the left half IS the broadcaster. Caches on first detection (the card can
-// fade), so an early catch sticks for the whole session.
+// Identify the broadcaster THIS tab is on. Cached on first detection.
+// 1) The "Follow @handle" button names the broadcaster directly and survives
+//    playback (the host card fades; this doesn't). One per broadcast, so it's
+//    unambiguous — UNLESS you already follow them, then the button is gone.
+// 2) Fallback: the host-card profile cluster (avatar+name+@handle linking to
+//    the broadcaster) in the LEFT region — present at page load, separate from
+//    the right-hand chat column. The profile most-linked on the left wins.
 function detectBroadcaster() {
   if (broadcaster) return broadcaster;
-  const W = window.innerWidth;
-  const tally = {};
-  for (const a of document.querySelectorAll('a[href^="/"]')) {
-    const href = (a.getAttribute("href") || "").split("?")[0];
-    if (!/^\/[A-Za-z0-9_]{1,15}$/.test(href) || NAV_HREFS.has(href)) continue;
-    const r = a.getBoundingClientRect();
-    if (!r.width || r.left > W * 0.5) continue; // skip the right-hand chat column
-    const h = href.slice(1);
-    tally[h] = (tally[h] || 0) + 1;
+  let handle = null;
+  for (const el of document.querySelectorAll("[aria-label]")) {
+    const m = (el.getAttribute("aria-label") || "").match(/^Follow @([A-Za-z0-9_]{1,15})$/);
+    if (m) { handle = m[1]; break; }
   }
-  let best = null, n = 0;
-  for (const h in tally) if (tally[h] > n) { n = tally[h]; best = h; }
-  if (best && n >= 2) broadcaster = BROADCASTERS[best.toLowerCase()] || best; // avatar+name+handle = 3 hits
+  if (!handle) {
+    const W = window.innerWidth;
+    const tally = {};
+    for (const a of document.querySelectorAll('a[href^="/"]')) {
+      const href = (a.getAttribute("href") || "").split("?")[0];
+      if (!/^\/[A-Za-z0-9_]{1,15}$/.test(href) || NAV_HREFS.has(href)) continue;
+      const r = a.getBoundingClientRect();
+      if (!r.width || r.left > W * 0.5) continue; // skip the right-hand chat column
+      const h = href.slice(1);
+      tally[h] = (tally[h] || 0) + 1;
+    }
+    let best = null, n = 0;
+    for (const h in tally) if (tally[h] > n) { n = tally[h]; best = h; }
+    if (best && n >= 2) handle = best; // avatar+name+handle cluster = 3 hits
+  }
+  if (handle) broadcaster = BROADCASTERS[handle.toLowerCase()] || handle;
   return broadcaster;
 }
 
