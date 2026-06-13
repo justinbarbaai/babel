@@ -42,7 +42,10 @@ JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain
                   r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
                   r"this broadcast has ended|"
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
-WATCHING = re.compile(r"([\d.,]+\s*[KkMm]?)\s*watching", re.I)
+# The broadcast's live count is labelled "watching", "viewers", or "views"
+# depending on the broadcast — match any. Scoped to the VIDEO side (left of the
+# chat column) by the caller, so this never picks up a tweet's view count.
+WATCHING = re.compile(r"([\d.,]+\s*[KkMm]?)\s*(?:watching|viewers?|views?)", re.I)
 # Short cycle = small frequent batches; the hub drips each batch out one message
 # at a time, so the site chat flows like a real live chat instead of clumping.
 # 3s matches the MBCapture helper's capture rate and halves the window where a
