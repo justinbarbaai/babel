@@ -11,30 +11,54 @@ counts and a market tape. Here's what's automatic and what needs a person.
 ## Needs the X Bridge — only when there's an X live broadcast
 X gives no API or readable page for its live-broadcast chat (it's drawn as
 pixels), so one machine reads it off the screen and feeds it to the site.
-Run this **on the show machine** (or any Mac) during the broadcast:
+Any Mac works — the show machine is the natural home.
 
-1. **First time on a machine:** System Settings → Privacy & Security →
-   **Screen Recording** → turn on **Terminal**.
-2. Double-click **`start-x-bridge.command`**. It opens a dedicated Chrome
-   (separate from your normal one) built to not fall asleep.
-3. Log into X there, open each broadcast (Banks / Ansem / Market Bubble) in
-   its **own window**, on the **current desktop** (a corner is fine — you can
-   cover them with other windows; just don't fullscreen-elsewhere or minimize).
-4. Press Return in the Terminal. It prints `+N user→Banks` as it pushes X chat.
+**Rule zero: only ONE machine runs the bridge at a time.** Two machines
+pushing = every message appears on the site twice.
 
-**Best setup:** a second monitor — broadcasts live there, always rendering,
-you work freely on the main screen. That's the set-and-forget version.
+### One-time setup (~2 minutes per machine)
+1. Double-click **`mb-panel.command`** (in this folder). Your browser opens
+   "The Bridge" dashboard; close the Terminal window it spawned.
+2. Paste the **ingest key** into the key box when the page asks (ask Justin;
+   it's remembered after that).
+3. macOS will ask for screen-capture permission for the helper:
+   System Settings → Privacy & Security → **Screen & System Audio Recording**
+   → **+** → Applications → **MBCapture** → toggle ON. The helper only ever
+   photographs Chrome windows whose titles say they're X pages — nothing
+   else on screen.
 
-**Hard limit (X's fault, not the tool):** the broadcast window must be on the
-desktop you're viewing. macOS can't read a window parked on another desktop.
+### Every show
+1. Open the dashboard (double-click `mb-panel.command` — it reopens
+   http://localhost:8765).
+2. Paste each broadcast link (Banks / Ansem / Market Bubble) into the box →
+   **Open**. Each opens in its own Chrome window (log into X in Chrome the
+   first time). **Fullscreen each window** (green button) — they vanish onto
+   their own desktops and nobody looks at them again.
+3. Flip the **switch ON**. Within ~15 seconds each stream shows a green dot
+   with "last chat Ns ago" ticking.
+4. After the show: switch **OFF**.
+
+### The dots
+- 🟢 — reading chat, all good
+- 🟡 "frames frozen — window minimized?" — someone minimized a broadcast
+  window to the Dock. Un-minimize it (fullscreen is fine). That's the ONE
+  state macOS refuses to let anyone capture.
+- 🟡 "no new chat for Ns" — chat is quiet, or the page died; glance at it
+- 🔴 "window lost" — the broadcast window/tab was closed. Paste the link
+  again and hit Open.
+
+The bridge fires a loud macOS notification whenever something needs a human,
+auto-restarts itself if it crashes, and keeps the display awake by itself.
+Keep the laptop plugged in and the lid open.
 
 ## Keys
-- The bridge's **ingest key** lives in `KEY.txt` (and is remembered after the
-  first run). It only lets a machine push X numbers/chat — never control the show.
+- The bridge's **ingest key** only lets a machine push X chat/counts to the
+  site — never control the show. It can be rotated anytime.
 - The Studio password (channels, look) is the separate **operator key**.
 
 ## Reliability, honestly
-Twitch + Kick + the site are rock-solid. X live chat is a screen-reader — it's
-as reliable as keeping the broadcast visible on the run machine. If only one
-platform ever flakes, it's X, and the fix is always "is the broadcast window
-on this desktop and showing chat?"
+Twitch + Kick + the site are rock-solid. X live chat is a screen-reader —
+the capture helper photographs the broadcast windows wherever they live
+(fullscreen, other desktops, buried), so the only human errors left are:
+window closed, window minimized, bridge switched off. The dashboard names
+each one in plain English when it happens.
