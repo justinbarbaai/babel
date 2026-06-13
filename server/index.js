@@ -124,7 +124,13 @@ function ingestKeyOk(key) {
 // Manual X live-viewer count pushed by the bookmarklet (X killed the public
 // endpoints, so this is the only accurate source). Used while fresh.
 let xLiveOverride = null; // { live, viewers, ts }
-let lastXchatAt = 0; // when the X Bridge last pushed chat (health strip)
+let lastXchatAt = 0; // when X chat last arrived from EITHER source (health strip)
+// X-chat failover: the browser EXTENSION (clean DOM scrape, emojis) is primary;
+// the OCR bridge is the backup. While the extension is fresh we ignore OCR, and
+// only let OCR through once the extension goes silent (it broke). So X chat
+// never stops, and we never double up. Extension comes back → it takes over.
+let lastExtAt = 0;
+const EXT_FAILOVER_MS = 20000;
 // ---- remote control of the local X-bridge agent (Studio → hub → agent) ----
 // The agent (mbpanel on the operator's Mac) heartbeats here with the ingest
 // key; Studio reads its status + queues commands with the operator key. This
@@ -713,7 +719,16 @@ const server = http.createServer(async (req, res) => {
       }
       if (url.pathname === "/ingest/xchat") {
         const msgs = Array.isArray(j.messages) ? j.messages : [];
-        lastXchatAt = Date.now();
+        const now2 = Date.now();
+        const source = j.source === "ext" ? "ext" : "ocr";
+        if (source === "ext") lastExtAt = now2;
+        else if (now2 - lastExtAt < EXT_FAILOVER_MS) {
+          // extension is live → ignore the OCR backup (no doubles)
+          res.writeHead(200, { ...cors, "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, pushed: 0, suppressed: "extension live" }));
+          return;
+        }
+        lastXchatAt = now2;
         let pushed = 0;
         for (const m of msgs) {
           const id = String(m.id || `${m.username}:${m.text}`).slice(0, 200);

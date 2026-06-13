@@ -296,7 +296,10 @@ def parse(lines, source):
 
 def post(msgs):
     if not msgs: return 0, None
-    req = urllib.request.Request(HUB + "/ingest/xchat", data=json.dumps({"messages": msgs}).encode(),
+    # source="ocr" → the hub treats us as the FAILOVER: our messages are ignored
+    # while the browser extension is live, accepted only when it goes silent.
+    req = urllib.request.Request(HUB + "/ingest/xchat",
+        data=json.dumps({"messages": msgs, "source": "ocr"}).encode(),
         headers={"content-type": "application/json", "x-ingest-key": KEY})
     try: return json.loads(urllib.request.urlopen(req, timeout=10).read()).get("pushed", 0), None
     except Exception as e: return 0, str(e)

@@ -21,9 +21,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         });
       }
       if (Array.isArray(msg.chat) && msg.chat.length) {
+        // source="ext" → the hub treats the extension as PRIMARY (clean scrape,
+        // emojis) and ignores the OCR backup while we're sending.
         await fetch(`${base}/ingest/xchat`, {
           method: "POST", headers,
-          body: JSON.stringify({ messages: msg.chat }),
+          body: JSON.stringify({ messages: msg.chat, source: "ext" }),
         });
       }
     } catch (e) {
