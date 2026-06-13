@@ -75,6 +75,9 @@ def stop_bridge():
             except subprocess.TimeoutExpired: bridge.kill()
         if caff and caff.poll() is None:
             caff.kill()
+        # OFF means OFF: stop the capture helper too so the macOS screen-
+        # recording indicator goes dark. It restarts in ~instant on next ON.
+        subprocess.run(["pkill", "-f", "MBCapture.app/Contents/MacOS/MBCapture"])
         return "stopped"
 
 
