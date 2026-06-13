@@ -26,14 +26,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OCR, WINFIND = os.path.join(HERE, "ocr"), os.path.join(HERE, "winfind")
 HANDLE = re.compile(r"@(\w{2,15})")
 BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymarket,marketbbl")).split(",")}
-# Whether the OCR may push CHAT. Default OFF: on a slow/dead X chat the OCR has
-# no real messages to read, so it reads NOISE — the composer (your own handle),
-# X "reposted" popups, the extension's own badge, garbled video captions — and
-# emits it as fake chat, which is worse than empty. The EXTENSION is the clean
-# chat source (real messages, nothing when quiet); the OCR's job is the view
-# COUNT + the dead-man's heartbeat. Set MB_OCR_CHAT=1 only for a genuinely BUSY
-# broadcast where failover chat is worth the noise risk.
-OCR_CHAT = os.environ.get("MB_OCR_CHAT", "") == "1"
+# OCR chat is the FAILOVER: the hub suppresses it while the browser extension is
+# alive (so they never double) and only lets it through once the extension goes
+# silent. On for that reason. The noise problem (reading the composer, X
+# "reposted" popups, the extension's badge, video captions on a dead chat) is
+# handled by REQUIRING the chat panel to be located + the BADGE/JUNK filters —
+# not by switching it off. Set MB_OCR_CHAT=0 to force it off.
+OCR_CHAT = os.environ.get("MB_OCR_CHAT", "1") != "0"
 # which broadcaster a window belongs to → the label shown as the chat source.
 # Extendable for testing against any live channel:
 #   MB_BROADCASTERS="somehandle:Some Label,other:Other" ./xchat-watch.command
@@ -49,11 +48,17 @@ UI = re.compile(r"^(ask gemini|chat|subscribe|resubscribe|send a message|follow|
 JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain|not constitute|"
                   r"[+\-]\d+\.\d+\s*%|\$\d{3,}|presented by|polymarket|bubble20|app store|"
                   r"this broadcast has ended|"
+                  # X activity popups that aren't chat: "… reposted the stream!", likes, joins
+                  r"reposted|the stream!|\bliked\b|\bsubscribed\b|just (joined|followed)|"
                   r"\b[A-Z]{2,5}\s+\d+\.\d{2}|©\s*[A-Z]|[▲▼]\s*\d|\d+\.\d{2}\s*\(?[+\-]\d)", re.I)
 # OUR OWN extension's on-screen status badge ("MB X Bridge ● host: … views: …
 # chat sent: …") + the chat composer placeholder. The OCR reads pixels, so this
 # overlay would otherwise glue onto real messages. NEVER chat.
-BADGE = re.compile(r"mb\s*x\s*bridge|chat\s*sent|send a mess|^\s*host:\s|^\s*views?:\s*[-\d]", re.I)
+BADGE = re.compile(r"x\s*brid|chat\s*sent|send a mess|^\s*host\s*:|^\s*views?\s*:\s*[-\d]", re.I)
+# If ANY of these survive into an assembled message, the whole thing is UI/noise,
+# not chat — drop it entirely (a per-line filter leaves the reposter's handle +
+# count behind). Badge fragments + X activity popups.
+KILL = re.compile(r"x\s*brid|chat\s*sent|\breposted\b|the stream!|\bliked\b|\bsubscribed\b", re.I)
 # The broadcast's live count is labelled "watching", "viewers", or "views"
 # depending on the broadcast — match any. Scoped to the VIDEO side (left of the
 # chat column) by the caller, so this never picks up a tweet's view count.
@@ -272,7 +277,7 @@ def broadcaster_of(lines, bid=None, tlabel=None):
 def watching_count(lines):
     """The broadcast's live "N watching" count, read off the video side
     (anything left of the chat column — fullscreen pushes it past 0.6)."""
-    col = chat_column_start(lines)
+    col = chat_column_start(lines) or 0.58  # count reads LEFT of chat; default split if panel unlocated
     for l in lines:
         if l.get("x", 1) < col - 0.02:
             m = WATCHING.search(l["text"])
@@ -282,15 +287,16 @@ def watching_count(lines):
     return 0
 
 def chat_column_start(lines):
-    """Where the chat panel begins, anchored to the OCR'd "Chat" header itself —
-    a fixed threshold swallows the right edge of the VIDEO (tile captions like
-    "BANKS", the Polymarket banner) and glues them into messages."""
+    """Where the chat panel begins, anchored to the OCR'd "Chat" header itself.
+    Returns None when the header isn't found — the panel can't be located, so
+    callers must NOT guess: a fixed threshold reads the right edge of the VIDEO
+    (tile captions, reposts, the Polymarket banner) as if it were chat."""
     for l in lines:
         if l.get("x", 0) > 0.5 and l["text"].strip().lower() in ("chat", "char", "chai"):
             # the header sits 0.02–0.05 right of where message rows start,
             # varying with window width — cut generously left of it
             return max(0.58, l["x"] - 0.06)
-    return 0.7
+    return None
 
 def looks_like_broadcast(lines):
     """Title-INDEPENDENT broadcast check: the frame must actually show a
@@ -306,6 +312,7 @@ def looks_like_broadcast(lines):
 
 def parse(lines, source):
     col = chat_column_start(lines)
+    if col is None: return []   # no located chat panel → never read the video/UI as chat
     chat = sorted([l for l in lines if l.get("x", 0) > col], key=lambda l: l["y"])
     txt = [l["text"] for l in chat]
     hidx = [i for i, t in enumerate(txt) if HANDLE.search(t)]   # @handle line indices
@@ -332,7 +339,8 @@ def parse(lines, source):
         text = " ".join(body).strip()
         text = re.sub(r"\s+\S{1,3}$", "", text) if len(text) > 12 else text  # drop trailing crumb
         text = text.strip(" •·~&")
-        if len(text) >= 2: msgs.append({"username": user, "text": text, "channel": source or user})
+        if len(text) >= 2 and not KILL.search(text):
+            msgs.append({"username": user, "text": text, "channel": source or user})
     return msgs
 
 def post(msgs):
