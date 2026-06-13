@@ -21,17 +21,26 @@ function parseCount(s) {
   return Math.round(n);
 }
 
-// Find the live viewer count. X labels it with "watching"/"viewers"/"viewing",
-// in text and in aria-labels. Take the largest plausible match.
+// Find the broadcast's view count. The authoritative source is the play
+// button's aria-label — "Play live Broadcast. 21 views" / "Replay Broadcast.
+// 3.2K views" — which is specific to THIS broadcast and can never be a quoted
+// tweet's impression count (the trap that produced a bogus 3.2M). Fall back to
+// an explicit concurrent label ("watching"/"viewers") if the aria-label is
+// absent. Never match bare "views" anywhere on the page.
 function findViewerCount() {
-  const re = /([\d.,]+\s*[KkMm]?)\s*(watching|viewers|viewing|watched|views)/;
+  // 1) authoritative: the broadcast play/replay button aria-label
+  for (const el of document.querySelectorAll("[aria-label]")) {
+    const a = el.getAttribute("aria-label") || "";
+    const m = a.match(/Broadcast\.\s*([\d.,]+\s*[KkMm]?)\s*(?:views?|viewers?|watching)/i);
+    if (m) { const n = parseCount(m[1]); if (n != null) return n; }
+  }
+  // 2) fall back to a concurrent-viewer label (never bare "views"/"watched")
+  const re = /([\d.,]+\s*[KkMm]?)\s*(watching|viewers|viewing)\b/i;
   let best = null;
-  // aria-labels first (most stable)
   for (const el of document.querySelectorAll("[aria-label]")) {
     const m = (el.getAttribute("aria-label") || "").match(re);
     if (m) { const n = parseCount(m[1]); if (n != null) best = Math.max(best ?? 0, n); }
   }
-  // then visible text nodes
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = w.nextNode())) {
@@ -177,7 +186,7 @@ async function tick() {
   const batch = chatQueue.splice(0, 25).map((m) => (channel ? { ...m, channel } : m));
   let ok = false;
   try {
-    const r = await chrome.runtime.sendMessage({ type: "push", count, chat: batch });
+    const r = await chrome.runtime.sendMessage({ type: "push", count, host: channel, chat: batch });
     ok = !!r?.ok;
     if (count != null) lastCount = count;
     chatSent += batch.length;
