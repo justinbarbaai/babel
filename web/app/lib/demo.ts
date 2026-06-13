@@ -147,7 +147,15 @@ function makeViewers(tick: number): ViewerSnapshot {
     ],
     totals: { twitch: tw, kick: kk, total: tw + kk + xv },
     twitchEnabled: true,
-    xLive: { handle: "banks", live: true, viewers: xv, views: xv * 7, updatedAt: now },
+    xLive: {
+      handle: "banks", live: true, viewers: xv, views: xv * 7, updatedAt: now,
+      // the X bar is the combined live count across all three show broadcasts
+      breakdown: [
+        { host: "Banks", viewers: Math.round(xv * 0.5), live: true },
+        { host: "Ansem", viewers: Math.round(xv * 0.32), live: true },
+        { host: "Market Bubble", viewers: xv - Math.round(xv * 0.5) - Math.round(xv * 0.32), live: true },
+      ],
+    },
     updatedAt: now,
   };
 }

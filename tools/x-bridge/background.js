@@ -17,7 +17,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (typeof msg.count === "number" && msg.count >= 0) {
         await fetch(`${base}/ingest/xlive`, {
           method: "POST", headers,
-          body: JSON.stringify({ live: msg.count > 0, viewers: msg.count }),
+          // host = which broadcast (Banks / Ansem / …) so the hub keeps the 3
+          // counts separate and sums them for the bar.
+          body: JSON.stringify({ live: msg.count > 0, viewers: msg.count, host: msg.host || null }),
         });
       }
       if (Array.isArray(msg.chat) && msg.chat.length) {

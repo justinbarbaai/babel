@@ -77,6 +77,9 @@ export interface XLive {
   live: boolean;
   viewers: number;
   views: number;
+  // per-broadcast counts (Banks / Ansem / Market Bubble) — the bar shows the
+  // summed `viewers`, the hover lists these.
+  breakdown?: { host: string; viewers: number; live: boolean }[];
   broadcastId?: string | null;
   title?: string | null;
   updatedAt: number;

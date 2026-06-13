@@ -177,7 +177,7 @@ async function tick() {
   const batch = chatQueue.splice(0, 25).map((m) => (channel ? { ...m, channel } : m));
   let ok = false;
   try {
-    const r = await chrome.runtime.sendMessage({ type: "push", count, chat: batch });
+    const r = await chrome.runtime.sendMessage({ type: "push", count, host: channel, chat: batch });
     ok = !!r?.ok;
     if (count != null) lastCount = count;
     chatSent += batch.length;

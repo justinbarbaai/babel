@@ -4138,6 +4138,34 @@ body.overlay-bare::before {
   font-size: 12.5px;
   color: var(--muted);
 }
+/* per-broadcast sub-rows under the combined X total (who it's coming from) */
+.views-pop-sub {
+  font-size: 11px;
+  margin-top: -1px;
+}
+.views-pop-sub .views-pop-src {
+  padding-left: 19px; /* line the name up past the X logo above */
+  font-weight: 500;
+  color: var(--muted);
+}
+.views-pop-sub .views-pop-val {
+  font-weight: 600;
+  color: var(--muted);
+}
+.views-pop-sub-name {
+  gap: 7px;
+}
+.views-pop-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.views-pop-dot.live {
+  background: var(--up);
+  box-shadow: 0 0 6px -1px var(--up);
+}
 .term-spark {
   display: block;
   width: 100%;

@@ -697,7 +697,7 @@ export default function Home() {
                             <span className="views-pop-head">Audience · by source</span>
                             <ViewsPopRow source="twitch" label="Twitch" count={tw} channels={serverChannels?.twitch} />
                             <ViewsPopRow source="kick" label="Kick" count={kk} channels={serverChannels?.kick} />
-                            <ViewsPopRow source="x" label={xLabel} count={xViews} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
+                            <ViewsPopRow source="x" label={xLabel} count={xViews} breakdown={viewers?.xLive?.breakdown} channels={serverChannels?.xQuery ? [serverChannels.xQuery] : []} />
                             <span className="views-pop-foot">{fmt(total)} watching now</span>
                           </span>
                         </span>
@@ -813,20 +813,39 @@ function ViewsPopRow({
   label,
   count,
   channels,
+  breakdown,
 }: {
   source: Exclude<SourceKey, never>;
   label: string;
   count: number;
   channels?: string[];
+  // when set (X across 3 broadcasts), render a sub-row per account beneath the
+  // combined total — "who it's coming from".
+  breakdown?: { host: string; viewers: number; live: boolean }[];
 }) {
+  const subs = breakdown && breakdown.length > 1 ? breakdown : null;
   return (
-    <span className="views-pop-row" data-source={source}>
-      <span className="views-pop-src">
-        <SourceLogo source={source} size={13} /> {label}
+    <>
+      <span className="views-pop-row" data-source={source}>
+        <span className="views-pop-src">
+          <SourceLogo source={source} size={13} /> {label}
+        </span>
+        <span className="views-pop-chan">
+          {subs ? `${subs.length} broadcasts` : channels && channels.length ? channels.join(", ") : "—"}
+        </span>
+        <span className="views-pop-val">{count.toLocaleString()}</span>
       </span>
-      <span className="views-pop-chan">{channels && channels.length ? channels.join(", ") : "—"}</span>
-      <span className="views-pop-val">{count.toLocaleString()}</span>
-    </span>
+      {subs?.map((b) => (
+        <span className="views-pop-row views-pop-sub" data-source={source} key={b.host}>
+          <span className="views-pop-src views-pop-sub-name">
+            <span className={`views-pop-dot ${b.live ? "live" : ""}`} aria-hidden="true" />
+            {b.host}
+          </span>
+          <span className="views-pop-chan">{b.live ? "live" : "ended"}</span>
+          <span className="views-pop-val">{b.viewers.toLocaleString()}</span>
+        </span>
+      ))}
+    </>
   );
 }
 

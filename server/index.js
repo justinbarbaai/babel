@@ -121,9 +121,34 @@ function ingestKeyOk(key) {
   const b = Buffer.from(INGEST_KEY);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-// Manual X live-viewer count pushed by the bookmarklet (X killed the public
-// endpoints, so this is the only accurate source). Used while fresh.
-let xLiveOverride = null; // { live, viewers, ts }
+// X live-viewer counts pushed by the extension — ONE entry per broadcast tab
+// (Banks / Ansem / Market Bubble), keyed by host. X killed the public endpoints,
+// so these pushes are the only accurate source. Combined into one bar number +
+// a who-it's-from breakdown by aggregateXLive().
+let xLiveByHost = Object.create(null); // host -> { viewers, live, ts }
+let lastXLiveAt = 0; // most recent xlive push from any host (health strip)
+const XLIVE_TTL = 90000; // a host's count is trusted this long after its last push
+function aggregateXLive() {
+  const now = Date.now();
+  const breakdown = [];
+  for (const host in xLiveByHost) {
+    const v = xLiveByHost[host];
+    if (now - v.ts > XLIVE_TTL) continue; // drop hosts that stopped pushing
+    breakdown.push({ host, viewers: v.viewers, live: v.live });
+  }
+  if (!breakdown.length) return null;
+  breakdown.sort((a, b) => b.viewers - a.viewers);
+  // bar number = sum of LIVE hosts' viewers (ended broadcasts contribute 0)
+  const viewers = breakdown.reduce((s, b) => s + (b.live ? b.viewers : 0), 0);
+  return {
+    handle: config.xLiveHandle || "banks",
+    live: breakdown.some((b) => b.live),
+    viewers,
+    views: 0,
+    breakdown,
+    updatedAt: now,
+  };
+}
 let lastXchatAt = 0; // when X chat last arrived from EITHER source (health strip)
 // X-chat failover: the browser EXTENSION (clean DOM scrape, emojis) is primary;
 // the OCR bridge is the backup. While the extension is fresh we ignore OCR, and
@@ -256,21 +281,16 @@ const X_VIEWS_EVERY = 6;
 async function pollViewers() {
   // X "views" used to sum paid recent-search impression_count, but impressions
   // aren't viewers — the site now shows ONLY the live broadcast count pushed by
-  // the X Bridge (xLiveOverride below). So we no longer pay for that read.
+  // the X Bridge (aggregateXLive below). So we no longer pay for that read.
   lastXViews = null;
   viewersTick++;
 
   // X live concurrent viewers. X removed every public endpoint, so the only
   // accurate source is the bookmarklet's pushed count — prefer it while fresh
   // (< 90s). Fall back to the (now mostly-dead) guest path otherwise.
-  if (xLiveOverride && Date.now() - xLiveOverride.ts < 90000) {
-    lastXLive = {
-      handle: config.xLiveHandle || "banks",
-      live: !!xLiveOverride.live,
-      viewers: Number(xLiveOverride.viewers) || 0,
-      views: 0,
-      updatedAt: xLiveOverride.ts,
-    };
+  const aggX = aggregateXLive();
+  if (aggX) {
+    lastXLive = aggX;
   } else if (config.xLiveHandle) {
     try {
       lastXLive = await fetchXLive(config.xLiveHandle);
@@ -520,7 +540,7 @@ const server = http.createServer(async (req, res) => {
         bridge: {
           // seconds since the X Bridge last pushed chat; null = never (this boot)
           xchatAgoSec: lastXchatAt ? Math.round((now - lastXchatAt) / 1000) : null,
-          xLiveAgoSec: xLiveOverride ? Math.round((now - xLiveOverride.ts) / 1000) : null,
+          xLiveAgoSec: lastXLiveAt ? Math.round((now - lastXLiveAt) / 1000) : null,
         },
         viewersUpdatedAgoSec: lastViewersAt ? Math.round((now - lastViewersAt) / 1000) : null,
       })
@@ -701,16 +721,18 @@ const server = http.createServer(async (req, res) => {
       let j = {};
       try { j = JSON.parse(body || "{}"); } catch {}
       if (url.pathname === "/ingest/xlive") {
-        xLiveOverride = { live: !!j.live, viewers: Number(j.viewers) || 0, ts: Date.now() };
+        // one push per broadcast tab — key by host so the 3 accounts don't
+        // overwrite each other; the bar sums them, the hover lists them.
+        const host = String(j.host || j.channel || config.xLiveHandle || "X")
+          .slice(0, 80)
+          .replace(/^@/, "");
+        xLiveByHost[host] = { viewers: Number(j.viewers) || 0, live: !!j.live, ts: Date.now() };
+        lastXLiveAt = Date.now();
+        // forget hosts that have gone stale so the breakdown drops ended streams
+        for (const k in xLiveByHost) if (lastXLiveAt - xLiveByHost[k].ts > XLIVE_TTL) delete xLiveByHost[k];
         // reflect immediately into the latest snapshot + rebroadcast
         if (lastViewers) {
-          lastViewers.xLive = {
-            handle: config.xLiveHandle || "banks",
-            live: xLiveOverride.live,
-            viewers: xLiveOverride.viewers,
-            views: 0,
-            updatedAt: xLiveOverride.ts,
-          };
+          lastViewers.xLive = aggregateXLive();
           broadcast({ type: "viewers", viewers: lastViewers });
         }
         res.writeHead(200, { ...cors, "Content-Type": "application/json" });
