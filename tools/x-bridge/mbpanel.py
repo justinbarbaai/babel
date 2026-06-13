@@ -122,8 +122,105 @@ def open_broadcast(url):
 # The show's hosts — their PROFILE urls are stable (unlike the random per-
 # broadcast urls), so we can open them ahead of time. When a host goes live a
 # "LIVE" ring appears on their avatar; clicking it enters the broadcast and the
-# bridge captures it from there. Override with MB_HOSTS="Handle1,Handle2".
+# bridge captures it from there. Override with MB_HOSTS="Handle1,Handle2" or a
+# .hosts file (one handle per line) — the file wins, so it's settable at runtime.
 HOSTS = [h.strip() for h in os.environ.get("MB_HOSTS", "Banks,blknoiz06").split(",") if h.strip()]
+HOSTSFILE = os.path.join(HERE, ".hosts")
+def watch_hosts():
+    try:
+        with open(HOSTSFILE) as f:
+            hs = [l.strip() for l in f if l.strip()]
+            if hs: return hs
+    except OSError:
+        pass
+    return HOSTS
+
+# ---- autonomous auto-enter: watch each host's profile and click the LIVE ring
+# the moment it appears, all on its own (no command, no human). ----
+OCR_BIN = os.path.join(HERE, "ocr")
+CLICKER = "/Applications/ClickHelper.app/Contents/MacOS/ClickHelper"
+MBCAP_DIR = "/tmp/mbcap"
+_entered = set()   # hosts whose live broadcast we've already entered this round
+
+# Everything reads from MBCapture's output (/tmp/mbcap: meta.json + per-window
+# PNGs). MBCapture has the Screen-Recording grant, so the agent itself needs no
+# capture permission and never runs the slow/flaky winfind.
+def _meta():
+    try: return json.load(open(MBCAP_DIR + "/meta.json"))
+    except Exception: return []
+
+def _profile_window(handle):
+    """The host's open PROFILE window from MBCapture meta (title still has the
+    @handle). Front-to-back order, so the first match is the frontmost one."""
+    for m in _meta():
+        if f"@{handle.lower()}" in (m.get("title") or "").lower():
+            return m
+    return None
+
+def _frame_ocr(win_id):
+    png = f"{MBCAP_DIR}/{win_id}.png"
+    if not os.path.exists(png): return []
+    try:
+        return json.loads(subprocess.run([OCR_BIN, png], capture_output=True, text=True, timeout=20).stdout)
+    except Exception:
+        return []
+
+def _live_ring(lines):
+    """The LIVE badge's (x,y,w) in the frame if the ring is showing, else None."""
+    for l in lines:
+        if l.get("text", "").strip().lower() == "live" and l.get("x", 1) < 0.5:
+            return l
+    return None
+
+def _click_into(m):
+    """Cluster-click the avatar ring of a (frontmost) profile window, using the
+    bounds from meta + the OCR'd ring position from its frame."""
+    badge = _live_ring(_frame_ocr(m["id"]))
+    cx = (badge["x"] + badge.get("w", 0) / 2) if badge else 0.32
+    cy = (badge["y"] - 0.095) if badge else 0.40
+    wx, wy, ww, wh = m["x"], m["y"], m["w"], m["h"]
+    for dx, dy in [(0, 0), (0, 0.03), (0, -0.03), (-0.015, 0), (0.015, 0), (0, 0.06)]:
+        subprocess.run([CLICKER, str(int(wx + (cx + dx) * ww)), str(int(wy + (cy + dy) * wh))],
+                       capture_output=True)
+        time.sleep(1.1)
+        if _profile_window(_handle_of(m)) is None:   # title changed → we're in
+            return True
+    return True
+
+def _handle_of(m):
+    t = (m.get("title") or "").lower()
+    for h in watch_hosts():
+        if f"@{h.lower()}" in t: return h
+    return ""
+
+def auto_enter_tick():
+    """One watch pass per host: keep a profile window open, and the moment its
+    LIVE ring shows, open a fresh (frontmost) copy and click in — all on its
+    own. Clears when a host goes offline so we re-enter next time."""
+    for h in watch_hosts():
+        m = _profile_window(h)
+        if h in _entered:
+            if not m or _live_ring(_frame_ocr(m["id"])) is None:
+                _entered.discard(h)            # offline → allow re-enter
+            continue
+        if not m:
+            open_broadcast(f"https://x.com/{h}")   # nothing to watch → open one
+            return                                  # let MBCapture pick it up
+        if _live_ring(_frame_ocr(m["id"])) is not None:
+            open_broadcast(f"https://x.com/{h}")    # fresh frontmost copy to click
+            time.sleep(6)
+            fresh = _profile_window(h)
+            if fresh: _click_into(fresh)
+            _entered.add(h)
+            start_bridge()                          # capture the broadcast
+
+def auto_enter_loop():
+    """When Auto is on, watch the profiles and enter broadcasts hands-off."""
+    while True:
+        time.sleep(8)
+        if auto_mode:
+            try: auto_enter_tick()
+            except Exception: pass
 def open_host_profiles():
     """Open each host's X profile in its own window, ready for the live ring.
     Skips any that already have a window open (best-effort, via winfind)."""
@@ -467,6 +564,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 def main():
     threading.Thread(target=watchdog, daemon=True).start()
     threading.Thread(target=hub_agent_loop, daemon=True).start()
+    threading.Thread(target=auto_enter_loop, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Market Bubble bridge panel → http://localhost:{PORT}")
     try:
