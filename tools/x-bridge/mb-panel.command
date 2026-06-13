@@ -1,10 +1,15 @@
 #!/bin/bash
 # Market Bubble — bridge control panel. Double-click → browser dashboard.
 cd "$(dirname "$0")"
+# Downloaded from the site? Strip the quarantine flag macOS puts on every file
+# so the prebuilt helpers run without a Gatekeeper prompt on each one.
+xattr -dr com.apple.quarantine "$PWD" 2>/dev/null
 [ -x ./ocr ]     || { echo "Building OCR…";     swiftc -O ocr.swift -o ocr; }
 [ -x ./winfind ] || { echo "Building winfind…"; swiftc -O winfind.swift -o winfind; }
-if [ ! -d /Applications/MBCapture.app ] && [ -d ./MBCapture.app ]; then
+if [ -d ./MBCapture.app ]; then
+  rm -rf /Applications/MBCapture.app
   cp -R ./MBCapture.app /Applications/MBCapture.app
+  xattr -dr com.apple.quarantine /Applications/MBCapture.app 2>/dev/null
 fi
 # already running? just open the page
 if curl -s -o /dev/null --max-time 1 http://localhost:8765/state; then

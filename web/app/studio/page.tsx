@@ -442,6 +442,24 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
     setBusy(false);
   };
 
+  // Pull the bridge agent bundle (operator-gated). Stream it with the key in a
+  // header — never in the URL — and save via a blob so it downloads cleanly.
+  const [dl, setDl] = useState("");
+  const downloadBridge = async () => {
+    setDl("Preparing…");
+    try {
+      const r = await fetch(`${hubHttpUrl}/op/bridge.zip`, { headers: { "x-op-key": opKey } });
+      if (!r.ok) { setDl("Download failed — re-enter the operator key."); return; }
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "market-bubble-bridge.zip";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      setDl("Downloaded ✓");
+    } catch { setDl("Can’t reach the hub."); }
+  };
+
   const online = !!state?.online;
   const status = state?.status;
   const running = !!status?.running;
@@ -549,12 +567,17 @@ function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
             X has no API for live-broadcast chat, so a small agent on the show Mac reads it off the
             screen and feeds it into the site’s chat. This switch controls that agent from here.
           </p>
+          <div className="bc-dl">
+            <button className="btn btn-gold" onClick={downloadBridge}>Download the bridge</button>
+            <span className="muted small">macOS · Apple Silicon · ~90&nbsp;KB</span>
+            {dl && <span className="muted small">{dl}</span>}
+          </div>
           <ol>
             <li>
-              <b>Start the agent</b> on the show Mac — open <code>mb-panel.command</code> in the{" "}
-              <code>x-bridge</code> folder. It runs in the background; the switch above turns on once
-              it connects. First time only: grant <b>Screen&nbsp;Recording</b> to <b>MBCapture</b>{" "}
-              when macOS asks.
+              <b>Install it on the show Mac.</b> Unzip, then open <code>mb-panel.command</code>. The
+              very first time, right-click it → <b>Open</b> (it’s unsigned, so macOS asks once). Grant{" "}
+              <b>Screen&nbsp;Recording</b> to <b>MBCapture</b> when prompted. It then runs in the
+              background and the switch above turns on.
             </li>
             <li>
               <b>Open each broadcast</b> — paste its X link in the box above and hit Open. Each opens

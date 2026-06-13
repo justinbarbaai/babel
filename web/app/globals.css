@@ -269,6 +269,9 @@ code {
   font-family: var(--mono); font-size: 12px; background: var(--panel-2);
   border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px;
 }
+.bc-help-body .bc-dl {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px;
+}
 .bc-help-body .bc-rule {
   color: var(--text); background: color-mix(in srgb, var(--gold, #d4a04b) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--gold, #d4a04b) 30%, var(--border));

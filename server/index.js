@@ -568,6 +568,35 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Operator-gated download of the bridge agent bundle (the show machine's
+  // capture app). Kept off any public URL so the capture technique isn't just
+  // sitting there for anyone — only a logged-in operator can pull it.
+  if (url.pathname === "/op/bridge.zip") {
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "x-op-key" };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+    if (!operatorKeyOk(url.searchParams.get("key") || req.headers["x-op-key"])) {
+      res.writeHead(401, { ...cors, "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "bad operator key" }));
+      return;
+    }
+    const zipPath = new URL("./assets/mb-bridge.zip", import.meta.url);
+    fs.readFile(zipPath, (err, data) => {
+      if (err) {
+        res.writeHead(404, { ...cors, "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "bundle not found" }));
+        return;
+      }
+      res.writeHead(200, {
+        ...cors,
+        "Content-Type": "application/zip",
+        "Content-Disposition": 'attachment; filename="market-bubble-bridge.zip"',
+        "Content-Length": data.length,
+      });
+      res.end(data);
+    });
+    return;
+  }
+
   // ---- remote bridge control (Studio ↔ agent relay) ----
   // CORS-open so Studio (different origin) can call these; every call is
   // authenticated (operator key for Studio, ingest key for the agent).
