@@ -45,7 +45,10 @@ JUNK = re.compile(r"(\d{1,2}:\d{2}\s*(pm|am|et|pt)\b|informational and entertain
 WATCHING = re.compile(r"([\d.,]+\s*[KkMm]?)\s*watching", re.I)
 # Short cycle = small frequent batches; the hub drips each batch out one message
 # at a time, so the site chat flows like a real live chat instead of clumping.
-CYCLE_SECS = 6
+# 3s matches the MBCapture helper's capture rate and halves the window where a
+# fast live chat could scroll messages past us between reads. Override with
+# MB_CYCLE for testing. Local/OCR only — no API cost to reading more often.
+CYCLE_SECS = float(os.environ.get("MB_CYCLE", "3"))
 
 def parse_count(s):
     s = s.strip().replace(",", "").upper()
