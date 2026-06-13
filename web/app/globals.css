@@ -214,6 +214,44 @@ code {
 .hs-chip b { font-weight: 700; }
 .hs-chip .hs-detail { color: var(--muted); }
 .hs-chip.bad { border-color: color-mix(in srgb, var(--down) 45%, var(--border)); }
+
+/* ---- remote X-bridge control (Studio) ---- */
+.bridgectl { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.bc-power { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.bc-switch {
+  position: relative; width: 72px; height: 36px; flex: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2);
+  transition: background 0.22s, border-color 0.22s;
+}
+.bc-switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 28px; height: 28px;
+  border-radius: 50%; background: var(--text); transition: left 0.22s;
+}
+.bc-switch.on { background: var(--up); border-color: var(--up); }
+.bc-switch.on::after { left: 39px; background: #fff; }
+.bc-switch.off-disabled { opacity: 0.45; cursor: not-allowed; }
+.bc-offline {
+  border: 1px solid color-mix(in srgb, var(--down) 35%, var(--border));
+  background: color-mix(in srgb, var(--down) 6%, transparent);
+  border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5;
+}
+.bc-streams { display: flex; flex-direction: column; }
+.bc-empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+.bc-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 0;
+  border-bottom: 1px dashed var(--border); font-size: 13px;
+}
+.bc-row:last-child { border-bottom: none; }
+.bc-row .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--muted); }
+.bc-row.ok .dot { background: var(--up); box-shadow: 0 0 8px color-mix(in srgb, var(--up) 70%, transparent); }
+.bc-row.warn .dot { background: var(--gold, #d4a04b); }
+.bc-row.bad .dot { background: var(--down); }
+.bc-name { font-family: var(--serif); font-size: 16px; min-width: 120px; }
+.bc-note { color: var(--muted); }
+.bc-watch { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.bc-openrow { display: flex; gap: 10px; }
+.bc-openrow .acct-input { flex: 1; }
+.bc-err { color: var(--down); }
 .statuscard {
   display: flex;
   align-items: center;

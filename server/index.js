@@ -125,6 +125,15 @@ function ingestKeyOk(key) {
 // endpoints, so this is the only accurate source). Used while fresh.
 let xLiveOverride = null; // { live, viewers, ts }
 let lastXchatAt = 0; // when the X Bridge last pushed chat (health strip)
+// ---- remote control of the local X-bridge agent (Studio → hub → agent) ----
+// The agent (mbpanel on the operator's Mac) heartbeats here with the ingest
+// key; Studio reads its status + queues commands with the operator key. This
+// is a SELF-CONTAINED relay: it never touches the chat ingest/broadcast path,
+// so a bug here cannot affect the live show feed.
+let agentState = null; // last status the agent reported: { status, ts }
+let agentCommands = []; // queue of commands awaiting the agent's next heartbeat
+const AGENT_CMDS = new Set(["start", "stop", "open"]);
+const X_BROADCAST = /^https:\/\/(x|twitter)\.com\/\S+$/i;
 // Dedupe ids for pushed X broadcast-chat messages.
 const xChatSeen = new Set();
 // Constant-time compare so the key can't be guessed by timing.
@@ -557,6 +566,78 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify({ ok: operatorKeyOk(url.searchParams.get("key")) }));
     return;
+  }
+
+  // ---- remote bridge control (Studio ↔ agent relay) ----
+  // CORS-open so Studio (different origin) can call these; every call is
+  // authenticated (operator key for Studio, ingest key for the agent).
+  if (url.pathname === "/op/state" || url.pathname === "/op/command" || url.pathname === "/agent/heartbeat") {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type, x-ingest-key, x-op-key",
+    };
+    if (req.method === "OPTIONS") { res.writeHead(204, cors); res.end(); return; }
+    const json = (code, obj) => {
+      res.writeHead(code, { ...cors, "Content-Type": "application/json" });
+      res.end(JSON.stringify(obj));
+    };
+    const now = Date.now();
+    const agentOnline = !!agentState && now - agentState.ts < 10000;
+
+    // Studio reads the agent's current status (operator-gated).
+    if (url.pathname === "/op/state") {
+      if (!operatorKeyOk(url.searchParams.get("key") || req.headers["x-op-key"]))
+        return json(401, { ok: false, error: "bad operator key" });
+      return json(200, {
+        ok: true,
+        online: agentOnline,
+        agoSec: agentState ? Math.round((now - agentState.ts) / 1000) : null,
+        status: agentOnline ? agentState.status : null,
+        queued: agentCommands.length,
+      });
+    }
+
+    // Studio queues a command for the agent (operator-gated, validated).
+    if (url.pathname === "/op/command") {
+      let body = "";
+      req.on("data", (c) => { body += c; if (body.length > 1e5) req.destroy(); });
+      req.on("end", () => {
+        let j = {};
+        try { j = JSON.parse(body || "{}"); } catch {}
+        if (!operatorKeyOk(j.key || req.headers["x-op-key"]))
+          return json(401, { ok: false, error: "bad operator key" });
+        const action = String(j.action || "");
+        if (!AGENT_CMDS.has(action)) return json(400, { ok: false, error: "unknown action" });
+        const cmd = { action };
+        if (action === "open") {
+          const u = String(j.url || "").trim();
+          if (!X_BROADCAST.test(u)) return json(400, { ok: false, error: "url must be an x.com link" });
+          cmd.url = u;
+        }
+        agentCommands.push(cmd);
+        if (agentCommands.length > 20) agentCommands = agentCommands.slice(-20);
+        return json(200, { ok: true, online: agentOnline });
+      });
+      return;
+    }
+
+    // Agent heartbeats: posts status, drains its command queue (ingest-gated).
+    if (url.pathname === "/agent/heartbeat") {
+      let body = "";
+      req.on("data", (c) => { body += c; if (body.length > 1e5) req.destroy(); });
+      req.on("end", () => {
+        if (!ingestKeyOk(req.headers["x-ingest-key"]))
+          return json(401, { ok: false, error: "bad ingest key" });
+        let j = {};
+        try { j = JSON.parse(body || "{}"); } catch {}
+        agentState = { status: j.status || {}, ts: now };
+        const commands = agentCommands;
+        agentCommands = [];
+        return json(200, { ok: true, commands });
+      });
+      return;
+    }
   }
 
   // ---- X bookmarklet ingest (CORS-open so it can POST from x.com) ----

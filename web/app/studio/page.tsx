@@ -245,6 +245,9 @@ function ControlPanel() {
       {/* pre-show health: hub + bridge freshness at a glance */}
       <HealthStrip hubHttpUrl={hubHttpUrl} />
 
+      {/* remote control of the X-bridge running on the show machine */}
+      <BridgeControl hubHttpUrl={hubHttpUrl} />
+
       {/* host account cards — connect + channel, the one place the feed is built */}
       <div className="host-grid">
         <HostAccountCard name="Banks" role="Host" avatarHandle={banksX}>
@@ -546,6 +549,167 @@ function Field({
 
 function srcColor(src: SourceKey): string {
   return src === "twitch" ? "#9146FF" : src === "kick" ? "#53FC18" : "#FFFFFF";
+}
+
+// ---- Remote bridge control: the switch + paste-link that drives the X
+// capture agent on the show machine, straight from the site. Talks to the hub
+// relay (/op/state, /op/command), gated by the operator key already in hand.
+type StreamRow = { last_msg: number; watching: number; ok: boolean; frozen: number | null };
+type AgentStatus = {
+  running: boolean;
+  helper: boolean;
+  now: number;
+  bridge: {
+    streams: Record<string, StreamRow>;
+    mbcap: boolean;
+    pushed: number;
+    push_err: string | null;
+    fresh: boolean;
+  } | null;
+} | null;
+type OpState = { ok: boolean; online: boolean; agoSec: number | null; status: AgentStatus; queued: number };
+
+function BridgeControl({ hubHttpUrl }: { hubHttpUrl: string }) {
+  const [opKey, setOpKey] = useState("");
+  const [state, setState] = useState<OpState | null>(null);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => {
+    try { setOpKey(localStorage.getItem("mb.operatorKey") || ""); } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!opKey) return;
+    let stop = false;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${hubHttpUrl}/op/state?key=${encodeURIComponent(opKey)}`, { cache: "no-store" });
+        const j = await r.json();
+        if (!stop) setState(j);
+      } catch { /* keep last state; hub blip */ }
+    };
+    poll();
+    const t = setInterval(poll, 2000);
+    return () => { stop = true; clearInterval(t); };
+  }, [hubHttpUrl, opKey]);
+
+  const cmd = async (action: string, extra?: Record<string, unknown>) => {
+    setBusy(true); setNote("");
+    try {
+      const r = await fetch(`${hubHttpUrl}/op/command`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: opKey, action, ...extra }),
+      });
+      const j = await r.json();
+      if (!j.ok) setNote(j.error || "failed");
+    } catch { setNote("Can't reach the hub."); }
+    setBusy(false);
+  };
+
+  const online = !!state?.online;
+  const status = state?.status;
+  const running = !!status?.running;
+  const bridge = status?.bridge ?? null;
+  const fresh = !!bridge?.fresh;
+  const now = status?.now ?? 0;
+  const streams = online && running && bridge?.streams ? bridge.streams : {};
+  const names = Object.keys(streams).sort();
+
+  const fmtAge = (s: number) => (s < 90 ? `${Math.round(s)}s` : `${Math.round(s / 60)}m`);
+  const sub = !online
+    ? "the capture app isn’t running on the show machine"
+    : running
+    ? fresh
+      ? bridge?.mbcap
+        ? "on — capturing via MBCapture (fullscreen anywhere is fine)"
+        : "on — legacy capture: helper down, windows must stay on the show desktop"
+      : "on — starting up…"
+    : "off — nothing is being read or pushed";
+
+  const toggle = () => { if (online && !busy) cmd(running ? "stop" : "start"); };
+  const openUrl = () => {
+    const u = url.trim();
+    if (!u || !online) return;
+    cmd("open", { url: u });
+    setUrl("");
+  };
+
+  return (
+    <section className="card bridgectl">
+      <div className="bc-power">
+        <div>
+          <h2 className="card-title" style={{ margin: 0 }}>X chat bridge</h2>
+          <span className="muted small">{sub}</span>
+        </div>
+        <button
+          className={`bc-switch ${running ? "on" : ""} ${!online || busy ? "off-disabled" : ""}`}
+          onClick={toggle}
+          disabled={!online || busy}
+          aria-label={running ? "Turn bridge off" : "Turn bridge on"}
+        />
+      </div>
+
+      {!online && (
+        <div className="bc-offline">
+          Bridge agent offline — open <b>Market Bubble Bridge</b> on the show machine. Once it’s
+          running, this switch controls it from here.
+          {state?.agoSec != null && <span className="muted small"> (last seen {fmtAge(state.agoSec)} ago)</span>}
+        </div>
+      )}
+
+      {online && (
+        <div className="bc-streams">
+          {!running ? (
+            <div className="bc-empty">Flip the switch on, then paste each broadcast link below.</div>
+          ) : names.length === 0 ? (
+            <div className="bc-empty">
+              No broadcast windows found yet — paste them below. Fullscreen is fine; minimized is not.
+            </div>
+          ) : (
+            names.map((n) => {
+              const v = streams[n];
+              const age = v.last_msg ? now - v.last_msg : null;
+              let cls = "ok";
+              let txt = `last chat ${age != null ? fmtAge(age) + " ago" : "—"}`;
+              if (!v.ok) { cls = "bad"; txt = "window lost — reopen the broadcast"; }
+              else if (v.frozen) { cls = "warn"; txt = "frames frozen — minimized? un-minimize it (fullscreen is fine)"; }
+              else if (age == null) { cls = "warn"; txt = "capturing, no chat read yet"; }
+              else if (age > 120) { cls = "warn"; txt = `no new chat for ${fmtAge(age)}`; }
+              return (
+                <div className={`bc-row ${cls}`} key={n}>
+                  <span className="dot" />
+                  <span className="bc-name">{n}</span>
+                  <span className="bc-note">{txt}</span>
+                  {v.watching > 0 && <span className="bc-watch">{v.watching.toLocaleString()} watching</span>}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      <div className="bc-openrow">
+        <input
+          className="acct-input"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && openUrl()}
+          placeholder="https://x.com/i/broadcasts/…"
+          spellCheck={false}
+          disabled={!online}
+        />
+        <button className="btn btn-gold" onClick={openUrl} disabled={!online || !url.trim()}>Open</button>
+      </div>
+      <p className="muted small" style={{ margin: 0 }}>
+        Paste a broadcast link — it opens in its own window on the show machine. Fullscreen it after.
+        {bridge?.push_err && <span className="bc-err"> · push error: {bridge.push_err}</span>}
+        {note && <span className="bc-err"> · {note}</span>}
+      </p>
+    </section>
+  );
 }
 
 // Pre-show health strip — polls the hub's /status every 10s. Green across the

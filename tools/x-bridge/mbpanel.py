@@ -10,10 +10,12 @@ Run: ./mb-panel.command   →   http://localhost:8765   (localhost only)
 The bridge itself is unchanged — this supervises `xchat-watch.py` and reads
 the state file it publishes each cycle (/tmp/mb_bridge_state.json).
 """
-import http.server, json, os, re, signal, subprocess, threading, time, urllib.parse
+import http.server, json, os, re, signal, subprocess, threading, time
+import urllib.parse, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8765
+HUB = os.environ.get("MB_HUB", "https://market-bubble-hub.onrender.com")
 STATE = "/tmp/mb_bridge_state.json"
 KEYFILE = os.path.join(HERE, ".ingest-key")
 HELPER = "/Applications/MBCapture.app"
@@ -34,6 +36,46 @@ def read_key():
     try:
         with open(KEYFILE) as f: return f.read().strip()
     except OSError: return ""
+
+
+def snapshot():
+    """The full status object — served to the local panel AND heartbeated to
+    the hub so Studio shows exactly what the local panel shows."""
+    running = desired_on and bridge is not None and bridge.poll() is None
+    return {"running": running, "helper": helper_running(),
+            "key_saved": bool(read_key()), "bridge": bridge_state(),
+            "now": time.time()}
+
+
+def open_broadcast(url):
+    """Open an X broadcast link in its own Chrome window (validated)."""
+    if not X_URL.match(url or ""): return False
+    subprocess.run(["open", "-na", "Google Chrome", "--args", "--new-window", url])
+    return True
+
+
+def hub_agent_loop():
+    """Connect UP to the hub so Studio can drive this agent remotely. Every 2s
+    we heartbeat our status (authenticated with the ingest key) and run any
+    commands the hub hands back. Pure addition — the local panel still works,
+    and if the hub is unreachable we simply keep serving locally."""
+    while True:
+        time.sleep(2)
+        key = read_key()
+        if not key: continue
+        try:
+            req = urllib.request.Request(
+                HUB + "/agent/heartbeat",
+                data=json.dumps({"status": snapshot()}).encode(),
+                headers={"content-type": "application/json", "x-ingest-key": key})
+            resp = json.loads(urllib.request.urlopen(req, timeout=8).read())
+        except Exception:
+            continue
+        for cmd in resp.get("commands", []):
+            a = cmd.get("action")
+            if a == "start": start_bridge()
+            elif a == "stop": stop_bridge()
+            elif a == "open": open_broadcast((cmd.get("url") or "").strip())
 
 
 def bridge_state():
@@ -280,10 +322,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         elif self.path == "/state":
-            running = desired_on and bridge is not None and bridge.poll() is None
-            self._json({"running": running, "helper": helper_running(),
-                        "key_saved": bool(read_key()), "bridge": bridge_state(),
-                        "now": time.time()})
+            self._json(snapshot())
         else:
             self._json({"error": "not found"}, 404)
 
@@ -295,9 +334,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json({"ok": stop_bridge()})
         elif self.path == "/open":
             url = (self._body().get("url") or "").strip()
-            if not X_URL.match(url):
+            if not open_broadcast(url):
                 self._json({"error": "that's not an x.com link"}); return
-            subprocess.run(["open", "-na", "Google Chrome", "--args", "--new-window", url])
             self._json({"ok": "opened"})
         elif self.path == "/key":
             key = (self._body().get("key") or "").strip()
@@ -312,6 +350,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 def main():
     threading.Thread(target=watchdog, daemon=True).start()
+    threading.Thread(target=hub_agent_loop, daemon=True).start()
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Market Bubble bridge panel → http://localhost:{PORT}")
     try:
