@@ -127,7 +127,11 @@ function ingestKeyOk(key) {
 // a who-it's-from breakdown by aggregateXLive().
 let xLiveByHost = Object.create(null); // host -> { viewers, live, ts }
 let lastXLiveAt = 0; // most recent xlive push from any host (health strip)
-const XLIVE_TTL = 90000; // a host's count is trusted this long after its last push
+// A host's count is trusted this long after its last push. The extension pushes
+// every 5s, so 15s = ~3 missed cycles: a closed/ended broadcast drops within
+// ~15s (no stale "fake" views lingering), but a normal reload — which has a
+// 5-10s gap — re-pushes before it expires, so it doesn't flicker out.
+const XLIVE_TTL = 15000;
 function aggregateXLive() {
   const now = Date.now();
   const breakdown = [];
