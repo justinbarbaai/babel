@@ -58,7 +58,10 @@ func writePNG(_ img: CGImage, _ path: String) -> Bool {
 }
 
 func isXPage(_ title: String, _ cfg: Config) -> Bool {
-    let t = title.lowercased()
+    let t = title.lowercased().trimmingCharacters(in: .whitespaces)
+    // A LIVE broadcast view's title is just "X" — accept it, or live broadcasts
+    // never get captured (replays carry their full title + " / X").
+    if t == "x" { return true }
     return cfg.titleMarkers.contains { t.contains($0) }
 }
 

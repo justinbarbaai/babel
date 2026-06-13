@@ -85,8 +85,11 @@ def chrome_windows():
         return []
 
 def is_x_page(title):
-    t = (title or "").lower()
-    return "/ x" in t or t.rstrip().endswith("· x")
+    # A LIVE broadcast view's window title is just "X" (replays carry the
+    # broadcast's full title + " / X"); accept the bare "X" too or live
+    # broadcasts are silently skipped.
+    t = (title or "").lower().strip()
+    return t == "x" or "/ x" in t or t.endswith("· x")
 
 def is_broadcast_title(title):
     """An X page that is NOT a status post ('Account on X: "..."') or a profile
@@ -248,6 +251,18 @@ def chat_column_start(lines):
             return max(0.58, l["x"] - 0.06)
     return 0.7
 
+def looks_like_broadcast(lines):
+    """Title-INDEPENDENT broadcast check: the frame must actually show a
+    broadcast — the right-side "Chat" panel header, or a live "N watching"
+    count. So we catch a broadcast by what it IS, not what the tab title says
+    (live broadcasts title the tab just "X", same as the home page), and we
+    never push junk from a non-broadcast page that happens to share that title."""
+    for l in lines:
+        t = l["text"].strip().lower()
+        if l.get("x", 0) > 0.5 and t in ("chat", "char", "chai"): return True
+        if "watching" in t: return True
+    return False
+
 def parse(lines, source):
     col = chat_column_start(lines)
     chat = sorted([l for l in lines if l.get("x", 0) > col], key=lambda l: l["y"])
@@ -402,6 +417,10 @@ def main():
                               "bring it to this desktop (hidden behind apps is fine)")
                     continue
                 lines = ocr(shot)
+                # Content backstop: an "X"-titled window might be the home page,
+                # not a broadcast. Only proceed if the frame actually shows one.
+                if not looks_like_broadcast(lines):
+                    continue
                 source = broadcaster_of(lines, w["bid"], w.get("tlabel"))
                 label = source or f"window {w['id']}"
                 live_labels.add(label)
