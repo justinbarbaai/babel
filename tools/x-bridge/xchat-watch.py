@@ -26,6 +26,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OCR, WINFIND = os.path.join(HERE, "ocr"), os.path.join(HERE, "winfind")
 HANDLE = re.compile(r"@(\w{2,15})")
 BLOCK = {h.lower() for h in (os.environ.get("MB_BLOCK", "Banks,blknoiz06,Polymarket,marketbbl")).split(",")}
+# Whether the OCR may push CHAT. Default OFF: on a slow/dead X chat the OCR has
+# no real messages to read, so it reads NOISE — the composer (your own handle),
+# X "reposted" popups, the extension's own badge, garbled video captions — and
+# emits it as fake chat, which is worse than empty. The EXTENSION is the clean
+# chat source (real messages, nothing when quiet); the OCR's job is the view
+# COUNT + the dead-man's heartbeat. Set MB_OCR_CHAT=1 only for a genuinely BUSY
+# broadcast where failover chat is worth the noise risk.
+OCR_CHAT = os.environ.get("MB_OCR_CHAT", "") == "1"
 # which broadcaster a window belongs to → the label shown as the chat source.
 # Extendable for testing against any live channel:
 #   MB_BROADCASTERS="somehandle:Some Label,other:Other" ./xchat-watch.command
@@ -518,8 +526,13 @@ def main():
                     hud.event(f"❌ {label} WINDOW LOST")
                     notify(f"{label} stream window LOST — reopen it!")
             if len(seen) > 6000: seen = set(list(seen)[-3000:])
-            n, err = post(fresh)
-            if fresh and not err: save_seen(seen)
+            # OCR chat is OFF by default (OCR_CHAT) — on a dead chat it only emits
+            # noise. Counts + heartbeat below still run. The extension owns chat.
+            if fresh and OCR_CHAT:
+                n, err = post(fresh)
+                if not err: save_seen(seen)
+            else:
+                n, err = 0, None
             hud.pushed_total += n
             hud.push_err = err
             if err: hud.event(f"chat push failed: {err[:50]}")
