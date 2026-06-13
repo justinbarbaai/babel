@@ -18,7 +18,7 @@ One-time setup: System Settings → Privacy & Security → Screen Recording →
 enable MBCapture (and Terminal for the fallback). Then ./xchat-watch.command
 (the launcher starts MBCapture automatically).
 """
-import subprocess, sys, json, re, time, os, urllib.request
+import subprocess, sys, json, re, time, os, urllib.request, difflib
 
 HUB = os.environ.get("MB_HUB", "https://market-bubble-hub.onrender.com")
 KEY = os.environ.get("MB_INGEST_KEY") or (sys.argv[1] if len(sys.argv) > 1 else "")
@@ -211,6 +211,18 @@ def stitch_rows(lines, ytol=0.008, gap=0.03):
 
 _bc_cache = {}
 ANCHOR = re.compile(r"started|subscribe|follow|\bago\b|\blive\b", re.I)
+# Stronger host-card signal (a Subscribe/Follow button literally next to the
+# handle). Required before trusting an UNKNOWN @handle as the broadcaster, so a
+# stray handle near a weak "live"/"ago" word can't mislabel the stream.
+STRONG_ANCHOR = re.compile(r"subscribe|follow|started", re.I)
+def canonical_handle(h):
+    """An OCR'd handle → a known show account's canonical label, tolerating OCR
+    noise (1<->l, 0<->o) via fuzzy match. None if it's not a known broadcaster
+    (caller then keeps the raw handle)."""
+    hl = h.lower()
+    if hl in BROADCASTERS: return BROADCASTERS[hl]
+    m = difflib.get_close_matches(hl, list(BROADCASTERS.keys()), n=1, cutoff=0.75)
+    return BROADCASTERS[m[0]] if m else None
 def broadcaster_of(lines, bid=None, tlabel=None):
     """Stream attribution, most→least trustworthy:
       1. the OCR'd broadcaster card — a known @handle NEAR a Started/Subscribe/
@@ -224,12 +236,26 @@ def broadcaster_of(lines, bid=None, tlabel=None):
     left = [l for l in lines if l.get("x", 1) < col - 0.02]
     for i, l in enumerate(left):
         m = HANDLE.search(l["text"])
-        if not m or m.group(1).lower() not in BROADCASTERS: continue
-        near = any(ANCHOR.search(left[j]["text"]) for j in range(max(0, i-2), min(len(left), i+3)))
-        if near:
-            label = BROADCASTERS[m.group(1).lower()]
-            if bid is not None: _bc_cache[bid] = label
-            return label
+        if not m: continue
+        h = m.group(1)
+        window = range(max(0, i - 2), min(len(left), i + 3))
+        near = any(ANCHOR.search(left[j]["text"]) for j in window)
+        if not near: continue
+        # Snap to a known show account even through OCR noise ("8anks"->banks,
+        # "summitlg"->summit1g) so OCR and the (exact) extension never key the
+        # same broadcast under two spellings and double-count it.
+        canon = canonical_handle(h)
+        if canon:
+            label = canon
+        else:
+            # unknown broadcaster → only trust it next to a STRONG host-card
+            # signal (Subscribe/Follow), then use the raw @handle so every
+            # broadcast still gets a real name instead of "window N".
+            if not any(STRONG_ANCHOR.search(left[j]["text"]) for j in window):
+                continue
+            label = h
+        if bid is not None: _bc_cache[bid] = label
+        return label
     cached = _bc_cache.get(bid)   # remembered from a frame where the card was visible
     if cached: return cached
     if tlabel and bid is not None: _bc_cache[bid] = tlabel
