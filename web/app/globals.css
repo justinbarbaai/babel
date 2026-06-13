@@ -8265,7 +8265,7 @@ body.panel-dragging iframe {
   overflow: hidden;
 }
 .rp-stream { flex: 1; min-height: 0; }
-.rp-index { flex: 0 0 auto; }
+.rp-index { flex: 0 0 auto; overflow: visible; } /* let the audience hover escape the panel clip */
 .rp-index .rp-body { flex: 0 0 auto; overflow: visible; }   /* content height only */
 .rp-body-index { padding: 10px 16px 12px; }
 .rp-body-index .term-index-quote { margin-top: 0; }

@@ -723,7 +723,10 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/ingest/xlive") {
         // one push per broadcast tab — key by host so the 3 accounts don't
         // overwrite each other; the bar sums them, the hover lists them.
-        const host = String(j.host || j.channel || config.xLiveHandle || "X")
+        // host MUST be the broadcaster (Banks / Ansem / …). Don't fall back to
+        // config.xLiveHandle — a hostless push (old client) would masquerade as
+        // "banks"; show it as the neutral "X" catch-all instead.
+        const host = String(j.host || j.channel || "X")
           .slice(0, 80)
           .replace(/^@/, "");
         xLiveByHost[host] = { viewers: Number(j.viewers) || 0, live: !!j.live, ts: Date.now() };
