@@ -168,7 +168,7 @@ def ocr(png):
     except Exception:
         return []
 
-def stitch_rows(lines, ytol=0.008, gap=0.02):
+def stitch_rows(lines, ytol=0.008, gap=0.03):
     """Vision (especially tiled over wide frames) splits one visual row —
     'Adam McBride ✓ @adamamcbride' — into adjacent fragments. Cluster lines
     that sit on the same y, order each cluster by x, and re-join fragments
@@ -240,8 +240,10 @@ def chat_column_start(lines):
     "BANKS", the Polymarket banner) and glues them into messages."""
     for l in lines:
         if l.get("x", 0) > 0.5 and l["text"].strip().lower() in ("chat", "char", "chai"):
-            return max(0.58, l["x"] - 0.03)
-    return 0.72
+            # the header sits 0.02–0.05 right of where message rows start,
+            # varying with window width — cut generously left of it
+            return max(0.58, l["x"] - 0.06)
+    return 0.7
 
 def parse(lines, source):
     col = chat_column_start(lines)
@@ -253,9 +255,11 @@ def parse(lines, source):
         user = HANDLE.search(txt[i]).group(1)
         if user.lower() in BLOCK: continue
         nxt = hidx[n + 1] if n + 1 < len(hidx) else len(txt)
-        end = nxt - 1 if nxt < len(txt) else nxt     # drop the next row's display name
         body = []
-        for k in range(i + 1, end):
+        for k in range(i + 1, nxt):
+            # skip fragments of the NEXT message's name row (same visual row
+            # as its handle — OCR sometimes splits "Name ✓ @handle" in two)
+            if nxt < len(txt) and abs(chat[k]["y"] - chat[nxt]["y"]) < 0.006: continue
             t = txt[k].strip()
             if t and not UI.match(t) and not JUNK.search(t): body.append(t)
         # if the first body line is the chatter's own display name (short, no
@@ -347,11 +351,33 @@ class Hud:
         sys.stdout.write("\n".join(out) + "\n")
         sys.stdout.flush()
 
+SEEN_FILE = "/tmp/mb_xseen.json"
+def seen_key(user, text):
+    """Dedup key that survives OCR jitter: lowercase, strip everything but
+    word characters + the symbols chatters actually type, cap the length so
+    a re-read with a different trailing crumb still matches."""
+    t = re.sub(r"[^a-z0-9$@#?!]", "", text.lower())[:48]
+    return user.lower() + ":" + t
+
+def load_seen():
+    """Pushed-message memory persists across restarts — a fresh process must
+    NOT re-push the chat that's already on the site."""
+    try:
+        with open(SEEN_FILE) as f: return set(json.load(f))
+    except Exception:
+        return set()
+
+def save_seen(seen):
+    try:
+        with open(SEEN_FILE + ".tmp", "w") as f: json.dump(list(seen)[-4000:], f)
+        os.replace(SEEN_FILE + ".tmp", SEEN_FILE)
+    except Exception: pass
+
 def main():
     if not KEY: sys.exit("Set MB_INGEST_KEY (or pass it as arg 1).")
     hud = Hud()
-    seen = set()
-    hud.event(f"bridge started → {HUB}")
+    seen = load_seen()
+    hud.event(f"bridge started → {HUB}" + (f" · remembering {len(seen)} pushed msgs" if seen else ""))
     while True:
         try:
             mb = mbcap_meta() is not None
@@ -394,7 +420,7 @@ def main():
                 if n: st["watching"] = n
                 total_watching += st["watching"]
                 for m in parse(lines, source):
-                    k2 = m["username"] + ":" + m["text"]
+                    k2 = seen_key(m["username"], m["text"])
                     if k2 not in seen:
                         seen.add(k2); fresh.append(m)
                         st["last_msg"] = time.time()
@@ -406,6 +432,7 @@ def main():
                     notify(f"{label} stream window LOST — reopen it!")
             if len(seen) > 6000: seen = set(list(seen)[-3000:])
             n, err = post(fresh)
+            if fresh and not err: save_seen(seen)
             hud.pushed_total += n
             hud.push_err = err
             if err: hud.event(f"chat push failed: {err[:50]}")
